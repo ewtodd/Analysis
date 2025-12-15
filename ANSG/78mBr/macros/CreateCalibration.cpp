@@ -24,11 +24,12 @@ FitResult FitSinglePeak(const TString input_name, const TString peak_name,
                       expected_mu + 0.1 * expected_mu);
   FitResult result;
 
-  if (peak_name == "Ba_37keV") {
+  if (peak_name == "La_33keV") {
+    fitter->SetNumHistBins(5000);
     fitter->SetExpectedAmplitude(3500);
-    fitter->SetExpectedSigma(50);
-    fitter->SetFitRange(expected_mu - 0.18 * expected_mu,
-                        expected_mu + 0.18 * expected_mu);
+    fitter->SetExpectedSigma(39);
+    fitter->SetFitRange(expected_mu - 0.23 * expected_mu,
+                        expected_mu + 0.23 * expected_mu);
   }
 
   if (peak_name == "Am_59keV") {
@@ -100,50 +101,14 @@ std::vector<FitResult> FitMultiplePeaks(
   return results;
 }
 
-void Calibration() {
-  PlottingUtils::SetROOTPreferences();
-
-  std::vector<Float_t> calibration_values_keV = {0,     37.4,  59.5409,
-                                                 121.8, 244.7, 344.3};
-  std::vector<Float_t> calibration_uncertainties_keV = {0, 0, 0, 0, 0, 0};
-  std::vector<Float_t> mu_guesses = {0, 479, 780, 1650, 3250, 4577};
-
-  TString input_name_Am241 = "calibration_Am241";
-  TString input_name_Eu152 = "calibration_Eu152";
-  TString input_name_bkg = "background";
-
-  std::vector<TString> input_names = {"zero",           input_name_bkg,
-                                      input_name_Am241, input_name_Eu152,
-                                      input_name_Eu152, input_name_Eu152};
-
-  std::vector<TString> peak_names = {"zero",      "Ba_37keV",  "Am_59keV",
-                                     "Eu_122keV", "Eu_244keV", "Eu_344keV"};
-
-  std::vector<Int_t> defaultColors = PlottingUtils::GetDefaultColors();
-  std::vector<Int_t> colors = {0,
-                               defaultColors[2],
-                               defaultColors[0],
-                               defaultColors[1],
-                               defaultColors[1],
-                               defaultColors[1]};
-
-  std::vector<FitResult> fit_results =
-      FitMultiplePeaks(input_names, peak_names, mu_guesses, "pulse_height",
-                       "Pulse Height [ADC]", colors);
-
+void CreateAndSaveCalibration(std::vector<Float_t> mu,
+                              std::vector<Float_t> calibration_values_keV,
+                              std::vector<Float_t> mu_errors) {
   Int_t size = calibration_values_keV.size();
-
-  std::vector<Float_t> mu;
-  std::vector<Float_t> mu_errors;
-
-  for (Int_t i = 0; i < size; i++) {
-    mu.push_back(fit_results[i].mu);
-    mu_errors.push_back(fit_results[i].mu_error);
-  }
 
   TGraphErrors *calibration_curve =
       new TGraphErrors(size, mu.data(), calibration_values_keV.data(),
-                       mu_errors.data(), calibration_uncertainties_keV.data());
+                       mu_errors.data(), nullptr);
   TCanvas *canvas = new TCanvas("", "", 1200, 800);
   PlottingUtils::ConfigureCanvas(canvas);
   PlottingUtils::ConfigureGraph(calibration_curve, kBlue,
@@ -167,4 +132,46 @@ void Calibration() {
   calibration_fit->Draw("SAME");
 
   PlottingUtils::SaveFigure(canvas, "calibration.png", kFALSE);
+}
+
+void CreateCalibration() {
+  PlottingUtils::SetROOTPreferences();
+
+  std::vector<Float_t> calibration_values_keV = {0,     37.4,  59.5409,
+                                                 121.8, 244.7, 344.3};
+  std::vector<Float_t> mu_guesses = {0, 525, 780, 1650, 3250, 4577};
+
+  TString input_name_Am241 = "calibration_Am241";
+  TString input_name_Eu152 = "calibration_Eu152";
+
+  std::vector<TString> input_names = {"zero",           input_name_Eu152,
+                                      input_name_Am241, input_name_Eu152,
+                                      input_name_Eu152, input_name_Eu152};
+
+  std::vector<TString> peak_names = {"zero",      "La_33keV",  "Am_59keV",
+                                     "Eu_122keV", "Eu_244keV", "Eu_344keV"};
+
+  std::vector<Int_t> defaultColors = PlottingUtils::GetDefaultColors();
+  std::vector<Int_t> colors = {0,
+                               defaultColors[1],
+                               defaultColors[0],
+                               defaultColors[1],
+                               defaultColors[1],
+                               defaultColors[1]};
+
+  std::vector<FitResult> fit_results =
+      FitMultiplePeaks(input_names, peak_names, mu_guesses, "pulse_height",
+                       "Pulse Height [ADC]", colors);
+
+  Int_t size = calibration_values_keV.size();
+
+  std::vector<Float_t> mu;
+  std::vector<Float_t> mu_errors;
+
+  for (Int_t i = 0; i < size; i++) {
+    mu.push_back(fit_results[i].mu);
+    mu_errors.push_back(fit_results[i].mu_error);
+  }
+
+  CreateAndSaveCalibration(mu, calibration_values_keV, mu_errors);
 }
