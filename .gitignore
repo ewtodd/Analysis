@@ -1,0 +1,13 @@
+ANSG-Archival
+*.h5
+*.pkl
+__pycache__
+*.pdf
+*.root
+*.a
+*.so
+*.o
+*.d
+*.pcm
+result 
+*.png

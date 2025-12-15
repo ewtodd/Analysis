@@ -1,0 +1,112 @@
+[
+	{
+		"arguments": [
+			"/nix/store/kaj8d1zcn149m40s9h0xi0khakibiphz-gcc-wrapper-14.3.0/bin/g++",
+			"-std=c++17",
+			"-Wall",
+			"-Wextra",
+			"-O2",
+			"-fPIC",
+			"-pthread",
+			"-std=c++17",
+			"-m64",
+			"-I/nix/store/998kcbfmfz0vl3qqhkwqjq96prn0gyws-root-6.36.02/include",
+			"-Iinclude",
+			"-c",
+			"-o",
+			"obj/CalibrationUtils.o",
+			"src/CalibrationUtils.cxx"
+		],
+		"directory": "/home/e-work/ANALYSIS/YAP/FINAL",
+		"file": "/home/e-work/ANALYSIS/YAP/FINAL/src/CalibrationUtils.cxx",
+		"output": "/home/e-work/ANALYSIS/YAP/FINAL/obj/CalibrationUtils.o"
+	},
+	{
+		"arguments": [
+			"/nix/store/kaj8d1zcn149m40s9h0xi0khakibiphz-gcc-wrapper-14.3.0/bin/g++",
+			"-std=c++17",
+			"-Wall",
+			"-Wextra",
+			"-O2",
+			"-fPIC",
+			"-pthread",
+			"-std=c++17",
+			"-m64",
+			"-I/nix/store/998kcbfmfz0vl3qqhkwqjq96prn0gyws-root-6.36.02/include",
+			"-Iinclude",
+			"-c",
+			"-o",
+			"obj/HistogramUtils.o",
+			"src/HistogramUtils.cxx"
+		],
+		"directory": "/home/e-work/ANALYSIS/YAP/FINAL",
+		"file": "/home/e-work/ANALYSIS/YAP/FINAL/src/HistogramUtils.cxx",
+		"output": "/home/e-work/ANALYSIS/YAP/FINAL/obj/HistogramUtils.o"
+	},
+	{
+		"arguments": [
+			"/nix/store/kaj8d1zcn149m40s9h0xi0khakibiphz-gcc-wrapper-14.3.0/bin/g++",
+			"-std=c++17",
+			"-Wall",
+			"-Wextra",
+			"-O2",
+			"-fPIC",
+			"-pthread",
+			"-std=c++17",
+			"-m64",
+			"-I/nix/store/998kcbfmfz0vl3qqhkwqjq96prn0gyws-root-6.36.02/include",
+			"-Iinclude",
+			"-c",
+			"-o",
+			"obj/PlottingUtils.o",
+			"src/PlottingUtils.cxx"
+		],
+		"directory": "/home/e-work/ANALYSIS/YAP/FINAL",
+		"file": "/home/e-work/ANALYSIS/YAP/FINAL/src/PlottingUtils.cxx",
+		"output": "/home/e-work/ANALYSIS/YAP/FINAL/obj/PlottingUtils.o"
+	},
+	{
+		"arguments": [
+			"/nix/store/kaj8d1zcn149m40s9h0xi0khakibiphz-gcc-wrapper-14.3.0/bin/g++",
+			"-std=c++17",
+			"-Wall",
+			"-Wextra",
+			"-O2",
+			"-fPIC",
+			"-pthread",
+			"-std=c++17",
+			"-m64",
+			"-I/nix/store/998kcbfmfz0vl3qqhkwqjq96prn0gyws-root-6.36.02/include",
+			"-Iinclude",
+			"-c",
+			"-o",
+			"obj/WaveformProcessingUtils.o",
+			"src/WaveformProcessingUtils.cxx"
+		],
+		"directory": "/home/e-work/ANALYSIS/YAP/FINAL",
+		"file": "/home/e-work/ANALYSIS/YAP/FINAL/src/WaveformProcessingUtils.cxx",
+		"output": "/home/e-work/ANALYSIS/YAP/FINAL/obj/WaveformProcessingUtils.o"
+	},
+	{
+		"arguments": [
+			"/nix/store/kaj8d1zcn149m40s9h0xi0khakibiphz-gcc-wrapper-14.3.0/bin/g++",
+			"-std=c++17",
+			"-Wall",
+			"-Wextra",
+			"-O2",
+			"-fPIC",
+			"-pthread",
+			"-std=c++17",
+			"-m64",
+			"-I/nix/store/998kcbfmfz0vl3qqhkwqjq96prn0gyws-root-6.36.02/include",
+			"-Iinclude",
+			"-c",
+			"-o",
+			"obj/AnalysisUtils.o",
+			"src/AnalysisUtils.cxx"
+		],
+		"directory": "/home/e-work/ANALYSIS/YAP/FINAL",
+		"file": "/home/e-work/ANALYSIS/YAP/FINAL/src/AnalysisUtils.cxx",
+		"output": "/home/e-work/ANALYSIS/YAP/FINAL/obj/AnalysisUtils.o"
+	}
+]
