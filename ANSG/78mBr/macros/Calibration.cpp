@@ -146,7 +146,6 @@ void PulseHeightToLightOutput(
   TFile *calibration_file =
       new TFile(calibration_function_filepath, "RECREATE");
   calibration_function->Write("calibration", TObject::kOverwrite);
-  calibration_file->Close();
 
   for (Int_t i = 0; i < entries; i++) {
     TString input_name = input_names[i];
@@ -187,6 +186,7 @@ void PulseHeightToLightOutput(
     delete canvas;
     delete light_output_hist;
   }
+  calibration_file->Close();
 }
 
 void Calibration() {
