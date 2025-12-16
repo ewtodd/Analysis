@@ -18,29 +18,22 @@
           buildInputs = with pkgs; [ nm-utils root ];
 
           shellHook = ''
-            echo "ROOT Waveform Analysis Framework"
             echo "ROOT version: $(root-config --version)"
-            echo "Nuclear Measurement Utilities: ${nm-utils}"
-            echo ""
+            echo "Nuclear-Measurement-Utilities: ${nm-utils}"
 
             STDLIB_PATH="${pkgs.stdenv.cc.cc}/include/c++/${pkgs.stdenv.cc.cc.version}"
             STDLIB_MACHINE_PATH="$STDLIB_PATH/x86_64-unknown-linux-gnu"
 
             ROOT_INC="$(root-config --incdir)"
-            export CPLUS_INCLUDE_PATH="$STDLIB_PATH:$STDLIB_MACHINE_PATH:${nm-utils}/include:$ROOT_INC''${CPLUS_INCLUDE_PATH:+:$CPLUS_INCLUDE_PATH}"
+            # Local first, then remote, then others
+            export CPLUS_INCLUDE_PATH="$PWD/include:$STDLIB_PATH:$STDLIB_MACHINE_PATH:${nm-utils}/include:$ROOT_INC''${CPLUS_INCLUDE_PATH:+:$CPLUS_INCLUDE_PATH}"
 
             export PKG_CONFIG_PATH="${nm-utils}/lib/pkgconfig:$PKG_CONFIG_PATH"
 
-            export ROOT_INCLUDE_PATH="${nm-utils}/include''${ROOT_INCLUDE_PATH:+:$ROOT_INCLUDE_PATH}"
-            export LD_LIBRARY_PATH="${nm-utils}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-
-            if pkg-config --exists nm-utils; then
-              echo "Nuclear Measurement Toolkit pkg-config found"
-              echo "Includes: $(pkg-config --cflags nm-utils)"
-              echo "Libs: $(pkg-config --libs nm-utils)"
-            fi
+            export ROOT_INCLUDE_PATH="$PWD/include:${nm-utils}/include''${ROOT_INCLUDE_PATH:+:$ROOT_INCLUDE_PATH}"
+            # Local lib first means linker will use it preferentially
+            export LD_LIBRARY_PATH="$PWD/lib:${nm-utils}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           '';
         };
       });
 }
-
