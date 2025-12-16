@@ -5,7 +5,6 @@
 #include <TGraphErrors.h>
 #include <TROOT.h>
 #include <TSystem.h>
-#include <iostream>
 #include <vector>
 
 FitResult FitSinglePeak(const TString input_name, const TString peak_name,
@@ -26,10 +25,11 @@ FitResult FitSinglePeak(const TString input_name, const TString peak_name,
 
   if (peak_name == "La_33keV") {
     fitter->SetNumHistBins(5000);
-    fitter->SetExpectedAmplitude(3500);
-    fitter->SetExpectedSigma(39);
-    fitter->SetFitRange(expected_mu - 0.23 * expected_mu,
-                        expected_mu + 0.23 * expected_mu);
+    fitter->SetExpectedAmplitude(3433);
+    fitter->SetExpectedSigma(38);
+    fitter->SetExpectedBackground(0);
+    fitter->SetFitRange(expected_mu - 0.18 * expected_mu,
+                        expected_mu + 0.18 * expected_mu);
   }
 
   if (peak_name == "Am_59keV") {
@@ -101,9 +101,10 @@ std::vector<FitResult> FitMultiplePeaks(
   return results;
 }
 
-void CreateAndSaveCalibration(std::vector<Float_t> mu,
+TF1 *CreateAndSaveCalibration(std::vector<Float_t> mu,
                               std::vector<Float_t> calibration_values_keV,
                               std::vector<Float_t> mu_errors) {
+
   Int_t size = calibration_values_keV.size();
 
   TGraphErrors *calibration_curve =
@@ -125,16 +126,58 @@ void CreateAndSaveCalibration(std::vector<Float_t> mu,
 
   TF1 *calibration_fit = new TF1("linear", "pol1", 0, 5000);
   calibration_fit->SetParameter(0, 0);
-  calibration_fit->SetParLimits(0, -1e-1, 1e-1);
+  calibration_fit->SetParLimits(0, -1e-2, 1e-2);
   calibration_fit->SetParameter(1, 0.076);
 
   TFitResultPtr fit_result = calibration_curve->Fit(calibration_fit);
   calibration_fit->Draw("SAME");
 
   PlottingUtils::SaveFigure(canvas, "calibration.png", kFALSE);
+  return calibration_fit;
 }
 
-void CreateCalibration() {
+void PulseHeightToLightOutput(
+    std::vector<TString> input_names, TF1 *calibration_function,
+    std::vector<Int_t> colors = PlottingUtils::GetDefaultColors()) {
+  Int_t entries = input_names.size();
+  for (Int_t i = 0; i < entries; i++) {
+    TString input_name = input_names[i];
+    TH1F *light_output_hist =
+        new TH1F("", "; Light Output [keVee]; Counts", 500, 0,
+                 calibration_function->Eval(16384));
+    TCanvas *canvas = new TCanvas("", "", 1200, 800);
+    PlottingUtils::ConfigureCanvas(canvas);
+
+    TFile *output = new TFile(input_name + ".root", "UPDATE");
+    TTree *features_tree = static_cast<TTree *>(output->Get("features"));
+
+    Float_t pulse_height, light_output_keVee;
+    features_tree->SetBranchAddress("pulse_height", &pulse_height);
+    features_tree->Branch("light_output", &light_output_keVee,
+                          "light_output/F");
+
+    Int_t num_entries = features_tree->GetEntries();
+
+    for (Int_t j = 0; j < num_entries; j++) {
+      features_tree->GetEntry(j);
+      light_output_keVee = calibration_function->Eval(pulse_height);
+      features_tree->GetBranch("light_output")->Fill();
+      light_output_hist->Fill(light_output_keVee);
+    }
+
+    PlottingUtils::ConfigureAndDrawHistogram(light_output_hist, colors[i]);
+    PlottingUtils::SaveFigure(canvas, input_name + "_light_output.png");
+
+    features_tree->Write("", TObject::kOverwrite);
+    light_output_hist->Write("Light Output", TObject::kOverwrite);
+    calibration_function->Write("calibration", TObject::kOverwrite);
+    output->Close();
+    delete canvas;
+    delete light_output_hist;
+  }
+}
+
+void Calibration() {
   PlottingUtils::SetROOTPreferences();
 
   std::vector<Float_t> calibration_values_keV = {0,     37.4,  59.5409,
@@ -143,10 +186,15 @@ void CreateCalibration() {
 
   TString input_name_Am241 = "calibration_Am241";
   TString input_name_Eu152 = "calibration_Eu152";
+  TString input_name_bkg = "background";
+  TString input_name_irradiation_one = "irradiation_one";
+  TString input_name_irradiation_two = "irradiation_two";
+  TString input_name_irradiation_three = "irradiation_three";
+  TString input_name_irradiation_four = "irradiation_four";
 
-  std::vector<TString> input_names = {"zero",           input_name_Eu152,
-                                      input_name_Am241, input_name_Eu152,
-                                      input_name_Eu152, input_name_Eu152};
+  std::vector<TString> input_names_calibrations = {
+      "zero",           input_name_Eu152, input_name_Am241,
+      input_name_Eu152, input_name_Eu152, input_name_Eu152};
 
   std::vector<TString> peak_names = {"zero",      "La_33keV",  "Am_59keV",
                                      "Eu_122keV", "Eu_244keV", "Eu_344keV"};
@@ -160,8 +208,8 @@ void CreateCalibration() {
                                defaultColors[1]};
 
   std::vector<FitResult> fit_results =
-      FitMultiplePeaks(input_names, peak_names, mu_guesses, "pulse_height",
-                       "Pulse Height [ADC]", colors);
+      FitMultiplePeaks(input_names_calibrations, peak_names, mu_guesses,
+                       "pulse_height", "Pulse Height [ADC]", colors);
 
   Int_t size = calibration_values_keV.size();
 
@@ -173,5 +221,15 @@ void CreateCalibration() {
     mu_errors.push_back(fit_results[i].mu_error);
   }
 
-  CreateAndSaveCalibration(mu, calibration_values_keV, mu_errors);
+  TF1 *calibration_function =
+      CreateAndSaveCalibration(mu, calibration_values_keV, mu_errors);
+
+  std::vector<TString> input_names = {input_name_Am241,
+                                      input_name_Eu152,
+                                      input_name_bkg,
+                                      input_name_irradiation_one,
+                                      input_name_irradiation_two,
+                                      input_name_irradiation_three,
+                                      input_name_irradiation_four};
+  PulseHeightToLightOutput(input_names, calibration_function);
 }
