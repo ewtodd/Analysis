@@ -14,7 +14,7 @@ void InitialWaveformProcessing(const TString filepath,
   processor->SetTriggerThreshold(0.15);
   processor->SetNumberOfSamplesForBaseline(10);
   processor->SetSampleWindows(18, 135);
-  processor->SetGates(5, 40, 200);
+  processor->SetGates(5, 40, 220);
   processor->SetMaxEvents(-1);
   processor->SetVerbose(kTRUE);
   processor->ProcessFile(filepath, output_name);
