@@ -14,7 +14,7 @@
 
 void SiCalibration() {
 
-  PlottingUtils::SetROOTStyle();
+  PlottingUtils::SetROOTPreferences();
 
   std::vector<std::string> filepaths = {
       "/home/e-work/LABDATA/MUSIC/37Cl/SiCalibration/run_21/ROOT/"
