@@ -58,7 +58,6 @@ void PlotPSPvsLO(std::vector<TString> input_names) {
 
     TFile *output = new TFile(output_filepath, "UPDATE");
     TTree *features_tree = static_cast<TTree *>(output->Get("features"));
-
     Float_t light_output_keVee, psp;
     features_tree->SetBranchAddress("light_output", &light_output_keVee);
     features_tree->SetBranchAddress("psp", &psp);
@@ -152,7 +151,9 @@ void AnalyzeDoubleWaveforms(Bool_t reprocess = kFALSE) {
   features_tree->SetBranchAddress("light_output", &light_output);
   features_tree->SetBranchAddress("psp", &psp);
 
-  TFile *output = new TFile("double_waveforms.root", "RECREATE");
+  TString output_filepath = "root_files/double_waveforms.root";
+
+  TFile *output = new TFile(output_filepath, "RECREATE");
   TTree *output_tree = new TTree("features", "Double waveform features.");
   TArrayS *output_samples = nullptr;
   Float_t output_psp, output_light_output;
@@ -208,7 +209,8 @@ void CreateTemplateWaveform(Bool_t reprocess = kFALSE) {
   if (!reprocess)
     return;
 
-  TFile *input = new TFile("calibration_Eu152.root", "READ");
+  TString template_148keV_filepath = "root_files/calibration_Eu152.root";
+  TFile *input = new TFile(template_148keV_filepath, "READ");
   TTree *features_tree = static_cast<TTree *>(input->Get("features"));
 
   TArrayS *samples = nullptr;
@@ -254,7 +256,8 @@ void CreateTemplateWaveform(Bool_t reprocess = kFALSE) {
     x_values[j] = j;
   }
 
-  TFile *output = new TFile("template_waveform.root", "RECREATE");
+  TString output_filepath = "root_files/template_waveform.root";
+  TFile *output = new TFile(output_filepath, "RECREATE");
   TGraph *template_graph =
       new TGraph(nsamples, x_values.data(), template_waveform.data());
   template_graph->SetName("template");
@@ -271,7 +274,9 @@ void FitDoubleWaveforms(Bool_t reprocess = kFALSE) {
   if (!reprocess)
     return;
 
-  TFile *template_file = new TFile("template_waveform.root", "READ");
+  TString template_148keV_filepath = "root_files/calibration_Eu152.root";
+
+  TFile *template_file = new TFile(template_148keV_filepath, "READ");
   TGraph *template_graph =
       static_cast<TGraph *>(template_file->Get("template"));
 
@@ -292,7 +297,8 @@ void FitDoubleWaveforms(Bool_t reprocess = kFALSE) {
   features_tree->SetBranchAddress("light_output", &light_output);
   features_tree->SetBranchAddress("psp", &psp);
 
-  TFile *output = new TFile("fitted_doubles.root", "RECREATE");
+  TString output_filepath = "root_files/fitted_doubles.root";
+  TFile *output = new TFile(output_filepath, "RECREATE");
   TTree *output_tree =
       new TTree("features", "Fitted double waveform features.");
   Float_t peak1_height, peak2_height, time_difference;
@@ -369,11 +375,13 @@ void FitDoubleWaveforms(Bool_t reprocess = kFALSE) {
 }
 
 void ConvertAndPlotDoublePeaks(Bool_t reprocess = kFALSE) {
-  TFile *calib_file = new TFile("calibration_Eu152.root", "READ");
+  TString calibration_filepath = "root_files/calibration_function.root";
+  TFile *calib_file = new TFile(calibration_filepath, "READ");
   TF1 *calibration_function =
       static_cast<TF1 *>(calib_file->Get("calibration"));
 
-  TFile *output = new TFile("fitted_doubles.root", "UPDATE");
+  TString output_filepath = "root_files/fitted_doubles.root";
+  TFile *output = new TFile(output_filepath, "UPDATE");
   TTree *features_tree = static_cast<TTree *>(output->Get("features"));
 
   Float_t peak1_height, peak2_height, time_difference;
@@ -456,7 +464,8 @@ void ConvertAndPlotDoublePeaks(Bool_t reprocess = kFALSE) {
 }
 
 void FitAndExtractHalfLife() {
-  TFile *input = new TFile("fitted_doubles.root", "READ");
+  TString input_filepath = "root_files/fitted_doubles.root";
+  TFile *input = new TFile(input_filepath, "READ");
   TTree *features_tree = static_cast<TTree *>(input->Get("features"));
   TH2F *LO1vsLO2 =
       static_cast<TH2F *>(input->Get("Peak1 vs Peak2 Light Output"));
@@ -540,7 +549,8 @@ void FitAndExtractHalfLife() {
 
   PlottingUtils::SaveFigure(canvas_time, "time_difference_fit.png");
 
-  TFile *output = new TFile("half_life_results.root", "RECREATE");
+  TString output_filepath = "root_files/half_life_results.root";
+  TFile *output = new TFile(output_filepath, "RECREATE");
   LO1vsLO2->Write("2D_Gaussian_Fit");
   time_diff_hist->Write("Time_Difference");
   gaussian2d->Write("gaussian2d_fit");
@@ -578,7 +588,7 @@ void HalfLife() {
                                       input_name_irradiation_three,
                                       input_name_irradiation_four};
 
-  CalculatePSPvsLO(input_names);
+  CalculatePSPvsLO(input_names, kTRUE);
   PlotPSPvsLO(input_names);
 
   std::vector<TString> irradiation_names = {
@@ -586,10 +596,10 @@ void HalfLife() {
       input_name_irradiation_three, input_name_irradiation_four};
   FindCandidateWaveforms(irradiation_names);
   PlotPSPvsLO({"candidates"});
-  AnalyzeDoubleWaveforms();
+  AnalyzeDoubleWaveforms(kTRUE);
   PlotPSPvsLO({"double_waveforms"});
-  CreateTemplateWaveform();
-  FitDoubleWaveforms();
+  CreateTemplateWaveform(kTRUE);
+  FitDoubleWaveforms(kTRUE);
   ConvertAndPlotDoublePeaks(kTRUE);
   FitAndExtractHalfLife();
 }
