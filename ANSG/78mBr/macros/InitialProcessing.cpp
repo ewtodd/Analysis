@@ -2,25 +2,20 @@
 #include "WaveformProcessingUtils.hpp"
 #include <TROOT.h>
 #include <TSystem.h>
+#include <algorithm>
 #include <iostream>
 #include <vector>
 
 void InitialWaveformProcessing(const TString filepath,
-                               const TString output_name, const Int_t color,
-                               const Bool_t reprocess = kFALSE) {
-  if (!(gSystem->AccessPathName(output_name + ".root")) &&
-      reprocess == kFALSE) {
-    std::cout << "Output file already exists and reprocess is not set to true, "
-                 "skipping..."
-              << std::endl;
-    return;
-  }
+                               const TString output_name, const Int_t color) {
+
   PlottingUtils::SetROOTPreferences();
   WaveformProcessingUtils *processor = new WaveformProcessingUtils();
   processor->SetPolarity(-1);
   processor->SetTriggerThreshold(0.15);
-  processor->SetSampleWindows(15, 125);
-  processor->SetGates(5, 10, 200);
+  processor->SetNumberOfSamplesForBaseline(10);
+  processor->SetSampleWindows(18, 125);
+  processor->SetGates(5, 40, 200);
   processor->SetMaxEvents(-1);
   processor->SetVerbose(kTRUE);
   processor->ProcessFile(filepath, output_name);
@@ -69,25 +64,69 @@ void InitialWaveformProcessing(const TString filepath,
   delete canvas;
   delete processor;
 }
+
+void ProcessFiles(
+    std::vector<TString> filepaths, std::vector<TString> output_names,
+    std::vector<Int_t> colors = PlottingUtils::GetDefaultColors()) {
+  Int_t entries = filepaths.size();
+  for (Int_t i = 0; i < entries; i++) {
+    TString filepath = filepaths[i];
+    TString output_name = output_names[i];
+    Int_t color = colors[i];
+    InitialWaveformProcessing(filepath, output_name, color);
+  }
+}
+
 void InitialProcessing() {
-  std::vector<Int_t> colors = PlottingUtils::GetDefaultColors();
 
   TString filepath_Am241 =
       "/home/e-work/LABDATA/ANSG/78mBr/half_life_2/DAQ/"
       "59_5keV_calibration_300s/RAW/"
       "DataR_CH0@DT5730S_31017_59_5keV_calibration_300s.root";
   TString output_name_Am241 = "calibration_Am241";
-  InitialWaveformProcessing(filepath_Am241, output_name_Am241, colors[0],
-                            kTRUE);
   TString filepath_Eu152 =
       "/home/e-work/LABDATA/ANSG/78mBr/half_life_2/DAQ/"
       "Europium_calibration_300s/RAW/"
       "DataR_CH0@DT5730S_31017_Europium_calibration_300s.root";
   TString output_name_Eu152 = "calibration_Eu152";
-  InitialWaveformProcessing(filepath_Eu152, output_name_Eu152, colors[1],
-                            kTRUE);
   TString filepath_bkg = "/home/e-work/LABDATA/ANSG/78mBr/day2/"
                          "bkg_day2/RAW/DataR_CH0@DT5730B_969_bkg_day2.root";
   TString output_name_bkg = "background";
-  InitialWaveformProcessing(filepath_bkg, output_name_bkg, colors[2], kTRUE);
+
+  TString filepath_irradiation_one =
+      "/home/e-work/LABDATA/ANSG/78mBr/half_life_2/DAQ/irradiation_1/RAW/"
+      "DataR_CH0@DT5730S_31017_irradiation_1.root";
+  TString output_name_irradiation_one = "irradiation_one";
+
+  TString filepath_irradiation_two =
+      "/home/e-work/LABDATA/ANSG/78mBr/half_life_2/DAQ/irradiation_2/RAW/"
+      "DataR_CH0@DT5730S_31017_irradiation_2.root";
+  TString output_name_irradiation_two = "irradiation_two";
+
+  TString filepath_irradiation_three =
+      "/home/e-work/LABDATA/ANSG/78mBr/half_life_2/DAQ/irradiation_3/RAW/"
+      "DataR_CH0@DT5730S_31017_irradiation_3.root";
+  TString output_name_irradiation_three = "irradiation_three";
+
+  TString filepath_irradiation_four =
+      "/home/e-work/LABDATA/ANSG/78mBr/day2/irradiation_day2/RAW/"
+      "DataR_CH0@DT5730B_969_irradiation_day2.root";
+  TString output_name_irradiation_four = "irradiation_four";
+
+  std::vector<TString> filepaths = {filepath_Am241,
+                                    filepath_Eu152,
+                                    filepath_bkg,
+                                    filepath_irradiation_one,
+                                    filepath_irradiation_two,
+                                    filepath_irradiation_three,
+                                    filepath_irradiation_four};
+  std::vector<TString> output_names = {output_name_Am241,
+                                       output_name_Eu152,
+                                       output_name_bkg,
+                                       output_name_irradiation_one,
+                                       output_name_irradiation_two,
+                                       output_name_irradiation_three,
+                                       output_name_irradiation_four};
+
+  ProcessFiles(filepaths, output_names);
 }
