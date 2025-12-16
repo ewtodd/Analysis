@@ -140,6 +140,14 @@ void PulseHeightToLightOutput(
     std::vector<TString> input_names, TF1 *calibration_function,
     std::vector<Int_t> colors = PlottingUtils::GetDefaultColors()) {
   Int_t entries = input_names.size();
+
+  TString calibration_function_filepath =
+      "root_files/calibration_function.root";
+  TFile *calibration_file =
+      new TFile(calibration_function_filepath, "RECREATE");
+  calibration_function->Write("calibration", TObject::kOverwrite);
+  calibration_file->Close();
+
   for (Int_t i = 0; i < entries; i++) {
     TString input_name = input_names[i];
     TH1F *light_output_hist =
@@ -148,7 +156,12 @@ void PulseHeightToLightOutput(
     TCanvas *canvas = new TCanvas("", "", 1200, 800);
     PlottingUtils::ConfigureCanvas(canvas);
 
-    TFile *output = new TFile(input_name + ".root", "UPDATE");
+    TString output_filepath = "root_files/" + input_name + ".root";
+
+    TFile *output = new TFile(output_filepath, "UPDATE");
+
+    output->cd();
+
     TTree *features_tree = static_cast<TTree *>(output->Get("features"));
 
     Float_t pulse_height, light_output_keVee;
@@ -170,7 +183,6 @@ void PulseHeightToLightOutput(
 
     features_tree->Write("", TObject::kOverwrite);
     light_output_hist->Write("Light Output", TObject::kOverwrite);
-    calibration_function->Write("calibration", TObject::kOverwrite);
     output->Close();
     delete canvas;
     delete light_output_hist;

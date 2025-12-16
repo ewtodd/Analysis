@@ -18,7 +18,9 @@ void CalculatePSPvsLO(std::vector<TString> input_names,
   for (Int_t i = 0; i < entries; i++) {
     TString input_name = input_names[i];
 
-    TFile *output = new TFile(input_name + ".root", "UPDATE");
+    TString output_filepath = "root_files/" + input_name + ".root";
+
+    TFile *output = new TFile(output_filepath, "UPDATE");
     TTree *features_tree = static_cast<TTree *>(output->Get("features"));
 
     Float_t short_integral, long_integral, light_output_keVee, psp;
@@ -45,13 +47,16 @@ void PlotPSPvsLO(std::vector<TString> input_names) {
   Int_t entries = input_names.size();
   for (Int_t i = 0; i < entries; i++) {
     TString input_name = input_names[i];
+
     TH2F *PSPvsLO =
         new TH2F("", "; Light Output [keVee]; Counts", 250, 0, 1200, 100, 0, 1);
 
     TCanvas *canvas = new TCanvas("", "", 1200, 800);
     PlottingUtils::ConfigureCanvas(canvas);
 
-    TFile *output = new TFile(input_name + ".root", "UPDATE");
+    TString output_filepath = "root_files/" + input_name + ".root";
+
+    TFile *output = new TFile(output_filepath, "UPDATE");
     TTree *features_tree = static_cast<TTree *>(output->Get("features"));
 
     Float_t light_output_keVee, psp;
@@ -81,7 +86,10 @@ void FindCandidateWaveforms(std::vector<TString> input_names,
     return;
 
   Int_t entries = input_names.size();
-  TFile *output = new TFile("candidates.root", "RECREATE");
+
+  TString candidates_filepath = "root_files/candidates.root";
+
+  TFile *output = new TFile(candidates_filepath, "RECREATE");
   TTree *output_tree = new TTree("features", "Candidate waveform features.");
   TArrayS *output_samples = nullptr;
   Float_t output_psp, output_light_output_keVee;
@@ -92,9 +100,12 @@ void FindCandidateWaveforms(std::vector<TString> input_names,
   output_tree->Branch("Samples", &output_samples);
 
   for (Int_t i = 0; i < entries; i++) {
+
     TString input_name = input_names[i];
 
-    TFile *input = new TFile(input_name + ".root", "READ");
+    TString input_filepath = "root_files/" + input_name + ".root";
+
+    TFile *input = new TFile(input_filepath, "READ");
     TTree *features_tree = static_cast<TTree *>(input->Get("features"));
 
     Float_t light_output_keVee, psp;
@@ -117,9 +128,9 @@ void FindCandidateWaveforms(std::vector<TString> input_names,
         output_tree->Fill();
       }
     }
-
     input->Close();
   }
+
   output->cd();
   output_tree->Write("", TObject::kOverwrite);
   output->Close();
@@ -130,7 +141,9 @@ void AnalyzeDoubleWaveforms(Bool_t reprocess = kFALSE) {
     return;
   }
 
-  TFile *input = new TFile("candidates.root", "READ");
+  TString candidates_filepath = "root_files/candidates.root";
+
+  TFile *input = new TFile(candidates_filepath, "READ");
   TTree *features_tree = static_cast<TTree *>(input->Get("features"));
 
   TArrayS *samples = nullptr;
@@ -289,7 +302,7 @@ void FitDoubleWaveforms(Bool_t reprocess = kFALSE) {
   output_tree->Branch("time_difference", &time_difference, "time_difference/F");
 
   Int_t num_entries = features_tree->GetEntries();
-  Int_t plot_count = TMath::Min(20, num_entries);
+  Int_t plot_count = TMath::Min(5, num_entries);
 
   for (Int_t i = 0; i < num_entries; i++) {
     features_tree->GetEntry(i);

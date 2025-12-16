@@ -111,11 +111,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1765835133,
-        "narHash": "sha256-p8PiDaRB4UJK0bDSqRSiwO53D6VWM4dJFcQjYcIna8A=",
+        "lastModified": 1765888874,
+        "narHash": "sha256-h6o7j9k71emOHQmA3XjNWufT/IKnqAf560qBNpnscTo=",
         "owner": "ewtodd",
         "repo": "Nuclear-Measurement-Utilities",
-        "rev": "591e91c1665c8a75dba2facd302524629b3a4aa7",
+        "rev": "29bed106f7f04a0ea47d78de4927c7e2c2bf14e5",
         "type": "github"
       },
       "original": {

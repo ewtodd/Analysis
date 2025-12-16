@@ -2,7 +2,6 @@
 #include "WaveformProcessingUtils.hpp"
 #include <TROOT.h>
 #include <TSystem.h>
-#include <algorithm>
 #include <iostream>
 #include <vector>
 
@@ -14,7 +13,7 @@ void InitialWaveformProcessing(const TString filepath,
   processor->SetPolarity(-1);
   processor->SetTriggerThreshold(0.15);
   processor->SetNumberOfSamplesForBaseline(10);
-  processor->SetSampleWindows(18, 125);
+  processor->SetSampleWindows(18, 135);
   processor->SetGates(5, 40, 200);
   processor->SetMaxEvents(-1);
   processor->SetVerbose(kTRUE);
@@ -23,7 +22,9 @@ void InitialWaveformProcessing(const TString filepath,
   std::cout << "MACRO: Processed raw waveforms." << std::endl;
   std::cout << "MACRO: Now reading results file." << std::endl;
 
-  TFile *output = new TFile(output_name + ".root", "UPDATE");
+  TString output_filepath = "root_files/" + output_name + ".root";
+
+  TFile *output = new TFile(output_filepath, "UPDATE");
   TTree *features_tree = static_cast<TTree *>(output->Get("features"));
 
   Float_t long_integral;
@@ -78,7 +79,6 @@ void ProcessFiles(
 }
 
 void InitialProcessing() {
-
   TString filepath_Am241 =
       "/home/e-work/LABDATA/ANSG/78mBr/half_life_2/DAQ/"
       "59_5keV_calibration_300s/RAW/"
