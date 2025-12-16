@@ -17,72 +17,11 @@ void SiCalibration() {
   PlottingUtils::SetROOTPreferences();
 
   std::vector<std::string> filepaths = {
-      "/home/e-work/LABDATA/MUSIC/37Cl/SiCalibration/run_21/ROOT/"
-      "DataR_run_21.root",
-      "/home/e-work/LABDATA/MUSIC/37Cl/SiCalibration/run_22/ROOT/"
-      "DataR_run_22.root",
-      "/home/e-work/LABDATA/MUSIC/37Cl/SiCalibration/run_23/ROOT/"
-      "DataR_run_23.root",
-      "/home/e-work/LABDATA/MUSIC/37Cl/SiCalibration/run_24/ROOT/"
-      "DataR_run_24.root",
-      "/home/e-work/LABDATA/MUSIC/37Cl/SiCalibration/run_25/ROOT/"
-      "DataR_run_25.root",
-      "/home/e-work/LABDATA/MUSIC/37Cl/SiCalibration/run_26/ROOT/"
-      "DataR_run_26.root",
-      "/home/e-work/LABDATA/MUSIC/37Cl/SiCalibration/run_27/ROOT/"
-      "DataR_run_27.root",
-      "/home/e-work/LABDATA/MUSIC/37Cl/SiCalibration/run_28/ROOT/"
-      "DataR_run_28.root",
-      "/home/e-work/LABDATA/MUSIC/37Cl/SiCalibration/run_29/ROOT/"
-      "DataR_run_29.root",
-      "/home/e-work/LABDATA/MUSIC/37Cl/SiCalibration/run_30/ROOT/"
-      "DataR_run_30.root",
-      "/home/e-work/LABDATA/MUSIC/37Cl/SiCalibration/run_31/ROOT/"
-      "DataR_run_31.root",
-      "/home/e-work/LABDATA/MUSIC/37Cl/SiCalibration/run_32/ROOT/"
-      "DataR_run_32.root",
-      "/home/e-work/LABDATA/MUSIC/37Cl/SiCalibration/run_33/ROOT/"
-      "DataR_run_33.root",
-      "/home/e-work/LABDATA/MUSIC/37Cl/SiCalibration/run_34/ROOT/"
-      "DataR_run_34.root",
-      "/home/e-work/LABDATA/MUSIC/37Cl/SiCalibration/run_35/ROOT/"
-      "DataR_run_35.root",
-      "/home/e-work/LABDATA/MUSIC/37Cl/SiCalibration/run_36/ROOT/"
-      "DataR_run_36.root"};
+      "/home/e-work/LABDATA/MUSIC/37Cl/ProductionMode/run_37/ROOT/"
+      "DataR_run_37_1.root",
+      "/home/e-work/LABDATA/MUSIC/37Cl/ProductionMode/run_37/ROOT/"
+      "DataR_run_37_2.root"};
 
-  std::map<int, double> mu_guesses;
-  mu_guesses[21] = 15300;
-  mu_guesses[22] = 10000;
-  mu_guesses[23] = 9500;
-  mu_guesses[24] = 13200;
-  mu_guesses[25] = 10150;
-  mu_guesses[26] = 9200;
-  mu_guesses[27] = 8500;
-  mu_guesses[28] = 7800;
-  mu_guesses[29] = 6800;
-  mu_guesses[30] = 6000;
-  mu_guesses[31] = 5100;
-  mu_guesses[32] = 4200;
-  mu_guesses[33] = 3400;
-  mu_guesses[34] = 2520;
-  mu_guesses[35] = 1760;
-  mu_guesses[36] = 1500;
-
-  std::vector<Double_t> mu_values;
-  std::vector<Double_t> sigma_values;
-  std::vector<Double_t> mu_errors;
-  std::vector<Double_t> sigma_errors;
-  std::vector<Double_t> energy_values;
-  std::vector<Double_t> energy_errors;
-
-  Bool_t logy = kTRUE;
-
-  TCanvas *canvas = new TCanvas("canvas", "Si Calibration", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas, logy);
-
-  if (gSystem->AccessPathName("plots")) {
-    gSystem->mkdir("plots", kTRUE);
-  }
   // First pass: get mu values for all runs
   Double_t mu_21 = 0, mu_22 = 0;
   Double_t mu_21_err = 0, mu_22_err = 0;
