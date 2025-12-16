@@ -4,6 +4,7 @@
 #include <TFile.h>
 #include <TFitResult.h>
 #include <TGraphErrors.h>
+#include <TMarker.h>
 #include <TROOT.h>
 #include <TSpectrum.h>
 #include <TSystem.h>
@@ -55,7 +56,6 @@ void PlotPSPvsLO(std::vector<TString> input_names) {
     PlottingUtils::ConfigureCanvas(canvas);
 
     TString output_filepath = "root_files/" + input_name + ".root";
-
     TFile *output = new TFile(output_filepath, "UPDATE");
     TTree *features_tree = static_cast<TTree *>(output->Get("features"));
     Float_t light_output_keVee, psp;
@@ -135,138 +135,130 @@ void FindCandidateWaveforms(std::vector<TString> input_names,
   output->Close();
 }
 
-void AnalyzeDoubleWaveforms(Bool_t reprocess = kFALSE) {
-  if (!reprocess) {
-    return;
-  }
-
-  TString candidates_filepath = "root_files/candidates.root";
-
-  TFile *input = new TFile(candidates_filepath, "READ");
-  TTree *features_tree = static_cast<TTree *>(input->Get("features"));
-
-  TArrayS *samples = nullptr;
-  Float_t light_output, psp;
-  features_tree->SetBranchAddress("Samples", &samples);
-  features_tree->SetBranchAddress("light_output", &light_output);
-  features_tree->SetBranchAddress("psp", &psp);
-
-  TString output_filepath = "root_files/double_waveforms.root";
-
-  TFile *output = new TFile(output_filepath, "RECREATE");
-  TTree *output_tree = new TTree("features", "Double waveform features.");
-  TArrayS *output_samples = nullptr;
-  Float_t output_psp, output_light_output;
-  Int_t peak1_position, peak2_position;
-
-  output_tree->Branch("light_output", &output_light_output, "light_output/F");
-  output_tree->Branch("psp", &output_psp, "psp/F");
-  output_tree->Branch("peak1_position", &peak1_position, "peak1_position/I");
-  output_tree->Branch("peak2_position", &peak2_position, "peak2_position/I");
-  output_tree->Branch("Samples", &output_samples);
-
-  Int_t num_entries = features_tree->GetEntries();
-
-  for (Int_t i = 0; i < num_entries; i++) {
-    features_tree->GetEntry(i);
-
-    Int_t nsamples = samples->GetSize();
-    std::vector<Double_t> waveform_array(nsamples);
-    for (Int_t j = 0; j < nsamples; j++) {
-      waveform_array[j] = (Double_t)samples->At(j);
-    }
-
-    TSpectrum *spectrum = new TSpectrum(10);
-    Int_t npeaks =
-        spectrum->SearchHighRes(waveform_array.data(), waveform_array.data(),
-                                nsamples, 2, 5, kFALSE, 3, kTRUE, 3);
-
-    if (npeaks == 2) {
-      Double_t *peak_positions = spectrum->GetPositionX();
-
-      output_psp = psp;
-      output_light_output = light_output;
-      peak1_position = (Int_t)peak_positions[0];
-      peak2_position = (Int_t)peak_positions[1];
-
-      if (output_samples)
-        delete output_samples;
-      output_samples = new TArrayS(*samples);
-
-      output_tree->Fill();
-    }
-
-    delete spectrum;
-  }
-
-  input->Close();
-  output->cd();
-  output_tree->Write("", TObject::kOverwrite);
-  output->Close();
-}
-
-void CreateTemplateWaveform(Bool_t reprocess = kFALSE) {
+void CreateTemplateWaveforms(Bool_t reprocess = kFALSE) {
   if (!reprocess)
     return;
 
   TString template_148keV_filepath = "root_files/calibration_Eu152.root";
-  TFile *input = new TFile(template_148keV_filepath, "READ");
-  TTree *features_tree = static_cast<TTree *>(input->Get("features"));
+  TFile *input_148keV = new TFile(template_148keV_filepath, "READ");
+  TTree *features_tree_148keV =
+      static_cast<TTree *>(input_148keV->Get("features"));
 
-  TArrayS *samples = nullptr;
-  Float_t pulse_height;
-  features_tree->SetBranchAddress("Samples", &samples);
-  features_tree->SetBranchAddress("pulse_height", &pulse_height);
+  TArrayS *samples_148keV = nullptr;
+  Float_t pulse_height_148keV;
+  features_tree_148keV->SetBranchAddress("Samples", &samples_148keV);
+  features_tree_148keV->SetBranchAddress("pulse_height", &pulse_height_148keV);
 
-  Int_t num_entries = features_tree->GetEntries();
-  std::vector<std::vector<Double_t>> selected_waveforms;
-  Int_t nsamples = 0;
+  Int_t num_entries_148keV = features_tree_148keV->GetEntries();
+  std::vector<std::vector<Double_t>> selected_waveforms_148keV;
+  Int_t nsamples_148keV = 0;
 
-  for (Int_t i = 0; i < num_entries; i++) {
-    features_tree->GetEntry(i);
+  for (Int_t i = 0; i < num_entries_148keV; i++) {
+    features_tree_148keV->GetEntry(i);
 
-    if (pulse_height > 1500 && pulse_height < 1800) {
-      nsamples = samples->GetSize();
-      std::vector<Double_t> waveform(nsamples);
-      for (Int_t j = 0; j < nsamples; j++) {
-        waveform[j] = (Double_t)samples->At(j);
+    if (pulse_height_148keV > 1500 && pulse_height_148keV < 1800) {
+      nsamples_148keV = samples_148keV->GetSize();
+      std::vector<Double_t> waveform(nsamples_148keV);
+      for (Int_t j = 0; j < nsamples_148keV; j++) {
+        waveform[j] = (Double_t)samples_148keV->At(j);
       }
-      selected_waveforms.push_back(waveform);
+      selected_waveforms_148keV.push_back(waveform);
     }
   }
 
-  input->Close();
+  input_148keV->Close();
 
-  std::cout << "Found " << selected_waveforms.size()
-            << " waveforms for template" << std::endl;
+  std::cout << "Found " << selected_waveforms_148keV.size()
+            << " waveforms for template 148 keV" << std::endl;
 
-  std::vector<Double_t> template_waveform(nsamples, 0.0);
-  for (const auto &wf : selected_waveforms) {
-    for (Int_t j = 0; j < nsamples; j++) {
-      template_waveform[j] += wf[j];
+  std::vector<Double_t> template_waveform_148keV(nsamples_148keV, 0.0);
+  for (const auto &wf : selected_waveforms_148keV) {
+    for (Int_t j = 0; j < nsamples_148keV; j++) {
+      template_waveform_148keV[j] += wf[j];
     }
   }
 
-  for (Int_t j = 0; j < nsamples; j++) {
-    template_waveform[j] /= selected_waveforms.size();
+  for (Int_t j = 0; j < nsamples_148keV; j++) {
+    template_waveform_148keV[j] /= selected_waveforms_148keV.size();
   }
 
-  std::vector<Double_t> x_values(nsamples);
-  for (Int_t j = 0; j < nsamples; j++) {
-    x_values[j] = j;
+  std::vector<Double_t> x_values(nsamples_148keV);
+  for (Int_t j = 0; j < nsamples_148keV; j++) {
+    x_values[j] = 2 * j;
   }
 
-  TString output_filepath = "root_files/template_waveform.root";
+  TString output_filepath = "root_files/template_waveforms.root";
   TFile *output = new TFile(output_filepath, "RECREATE");
-  TGraph *template_graph =
-      new TGraph(nsamples, x_values.data(), template_waveform.data());
-  template_graph->SetName("template");
+  TGraph *template_graph_148keV = new TGraph(nsamples_148keV, x_values.data(),
+                                             template_waveform_148keV.data());
+  template_graph_148keV->SetName("template_148keV");
   TCanvas *canvas = new TCanvas("", "", 1200, 800);
   PlottingUtils::ConfigureCanvas(canvas);
-  PlottingUtils::ConfigureAndDrawGraph(
-      template_graph, kRed, "122 keV 152Eu Template Waveform;Sample;ADC");
-  PlottingUtils::SaveFigure(canvas, "template.png", kFALSE);
-  template_graph->Write("", TObject::kOverwrite);
+  PlottingUtils::ConfigureGraph(
+      template_graph_148keV, kRed,
+      "122 keV 152Eu Template Waveform;Time [ns];ADC");
+  template_graph_148keV->SetLineWidth(2);
+  template_graph_148keV->Draw();
+  PlottingUtils::SaveFigure(canvas, "template_148keV.png", kFALSE);
+  template_graph_148keV->Write("", TObject::kOverwrite);
+
+  TString template_32keV_filepath = "root_files/calibration_Eu152.root";
+  TFile *input_32keV = new TFile(template_32keV_filepath, "READ");
+  TTree *features_tree_32keV =
+      static_cast<TTree *>(input_32keV->Get("features"));
+
+  TArrayS *samples_32keV = nullptr;
+  Float_t pulse_height_32keV;
+  features_tree_32keV->SetBranchAddress("Samples", &samples_32keV);
+  features_tree_32keV->SetBranchAddress("pulse_height", &pulse_height_32keV);
+
+  Int_t num_entries_32keV = features_tree_32keV->GetEntries();
+  std::vector<std::vector<Double_t>> selected_waveforms_32keV;
+  Int_t nsamples_32keV = 0;
+
+  for (Int_t i = 0; i < num_entries_32keV; i++) {
+    features_tree_32keV->GetEntry(i);
+
+    if (pulse_height_32keV > 450 && pulse_height_32keV < 600) {
+      nsamples_32keV = samples_32keV->GetSize();
+      std::vector<Double_t> waveform(nsamples_32keV);
+      for (Int_t j = 0; j < nsamples_32keV; j++) {
+        waveform[j] = (Double_t)samples_32keV->At(j);
+      }
+      selected_waveforms_32keV.push_back(waveform);
+    }
+  }
+
+  input_32keV->Close();
+
+  std::cout << "Found " << selected_waveforms_32keV.size()
+            << " waveforms for template 32 keV" << std::endl;
+
+  std::vector<Double_t> template_waveform_32keV(nsamples_32keV, 0.0);
+  for (const auto &wf : selected_waveforms_32keV) {
+    for (Int_t j = 0; j < nsamples_32keV; j++) {
+      template_waveform_32keV[j] += wf[j];
+    }
+  }
+
+  for (Int_t j = 0; j < nsamples_32keV; j++) {
+    template_waveform_32keV[j] /= selected_waveforms_32keV.size();
+  }
+
+  TGraph *template_graph_32keV = new TGraph(nsamples_32keV, x_values.data(),
+                                            template_waveform_32keV.data());
+  template_graph_32keV->SetName("template_32keV");
+  canvas->Clear();
+  PlottingUtils::ConfigureCanvas(canvas);
+  PlottingUtils::ConfigureGraph(
+      template_graph_32keV, kBlue,
+      "33.4 keV La K-alpha Template Waveform;Time [ns];ADC");
+  template_graph_32keV->SetLineWidth(2);
+  template_graph_32keV->Draw();
+  PlottingUtils::SaveFigure(canvas, "template_32keV.png", kFALSE);
+  output->cd();
+  template_graph_32keV->Write("", TObject::kOverwrite);
+
   output->Close();
 }
 
@@ -274,26 +266,34 @@ void FitDoubleWaveforms(Bool_t reprocess = kFALSE) {
   if (!reprocess)
     return;
 
-  TString template_148keV_filepath = "root_files/calibration_Eu152.root";
+  TString calibration_filepath = "root_files/calibration_function.root";
+  TFile *calib_file = new TFile(calibration_filepath, "READ");
+  TF1 *calibration_function =
+      static_cast<TF1 *>(calib_file->Get("calibration"));
 
-  TFile *template_file = new TFile(template_148keV_filepath, "READ");
-  TGraph *template_graph =
-      static_cast<TGraph *>(template_file->Get("template"));
+  TString template_filepath = "root_files/template_waveforms.root";
+  TFile *template_file = new TFile(template_filepath, "READ");
+  TGraph *template_graph_148 =
+      static_cast<TGraph *>(template_file->Get("template_148keV"));
+  TGraph *template_graph_32 =
+      static_cast<TGraph *>(template_file->Get("template_32keV"));
 
-  Double_t *template_y = template_graph->GetY();
-  Int_t template_npoints = template_graph->GetN();
-  Int_t template_peak_pos = TMath::LocMax(template_npoints, template_y);
-  Double_t template_peak_height = template_y[template_peak_pos];
+  Double_t *template_148_y = template_graph_148->GetY();
+  Double_t *template_32_y = template_graph_32->GetY();
+  Int_t template_npoints = template_graph_148->GetN();
 
-  TFile *input = new TFile("double_waveforms.root", "READ");
+  Int_t template_148_peak_pos = TMath::LocMax(template_npoints, template_148_y);
+  Int_t template_32_peak_pos = TMath::LocMax(template_npoints, template_32_y);
+  Double_t template_148_peak_height = template_148_y[template_148_peak_pos];
+  Double_t template_32_peak_height = template_32_y[template_32_peak_pos];
+
+  TString input_filepath = "root_files/candidates.root";
+  TFile *input = new TFile(input_filepath, "READ");
   TTree *features_tree = static_cast<TTree *>(input->Get("features"));
 
   TArrayS *samples = nullptr;
-  Int_t peak1_position, peak2_position;
   Float_t light_output, psp;
   features_tree->SetBranchAddress("Samples", &samples);
-  features_tree->SetBranchAddress("peak1_position", &peak1_position);
-  features_tree->SetBranchAddress("peak2_position", &peak2_position);
   features_tree->SetBranchAddress("light_output", &light_output);
   features_tree->SetBranchAddress("psp", &psp);
 
@@ -301,74 +301,258 @@ void FitDoubleWaveforms(Bool_t reprocess = kFALSE) {
   TFile *output = new TFile(output_filepath, "RECREATE");
   TTree *output_tree =
       new TTree("features", "Fitted double waveform features.");
-  Float_t peak1_height, peak2_height, time_difference;
+  Float_t peak1_height, peak2_height, time_difference, chi_squared;
 
   output_tree->Branch("peak1_height", &peak1_height, "peak1_height/F");
   output_tree->Branch("peak2_height", &peak2_height, "peak2_height/F");
   output_tree->Branch("time_difference", &time_difference, "time_difference/F");
+  output_tree->Branch("chi_squared", &chi_squared, "chi_squared/F");
 
   Int_t num_entries = features_tree->GetEntries();
-  Int_t plot_count = TMath::Min(5, num_entries);
+  Int_t plot_count = TMath::Min(10, num_entries);
+
+  std::cout << "Fitting " << num_entries << " candidate waveforms..."
+            << std::endl;
 
   for (Int_t i = 0; i < num_entries; i++) {
     features_tree->GetEntry(i);
+
+    if (i % 100 == 0) {
+      std::cout << "Processing waveform " << i << "/" << num_entries
+                << std::endl;
+    }
 
     Int_t nsamples = samples->GetSize();
     std::vector<Double_t> waveform(nsamples);
     std::vector<Double_t> x_values(nsamples);
     for (Int_t j = 0; j < nsamples; j++) {
       waveform[j] = (Double_t)samples->At(j);
-      x_values[j] = j;
+      x_values[j] = j * 2.0; // Convert to ns
     }
 
-    TGraph *original = nullptr;
-    if (i < plot_count) {
-      original = new TGraph(nsamples, x_values.data(), waveform.data());
-    }
+    // Find peak in candidate waveform
+    Double_t *waveform_ptr = waveform.data();
+    Int_t candidate_peak_pos = TMath::LocMax(nsamples, waveform_ptr);
+    Double_t candidate_peak_height = waveform[candidate_peak_pos];
 
-    peak1_height = waveform[peak1_position];
-    Double_t scale_factor = peak1_height / template_peak_height;
+    // Convert peak height to keV as starting point
+    Double_t initial_energy_148 =
+        calibration_function->Eval(candidate_peak_height);
 
-    for (Int_t j = 0; j < nsamples; j++) {
-      Int_t template_index = j - peak1_position + template_peak_pos;
-      Double_t template_val = 0;
-      if (template_index >= 0 && template_index < template_npoints) {
-        template_val = template_y[template_index] * scale_factor;
+    // Define search ranges
+    Double_t energy_148_min = initial_energy_148 * 0.8;
+    Double_t energy_148_max = initial_energy_148 * 1.2;
+    Int_t n_energy_148_steps = 15;
+
+    Double_t energy_32_min = 20.0;
+    Double_t energy_32_max = 45.0;
+    Int_t n_energy_32_steps = 15;
+
+    Double_t time_diff_min = 0.0;
+    Double_t time_diff_max = 200.0;
+    Int_t n_time_steps = 50; // 4 ns steps
+
+    // Grid search
+    Double_t best_chi2 = 1e20;
+    Double_t best_energy_148 = initial_energy_148;
+    Double_t best_energy_32 = 32.0;
+    Double_t best_time_diff = 100.0;
+
+    for (Int_t ie1 = 0; ie1 < n_energy_148_steps; ie1++) {
+      Double_t energy_148 =
+          energy_148_min +
+          ie1 * (energy_148_max - energy_148_min) / (n_energy_148_steps - 1);
+
+      // Find pulse height corresponding to this energy (inverse calibration)
+      // We'll do a simple scan since we don't have analytical inverse
+      Double_t ph_148 = candidate_peak_height; // Use as initial guess
+      Double_t target_energy = energy_148;
+      for (Double_t ph_test = 0; ph_test < 3000; ph_test += 10) {
+        if (TMath::Abs(calibration_function->Eval(ph_test) - target_energy) <
+            TMath::Abs(calibration_function->Eval(ph_148) - target_energy)) {
+          ph_148 = ph_test;
+        }
       }
-      waveform[j] -= template_val;
+      Double_t scale_148 = ph_148 / template_148_peak_height;
+
+      for (Int_t ie2 = 0; ie2 < n_energy_32_steps; ie2++) {
+        Double_t energy_32 =
+            energy_32_min +
+            ie2 * (energy_32_max - energy_32_min) / (n_energy_32_steps - 1);
+
+        Double_t ph_32 = 500; // Initial guess
+        for (Double_t ph_test = 0; ph_test < 3000; ph_test += 10) {
+          if (TMath::Abs(calibration_function->Eval(ph_test) - energy_32) <
+              TMath::Abs(calibration_function->Eval(ph_32) - energy_32)) {
+            ph_32 = ph_test;
+          }
+        }
+        Double_t scale_32 = ph_32 / template_32_peak_height;
+
+        for (Int_t it = 0; it < n_time_steps; it++) {
+          Double_t time_diff =
+              time_diff_min +
+              it * (time_diff_max - time_diff_min) / (n_time_steps - 1);
+
+          // Time difference in samples (2 ns per sample)
+          Int_t time_diff_samples = TMath::Nint(time_diff / 2.0);
+
+          // Build double template
+          std::vector<Double_t> double_template(nsamples, 0.0);
+
+          // Add 148 keV template centered at candidate peak
+          for (Int_t j = 0; j < nsamples; j++) {
+            Int_t template_index =
+                j - candidate_peak_pos + template_148_peak_pos;
+            if (template_index >= 0 && template_index < template_npoints) {
+              double_template[j] += template_148_y[template_index] * scale_148;
+            }
+          }
+
+          // Add 32 keV template shifted by time_diff
+          Int_t peak_32_pos = candidate_peak_pos + time_diff_samples;
+          for (Int_t j = 0; j < nsamples; j++) {
+            Int_t template_index = j - peak_32_pos + template_32_peak_pos;
+            if (template_index >= 0 && template_index < template_npoints) {
+              double_template[j] += template_32_y[template_index] * scale_32;
+            }
+          }
+
+          // Calculate chi-squared
+          Double_t chi2 = 0.0;
+          Int_t n_points = 0;
+          for (Int_t j = 0; j < nsamples; j++) {
+            Double_t diff = waveform[j] - double_template[j];
+            chi2 += diff * diff;
+            n_points++;
+          }
+
+          if (chi2 < best_chi2) {
+            best_chi2 = chi2;
+            best_energy_148 = energy_148;
+            best_energy_32 = energy_32;
+            best_time_diff = time_diff;
+          }
+        }
+      }
     }
 
-    peak2_height = waveform[peak2_position];
-    time_difference = (peak2_position - peak1_position) * 2.0;
+    // Store best fit results
+    peak1_height = best_energy_148;
+    peak2_height = best_energy_32;
+    time_difference = best_time_diff;
+    chi_squared = best_chi2;
 
     output_tree->Fill();
 
+    // Make diagnostic plots for first few waveforms
     if (i < plot_count) {
-      TGraph *subtracted =
-          new TGraph(nsamples, x_values.data(), waveform.data());
+      // Reconstruct best-fit template
+      Double_t ph_148_best = candidate_peak_height;
+      for (Double_t ph_test = 0; ph_test < 3000; ph_test += 1) {
+        if (TMath::Abs(calibration_function->Eval(ph_test) - best_energy_148) <
+            TMath::Abs(calibration_function->Eval(ph_148_best) -
+                       best_energy_148)) {
+          ph_148_best = ph_test;
+        }
+      }
+      Double_t scale_148_best = ph_148_best / template_148_peak_height;
 
-      TCanvas *canvas = new TCanvas("", "", 1200, 800);
-      canvas->Divide(1, 2);
+      Double_t ph_32_best = 500;
+      for (Double_t ph_test = 0; ph_test < 3000; ph_test += 1) {
+        if (TMath::Abs(calibration_function->Eval(ph_test) - best_energy_32) <
+            TMath::Abs(calibration_function->Eval(ph_32_best) -
+                       best_energy_32)) {
+          ph_32_best = ph_test;
+        }
+      }
+      Double_t scale_32_best = ph_32_best / template_32_peak_height;
+
+      Int_t time_diff_samples_best = TMath::Nint(best_time_diff / 2.0);
+
+      std::vector<Double_t> best_template(nsamples, 0.0);
+      std::vector<Double_t> residuals(nsamples, 0.0);
+
+      for (Int_t j = 0; j < nsamples; j++) {
+        Int_t template_index = j - candidate_peak_pos + template_148_peak_pos;
+        if (template_index >= 0 && template_index < template_npoints) {
+          best_template[j] += template_148_y[template_index] * scale_148_best;
+        }
+      }
+
+      Int_t peak_32_pos_best = candidate_peak_pos + time_diff_samples_best;
+      for (Int_t j = 0; j < nsamples; j++) {
+        Int_t template_index = j - peak_32_pos_best + template_32_peak_pos;
+        if (template_index >= 0 && template_index < template_npoints) {
+          best_template[j] += template_32_y[template_index] * scale_32_best;
+        }
+      }
+
+      for (Int_t j = 0; j < nsamples; j++) {
+        residuals[j] = waveform[j] - best_template[j];
+      }
+
+      TGraph *original = new TGraph(nsamples, x_values.data(), waveform.data());
+      TGraph *fitted =
+          new TGraph(nsamples, x_values.data(), best_template.data());
+      TGraph *residual_graph =
+          new TGraph(nsamples, x_values.data(), residuals.data());
+
+      TCanvas *canvas = new TCanvas("", "", 1200, 1200);
+      canvas->Divide(1, 3);
 
       canvas->cd(1);
-      PlottingUtils::ConfigureAndDrawGraph(
-          original, kBlue + 1, "Original Double Waveform;Sample;ADC");
+      PlottingUtils::ConfigureAndDrawGraph(original, kBlue + 1,
+                                           "Original Waveform;Time [ns];ADC");
+      fitted->SetLineColor(kRed);
+      fitted->SetLineWidth(2);
+      fitted->Draw("L SAME");
+
+      TLegend *leg1 = new TLegend(0.6, 0.7, 0.88, 0.88);
+      leg1->SetBorderSize(1);
+      leg1->SetFillColor(kWhite);
+      leg1->SetTextSize(0.04);
+      leg1->SetTextFont(132);
+      leg1->AddEntry(original, "Original", "lp");
+      leg1->AddEntry(fitted, "Best Fit", "l");
+      leg1->AddEntry((TObject *)0, Form("E_{1} = %.1f keV", best_energy_148),
+                     "");
+      leg1->AddEntry((TObject *)0, Form("E_{2} = %.1f keV", best_energy_32),
+                     "");
+      leg1->AddEntry((TObject *)0, Form("#Deltat = %.1f ns", best_time_diff),
+                     "");
+      leg1->AddEntry((TObject *)0, Form("#chi^{2} = %.0f", best_chi2), "");
+      leg1->Draw();
 
       canvas->cd(2);
-      PlottingUtils::ConfigureAndDrawGraph(subtracted, kRed + 1,
-                                           "Subtracted Waveform;Sample;ADC");
+      PlottingUtils::ConfigureAndDrawGraph(fitted, kRed + 1,
+                                           "Best Fit Template;Time [ns];ADC");
 
-      PlottingUtils::SaveFigure(canvas, Form("double_waveform_%d.png", i),
+      canvas->cd(3);
+      PlottingUtils::ConfigureAndDrawGraph(residual_graph, kGreen + 2,
+                                           "Residuals;Time [ns];ADC");
+
+      TLine *zero_line = new TLine(x_values[0], 0, x_values[nsamples - 1], 0);
+      zero_line->SetLineStyle(2);
+      zero_line->SetLineColor(kBlack);
+      zero_line->Draw();
+
+      PlottingUtils::SaveFigure(canvas, Form("double_waveform_fit_%d.png", i),
                                 kFALSE);
 
       delete canvas;
       delete original;
-      delete subtracted;
+      delete fitted;
+      delete residual_graph;
     }
   }
 
+  std::cout << "Fitting complete!" << std::endl;
+
   input->Close();
   template_file->Close();
+  calib_file->Close();
+
   output->cd();
   output_tree->Write();
   output->Close();
@@ -463,7 +647,9 @@ void ConvertAndPlotDoublePeaks(Bool_t reprocess = kFALSE) {
   delete calib_file;
 }
 
-void FitAndExtractHalfLife() {
+void FitAndExtractHalfLife(Bool_t reprocess = kFALSE) {
+  if (!reprocess)
+    return;
   TString input_filepath = "root_files/fitted_doubles.root";
   TFile *input = new TFile(input_filepath, "READ");
   TTree *features_tree = static_cast<TTree *>(input->Get("features"));
@@ -493,8 +679,14 @@ void FitAndExtractHalfLife() {
   std::cout << "Peak 1 mean: " << mean_x << " +/- " << sigma_x << std::endl;
   std::cout << "Peak 2 mean: " << mean_y << " +/- " << sigma_y << std::endl;
 
+  Int_t lower = 0;
+  Int_t upper = 300;
+
+  Int_t bins = (upper - lower) / 2;
+
   TH1F *time_diff_hist =
-      new TH1F("", "; Time Difference [ns]; Counts", 62, 0, 250);
+      new TH1F("", "; Time Difference [ns]; Counts / 2 ns", bins, lower, upper);
+  time_diff_hist->Sumw2();
 
   Int_t num_entries = features_tree->GetEntries();
   for (Int_t j = 0; j < num_entries; j++) {
@@ -504,12 +696,15 @@ void FitAndExtractHalfLife() {
     Double_t dist_y = (peak2_light_output - mean_y) / sigma_y;
     Double_t distance = TMath::Sqrt(dist_x * dist_x + dist_y * dist_y);
 
-    if (distance < 1.0) {
+    if (distance < 2.0) {
       time_diff_hist->Fill(time_difference);
     }
   }
 
-  TF1 *exponential = new TF1("exponential", "[0]*TMath::Exp(-x/[1])", 49, 200);
+  Int_t fit_lower = 55;
+  Int_t fit_upper = 220;
+  TF1 *exponential =
+      new TF1("exponential", "[0]*TMath::Exp(-x/[1])", fit_lower, fit_upper);
   exponential->SetParameters(time_diff_hist->GetMaximum(), 100);
   exponential->SetParNames("Amplitude", "Lifetime");
 
@@ -533,7 +728,24 @@ void FitAndExtractHalfLife() {
 
   TCanvas *canvas_time = new TCanvas("", "", 1200, 800);
   PlottingUtils::ConfigureCanvas(canvas_time);
-  PlottingUtils::ConfigureAndDrawHistogram(time_diff_hist, kBlue + 1);
+  PlottingUtils::ConfigureHistogram(time_diff_hist, kBlue + 1);
+  time_diff_hist->SetMarkerSize(2);
+  time_diff_hist->Draw("E SAME");
+  TMarker *marker_lower =
+      new TMarker(fit_lower, exponential->Eval(fit_lower), 21);
+  marker_lower->SetMarkerColor(kRed);
+  marker_lower->SetMarkerSize(1);
+  marker_lower->Draw();
+
+  Float_t marker_upper_y =
+      exponential->Eval(fit_upper) > time_diff_hist->GetMinimum()
+          ? exponential->Eval(fit_upper)
+          : time_diff_hist->GetMinimum();
+  TMarker *marker_upper = new TMarker(fit_upper, marker_upper_y, 21);
+  marker_upper->SetMarkerColor(kRed);
+  marker_upper->SetMarkerSize(1);
+  marker_upper->Draw();
+  exponential->SetRange(lower, upper);
   exponential->Draw("SAME");
 
   TLegend *leg = new TLegend(0.6, 0.75, 0.88, 0.88);
@@ -544,6 +756,7 @@ void FitAndExtractHalfLife() {
   leg->AddEntry((TObject *)0,
                 Form("t_{1/2} = %.1f #pm %.1f ns", half_life, half_life_error),
                 "");
+  leg->AddEntry(marker_upper, "Fit region");
   leg->SetMargin(0.1);
   leg->Draw();
 
@@ -569,6 +782,9 @@ void FitAndExtractHalfLife() {
 }
 
 void HalfLife() {
+  Bool_t reprocess_initial = kFALSE;
+  Bool_t reprocess_waveform_calculations = kTRUE;
+  Bool_t reprocess_halflife = kTRUE;
   PlottingUtils::SetROOTPreferences();
 
   TString input_name_Am241 = "calibration_Am241";
@@ -588,18 +804,18 @@ void HalfLife() {
                                       input_name_irradiation_three,
                                       input_name_irradiation_four};
 
-  CalculatePSPvsLO(input_names, kTRUE);
+  CalculatePSPvsLO(input_names, reprocess_initial);
   PlotPSPvsLO(input_names);
 
   std::vector<TString> irradiation_names = {
       input_name_irradiation_one, input_name_irradiation_two,
       input_name_irradiation_three, input_name_irradiation_four};
-  FindCandidateWaveforms(irradiation_names);
+
+  FindCandidateWaveforms(irradiation_names, reprocess_waveform_calculations);
   PlotPSPvsLO({"candidates"});
-  AnalyzeDoubleWaveforms(kTRUE);
+  CreateTemplateWaveforms(reprocess_waveform_calculations);
+  FitDoubleWaveforms(reprocess_halflife);
   PlotPSPvsLO({"double_waveforms"});
-  CreateTemplateWaveform(kTRUE);
-  FitDoubleWaveforms(kTRUE);
-  ConvertAndPlotDoublePeaks(kTRUE);
-  FitAndExtractHalfLife();
+  ConvertAndPlotDoublePeaks(reprocess_halflife);
+  FitAndExtractHalfLife(reprocess_halflife);
 }

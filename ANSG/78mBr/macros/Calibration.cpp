@@ -192,7 +192,7 @@ void PulseHeightToLightOutput(
 void Calibration() {
   PlottingUtils::SetROOTPreferences();
 
-  std::vector<Float_t> calibration_values_keV = {0,     37.4,  59.5409,
+  std::vector<Float_t> calibration_values_keV = {0,     33.4,  59.5409,
                                                  121.8, 244.7, 344.3};
   std::vector<Float_t> mu_guesses = {0, 525, 780, 1650, 3250, 4577};
 
