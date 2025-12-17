@@ -1,3 +1,4 @@
+#include "InitUtils.hpp"
 #include "PlottingUtils.hpp"
 #include "WaveformProcessingUtils.hpp"
 #include <TROOT.h>
@@ -8,7 +9,6 @@
 void InitialWaveformProcessing(const TString filepath,
                                const TString output_name, const Int_t color) {
 
-  PlottingUtils::SetROOTPreferences();
   WaveformProcessingUtils *processor = new WaveformProcessingUtils();
   processor->SetPolarity(-1);
   processor->SetTriggerThreshold(0.15);
@@ -79,6 +79,8 @@ void ProcessFiles(
 }
 
 void InitialProcessing() {
+  InitUtils::SetROOTPreferences();
+
   TString filepath_Am241 =
       "/home/e-work/LABDATA/ANSG/78mBr/half_life_2/DAQ/"
       "59_5keV_calibration_300s/RAW/"
