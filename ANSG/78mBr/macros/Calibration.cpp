@@ -1,4 +1,5 @@
-#include "FitUtils.hpp"
+#include "FittingUtils.hpp"
+#include "InitUtils.hpp"
 #include "PlottingUtils.hpp"
 #include <TF1.h>
 #include <TFitResult.h>
@@ -14,7 +15,7 @@ FitResult FitSinglePeak(const TString input_name, const TString peak_name,
   TCanvas *canvas = new TCanvas("", "", 1200, 800);
   PlottingUtils::ConfigureCanvas(canvas, kFALSE);
 
-  FitUtils *fitter = new FitUtils();
+  FittingUtils *fitter = new FittingUtils();
   fitter->LoadProcessed(input_name, branch_name);
   fitter->SetNumHistBins(1500);
   fitter->SetMaxHistValue(16384);
@@ -190,7 +191,7 @@ void PulseHeightToLightOutput(
 }
 
 void Calibration() {
-  PlottingUtils::SetROOTPreferences();
+  InitUtils::SetROOTPreferences();
 
   std::vector<Float_t> calibration_values_keV = {0,     33.4,  59.5409,
                                                  121.8, 244.7, 344.3};
