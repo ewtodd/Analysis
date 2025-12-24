@@ -1,3 +1,4 @@
+#include "InitUtils.hpp"
 #include <TCanvas.h>
 #include <TF1.h>
 #include <TGraph.h>
@@ -62,19 +63,7 @@ void ReadLISEFile(const TString &filename, Double_t exp_min, Double_t exp_max,
 }
 
 void LiteratureStoppingPower() {
-  gROOT->SetBatch(kTRUE);
-  gStyle->SetOptStat(0);
-  gStyle->SetOptFit(0);
-  gStyle->SetPadLeftMargin(0.12);
-  gStyle->SetPadRightMargin(0.4);
-  gStyle->SetPadTopMargin(0.08);
-  gStyle->SetPadBottomMargin(0.12);
-  gStyle->SetTitleSize(0.05, "XY");
-  gStyle->SetLabelSize(0.04, "XY");
-  gStyle->SetLegendFont(42);
-  gStyle->SetTitleOffset(1.3, "X");
-  gStyle->SetTitleOffset(1.2, "Y");
-  gStyle->SetTextFont(42);
+  InitUtils::SetROOTPreferences();
 
   Double_t exp_E_A[] = {2.624, 2.550, 2.450, 2.339, 2.207, 2.134, 2.038, 1.955,
                         1.843, 1.717, 1.624, 1.446, 1.414, 1.352, 1.230, 1.091,
