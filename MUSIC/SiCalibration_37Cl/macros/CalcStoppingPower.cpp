@@ -99,7 +99,8 @@ Double_t GetStoppingPowerFromLISE(const TString &filename, Int_t modelIndex,
 
 void CalcStoppingPower() {
 
-  TFile *inFile = new TFile("SiCalibration_Results.root", "UPDATE");
+  TString input_filepath = "root_files/SiCalibration_Results.root";
+  TFile *inFile = new TFile(input_filepath, "UPDATE");
 
   if (!inFile || inFile->IsZombie()) {
     std::cerr << "ERROR: Could not read ROOT file." << std::endl;

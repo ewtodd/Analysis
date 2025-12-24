@@ -38,11 +38,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1765762245,
-        "narHash": "sha256-3iXM/zTqEskWtmZs3gqNiVtRTsEjYAedIaLL0mSBsrk=",
+        "lastModified": 1765838191,
+        "narHash": "sha256-m5KWt1nOm76ILk/JSCxBM4MfK3rYY7Wq9/TZIIeGnT8=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "c8cfcd6ccd422e41cc631a0b73ed4d5a925c393d",
+        "rev": "c6f52ebd45e5925c188d1a20119978aa4ffd5ef6",
         "type": "github"
       },
       "original": {
@@ -111,16 +111,16 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1765888874,
-        "narHash": "sha256-h6o7j9k71emOHQmA3XjNWufT/IKnqAf560qBNpnscTo=",
+        "lastModified": 1766587547,
+        "narHash": "sha256-5uvlkkPfUYxV5R3/JeEWWFUG4cnvrUeTHE+z2ntCO7w=",
         "owner": "ewtodd",
-        "repo": "Nuclear-Measurement-Utilities",
-        "rev": "29bed106f7f04a0ea47d78de4927c7e2c2bf14e5",
+        "repo": "Analysis-Utilities",
+        "rev": "89fafbf482b2fbb626a41d0a5b7ddbd231a7b10a",
         "type": "github"
       },
       "original": {
         "owner": "ewtodd",
-        "repo": "Nuclear-Measurement-Utilities",
+        "repo": "Analysis-Utilities",
         "type": "github"
       }
     }

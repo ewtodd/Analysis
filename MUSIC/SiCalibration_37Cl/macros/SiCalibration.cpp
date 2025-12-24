@@ -1,3 +1,4 @@
+#include "InitUtils.hpp"
 #include "PlottingUtils.hpp"
 #include <TCanvas.h>
 #include <TF1.h>
@@ -14,7 +15,7 @@
 
 void SiCalibration() {
 
-  PlottingUtils::SetROOTPreferences();
+  InitUtils::SetROOTPreferences();
 
   std::vector<std::string> filepaths = {
       "/home/e-work/LABDATA/MUSIC/37Cl/SiCalibration/run_21/ROOT/"
@@ -216,7 +217,6 @@ void SiCalibration() {
         TMath::Sqrt(TMath::Power(p0_err, 2) + TMath::Power(adc * p1_err, 2) +
                     TMath::Power(p1 * mu_errors[i], 2));
     energy_values.push_back(energy_MeV);
-    std::cout << "Energy (MeV): " << energy_MeV << std::endl;
     energy_errors.push_back(energy_err_MeV);
   }
 
@@ -415,7 +415,9 @@ void SiCalibration() {
   res_canvas->Update();
   res_canvas->SaveAs("plots/Resolution_vs_Run.png");
 
-  TFile *outFile = new TFile("SiCalibration_Results.root", "RECREATE");
+  TString output_path = "root_files/SiCalibration_Results.root";
+
+  TFile *outFile = new TFile(output_path, "RECREATE");
 
   TTree *results =
       new TTree("CalibrationResults", "Silicon Detector Calibration Results");
@@ -446,11 +448,9 @@ void SiCalibration() {
   for (Int_t run = 25; run <= 36; run++) {
     Int_t idx = run - 21;
     run_number = run;
-    std::cout << "Run number: " << run << std::endl;
     gas_pressure_torr = gas_pressure[run];
     delta_E_MeV = dE_values[idx];
     delta_E_err_MeV = dE_errors[idx];
-    std::cout << "Delta E (MeV): " << delta_E_MeV << std::endl;
     Double_t fwhm = 2.355 * sigma_values[idx];
     Double_t fwhm_err = 2.355 * sigma_errors[idx];
     fwhm_percent = (fwhm / mu_values[idx]) * 100.0;

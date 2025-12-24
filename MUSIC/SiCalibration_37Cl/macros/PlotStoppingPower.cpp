@@ -1,4 +1,4 @@
-
+#include "InitUtils.hpp"
 #include <TCanvas.h>
 #include <TF1.h>
 #include <TFile.h>
@@ -16,21 +16,9 @@
 #include <vector>
 
 void PlotStoppingPower() {
-  gROOT->SetBatch(kTRUE);
-  gStyle->SetOptStat(0);
-  gStyle->SetOptFit(0);
-  gStyle->SetPadLeftMargin(0.12);
-  gStyle->SetPadRightMargin(0.05);
-  gStyle->SetPadTopMargin(0.08);
-  gStyle->SetPadBottomMargin(0.2);
-  gStyle->SetTitleSize(0.05, "XY");
-  gStyle->SetLabelSize(0.04, "XY");
-  gStyle->SetLegendFont(42);
-  gStyle->SetTitleOffset(1.3, "X");
-  gStyle->SetTitleOffset(1.0, "Y");
-  gStyle->SetTextFont(42);
-
-  TFile *inFile = new TFile("SiCalibration_Results.root", "READ");
+  InitUtils::SetROOTPreferences();
+  TString input_filepath = "root_files/SiCalibration_Results.root";
+  TFile *inFile = new TFile(input_filepath, "READ");
   TTree *calibration_results =
       static_cast<TTree *>(inFile->Get("CalibrationResults"));
 
@@ -222,9 +210,6 @@ void PlotStoppingPower() {
 
   canvas->Update();
 
-  if (gSystem->AccessPathName("plots")) {
-    gSystem->mkdir("plots", kTRUE);
-  }
   canvas->SaveAs("plots/DeltaE_vs_Pressure_Comparison.png");
 
   std::cout << "Plot saved!" << std::endl;
