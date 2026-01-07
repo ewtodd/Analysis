@@ -91,7 +91,7 @@ void EventExtractor() {
   std::vector<TString> filepaths, output_names;
 
   TString path_prefix =
-      "/home/e-work/LABDATA/MUSIC/37Cl/ProductionMode/run_37/ROOT/";
+      "/home/e-work/LabData/MUSIC/37Cl/ProductionMode/run_37/ROOT/";
   for (Int_t i = 0; i < n_run_files; i++) {
     filepaths.push_back(Form("%sDataR_run_37_%d.root", path_prefix.Data(), i));
     std::cout << "Processing file: " << std::endl;
