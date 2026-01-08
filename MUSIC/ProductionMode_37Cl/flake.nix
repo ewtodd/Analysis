@@ -4,22 +4,37 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     flake-utils.url = "github:numtide/flake-utils";
-    utils.url = "github:ewtodd/Analysis-Utilities";
+    utils.url = "/home/e-work/Software/Analysis-Utilities";
   };
 
-  outputs = { self, nixpkgs, flake-utils, utils }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+      utils,
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
         analysis-utils = utils.packages.${system}.default;
-      in {
+      in
+      {
         devShells.default = pkgs.mkShell {
-          nativeBuildInputs = with pkgs; [ pkg-config gnumake clang-tools ];
-          buildInputs = with pkgs; [ analysis-utils root ];
+          nativeBuildInputs = with pkgs; [
+            pkg-config
+            gnumake
+            clang-tools
+          ];
+          buildInputs = with pkgs; [
+            analysis-utils
+            root
+          ];
 
           shellHook = ''
             echo "ROOT version: $(root-config --version)"
-            echo "Nuclear-Measurement-Utilities: ${analysis-utils}"
+            echo "Analysis-Utilities: ${analysis-utils.version}"
 
             STDLIB_PATH="${pkgs.stdenv.cc.cc}/include/c++/${pkgs.stdenv.cc.cc.version}"
             STDLIB_MACHINE_PATH="$STDLIB_PATH/x86_64-unknown-linux-gnu"
@@ -35,5 +50,6 @@
             export LD_LIBRARY_PATH="$PWD/lib:${analysis-utils}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           '';
         };
-      });
+      }
+    );
 }
