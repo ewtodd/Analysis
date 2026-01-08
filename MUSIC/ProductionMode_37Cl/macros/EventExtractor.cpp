@@ -87,16 +87,15 @@ void UnfoldData(std::vector<TString> input_filepaths,
 void EventExtractor() {
   Bool_t reprocess_initial = kTRUE;
 
-  const Int_t n_run_files = 4;
+  const Int_t n_run_files = 10;
   std::vector<TString> filepaths, output_names;
 
-  TString path_prefix =
-      "/home/e-work/LabData/MUSIC/37Cl/ProductionMode/run_37/ROOT/";
+  TString path_prefix = "./root_files/";
   for (Int_t i = 0; i < n_run_files; i++) {
     filepaths.push_back(Form("%sDataR_run_37_%d.root", path_prefix.Data(), i));
     std::cout << "Processing file: " << std::endl;
     std::cout << filepaths[i] << std::endl;
-    output_names.push_back(Form("Run37_%d", i));
+    output_names.push_back(Form("Processed_Run37_%d", i));
   }
 
   InitUtils::SetROOTPreferences();

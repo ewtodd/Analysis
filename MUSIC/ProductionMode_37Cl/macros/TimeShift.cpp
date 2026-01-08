@@ -335,11 +335,11 @@ void TimeShift() {
   Bool_t reprocess_calculation = kTRUE;
   InitUtils::SetROOTPreferences();
 
-  const Int_t n_run_files = 4;
+  const Int_t n_run_files = 10;
   std::vector<TString> input_names;
 
   for (Int_t i = 0; i < n_run_files; i++) {
-    input_names.push_back(Form("Run37_%d", i));
+    input_names.push_back(Form("Processed_Run37_%d", i));
   }
 
   std::vector<TimeShiftResult> results =
