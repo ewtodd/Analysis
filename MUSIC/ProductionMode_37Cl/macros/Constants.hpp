@@ -12,7 +12,7 @@ const Int_t N_FILES = 1;
 const Int_t N_BOARDS = 4;
 const Int_t N_CHANNELS = 16;
 
-const ULong64_t COINCIDENCE_WINDOW = 25e6;
+const ULong64_t COINCIDENCE_WINDOW = 100e6;
 
 inline const std::map<std::pair<UShort_t, UShort_t>, TString> channelMap = {
     {{0, 0}, "Cathode"}, {{0, 1}, ""},         {{0, 2}, "L2"},

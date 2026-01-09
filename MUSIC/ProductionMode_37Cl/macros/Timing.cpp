@@ -375,7 +375,7 @@ void TimesortData(std::vector<TString> input_filepaths,
     }
 
     std::cout << "Bulk copying entries..." << std::endl;
-    output_tree->CopyEntries(input_tree, -1, "fast", index_array);
+    output_tree->CopyEntries(input_tree, -1, "auto", index_array);
 
     delete[] index_array;
 
