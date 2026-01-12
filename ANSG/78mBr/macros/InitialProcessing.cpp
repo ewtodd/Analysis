@@ -82,36 +82,36 @@ void InitialProcessing() {
   InitUtils::SetROOTPreferences();
 
   TString filepath_Am241 =
-      "/home/e-work/LABDATA/ANSG/78mBr/half_life_2/DAQ/"
+      "/home/e-work/LabData/ANSG/78mBr/half_life_2/DAQ/"
       "59_5keV_calibration_300s/RAW/"
       "DataR_CH0@DT5730S_31017_59_5keV_calibration_300s.root";
   TString output_name_Am241 = "calibration_Am241";
   TString filepath_Eu152 =
-      "/home/e-work/LABDATA/ANSG/78mBr/half_life_2/DAQ/"
+      "/home/e-work/LabData/ANSG/78mBr/half_life_2/DAQ/"
       "Europium_calibration_300s/RAW/"
       "DataR_CH0@DT5730S_31017_Europium_calibration_300s.root";
   TString output_name_Eu152 = "calibration_Eu152";
-  TString filepath_bkg = "/home/e-work/LABDATA/ANSG/78mBr/day2/"
+  TString filepath_bkg = "/home/e-work/LabData/ANSG/78mBr/day2/"
                          "bkg_day2/RAW/DataR_CH0@DT5730B_969_bkg_day2.root";
   TString output_name_bkg = "background";
 
   TString filepath_irradiation_one =
-      "/home/e-work/LABDATA/ANSG/78mBr/half_life_2/DAQ/irradiation_1/RAW/"
+      "/home/e-work/LabData/ANSG/78mBr/half_life_2/DAQ/irradiation_1/RAW/"
       "DataR_CH0@DT5730S_31017_irradiation_1.root";
   TString output_name_irradiation_one = "irradiation_one";
 
   TString filepath_irradiation_two =
-      "/home/e-work/LABDATA/ANSG/78mBr/half_life_2/DAQ/irradiation_2/RAW/"
+      "/home/e-work/LabData/ANSG/78mBr/half_life_2/DAQ/irradiation_2/RAW/"
       "DataR_CH0@DT5730S_31017_irradiation_2.root";
   TString output_name_irradiation_two = "irradiation_two";
 
   TString filepath_irradiation_three =
-      "/home/e-work/LABDATA/ANSG/78mBr/half_life_2/DAQ/irradiation_3/RAW/"
+      "/home/e-work/LabData/ANSG/78mBr/half_life_2/DAQ/irradiation_3/RAW/"
       "DataR_CH0@DT5730S_31017_irradiation_3.root";
   TString output_name_irradiation_three = "irradiation_three";
 
   TString filepath_irradiation_four =
-      "/home/e-work/LABDATA/ANSG/78mBr/day2/irradiation_day2/RAW/"
+      "/home/e-work/LabData/ANSG/78mBr/day2/irradiation_day2/RAW/"
       "DataR_CH0@DT5730B_969_irradiation_day2.root";
   TString output_name_irradiation_four = "irradiation_four";
 
