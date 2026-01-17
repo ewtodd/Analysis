@@ -7,9 +7,7 @@
 #include <TROOT.h>
 #include <TTree.h>
 
-void AddHistogram(TString filename, Bool_t reprocess = kTRUE) {
-  if (!reprocess)
-    return;
+void AddHistogram(TString filename) {
   TString filepath = "root_files/" + filename + ".root";
   TFile *file = new TFile(filepath, "UPDATE");
 
@@ -21,7 +19,9 @@ void AddHistogram(TString filename, Bool_t reprocess = kTRUE) {
   }
 
   if ((isFiltered || Constants::FILTERED) && Constants::NORMALIZE_BY_TIME) {
-    std::cerr << "Cannot normalize by time on filtered data." << std::endl;
+    std::cout << "WARNING: normalization by time on filtered data may not be "
+                 "reliable."
+              << std::endl;
   }
 
   TTree *tree = nullptr;
@@ -30,11 +30,11 @@ void AddHistogram(TString filename, Bool_t reprocess = kTRUE) {
 
   if (isFiltered) {
     treeName = "bef_tree";
-    energyBranchName = "energy";
+    energyBranchName = "energykeV";
     tree = static_cast<TTree *>(file->Get(treeName));
   } else {
     treeName = "bef_tree_event_summary";
-    energyBranchName = "totalEnergy";
+    energyBranchName = "totalEnergykeV";
     tree = static_cast<TTree *>(file->Get(treeName));
   }
 
@@ -55,45 +55,36 @@ void AddHistogram(TString filename, Bool_t reprocess = kTRUE) {
 
   Double_t n42_time = param ? param->GetVal() : 1.0;
 
-  UInt_t energy_uint = 0;
-  tree->SetBranchAddress(energyBranchName, &energy_uint);
+  Float_t energy;
+  tree->SetBranchAddress(energyBranchName, &energy);
 
   Int_t n_entries = tree->GetEntries();
 
-  double binWidth_keV = Constants::BIN_WIDTH_EV / 1000.0;
-
-  int hist_xmin = 0, hist_xmax = 1500;
-  int zoom_xmin = 50, zoom_xmax = 90;
-  int hist_nbins = (hist_xmax - hist_xmin) / binWidth_keV;
-  int zoomed_nbins = (zoom_xmax - zoom_xmin) / binWidth_keV;
-
   TString perSecond = Constants::NORMALIZE_BY_TIME && param ? " / s" : "";
 
-  TH1F *hist =
-      new TH1F(PlottingUtils::GetRandomName(),
-               Form("%s; Energy [keV]; Counts / %d eV%s", filename.Data(),
-                    Constants::BIN_WIDTH_EV, perSecond.Data()),
-               hist_nbins, hist_xmin, hist_xmax);
+  TH1F *hist = new TH1F(
+      PlottingUtils::GetRandomName(),
+      Form("%s; Energy [keV]; Counts / %d eV%s", filename.Data(),
+           Constants::BIN_WIDTH_EV, perSecond.Data()),
+      Constants::HIST_NBINS, Constants::HIST_XMIN, Constants::HIST_XMAX);
 
-  TH1F *zoomedHist =
-      new TH1F(PlottingUtils::GetRandomName(),
-               Form("%s; Energy [keV]; Counts / %d eV%s", filename.Data(),
-                    Constants::BIN_WIDTH_EV, perSecond.Data()),
-               zoomed_nbins, zoom_xmin, zoom_xmax);
-
-  Float_t energy = 0;
+  TH1F *zoomedHist = new TH1F(
+      PlottingUtils::GetRandomName(),
+      Form("%s; Energy [keV]; Counts / %d eV%s", filename.Data(),
+           Constants::BIN_WIDTH_EV, perSecond.Data()),
+      Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN, Constants::ZOOMED_XMAX);
 
   for (Int_t i = 0; i < n_entries; i++) {
     tree->GetEntry(i);
-    energy = energy_uint / 1000.0;
     hist->Fill(energy);
-    if (zoom_xmin < energy && energy < zoom_xmax)
+    if (Constants::ZOOMED_XMIN < energy && energy < Constants::ZOOMED_XMAX)
       zoomedHist->Fill(energy);
   }
 
   if (Constants::NORMALIZE_BY_TIME && param) {
-    hist->Scale(1.0 / n42_time);
-    zoomedHist->Scale(1.0 / n42_time);
+    Float_t normalization = 1.0 / n42_time;
+    hist->Scale(normalization);
+    zoomedHist->Scale(normalization);
   }
 
   std::cout << "Created histograms for " << filename
@@ -102,9 +93,13 @@ void AddHistogram(TString filename, Bool_t reprocess = kTRUE) {
 
   PlottingUtils::ConfigureHistogram(hist, kP10Violet);
 
-  TCanvas *canvas = new TCanvas("", "", 1200, 800);
+  TCanvas *canvas = new TCanvas("", "", 1300, 800);
   PlottingUtils::ConfigureCanvas(canvas, kFALSE);
   PlottingUtils::ConfigureAndDrawHistogram(zoomedHist, kP10Violet);
+
+  hist->GetYaxis()->SetTitleOffset(1.2);
+  zoomedHist->GetYaxis()->SetTitleOffset(1.2);
+
   PlottingUtils::SaveFigure(canvas, filename + "_zoomedHist.png", kFALSE);
 
   hist->Write("hist", TObject::kOverwrite);
@@ -116,33 +111,35 @@ void AddHistogram(TString filename, Bool_t reprocess = kTRUE) {
 }
 
 void Histogram() {
-  Bool_t reprocess = kTRUE;
-
   InitUtils::SetROOTPreferences();
 
   TString suffix = Constants::FILTERED ? "_filtered" : "";
 
-  AddHistogram("01122026-Calibration" + suffix, reprocess);
+  AddHistogram("01122026-Calibration" + suffix);
 
-  AddHistogram("01132026-CdShield-GeSamplesIn-25Percent" + suffix, reprocess);
+  AddHistogram("01132026-ActiveBackground-25Percent" + suffix);
 
-  AddHistogram("01132026-CdShield-GeSamplesIn-10Percent" + suffix, reprocess);
+  AddHistogram("01132026-CdShield-GeSamplesIn-25Percent" + suffix);
 
-  AddHistogram("01132026-CdShield-ActiveBackground-10Percent" + suffix,
-               reprocess);
+  AddHistogram("01132026-CdShield-GeSamplesIn-10Percent" + suffix);
 
-  AddHistogram("01132026-CuShield-GeSamplesIn-10Percent" + suffix, reprocess);
+  AddHistogram("01132026-CdShield-ActiveBackground-10Percent" + suffix);
 
-  AddHistogram("01132026-CuShield-ActiveBackground-Am241-10Percent" + suffix,
-               reprocess);
+  AddHistogram("01132026-CuShield-GeSamplesIn-10Percent" + suffix);
 
-  AddHistogram("01132026-PostReactor-Calibration" + suffix, reprocess);
+  AddHistogram("01132026-CuShield-ActiveBackground-Am241-10Percent" + suffix);
 
-  AddHistogram("01142026-CuShield-GeSamplesIn-10Percent" + suffix, reprocess);
+  AddHistogram("01132026-PostReactor-Calibration" + suffix);
 
-  AddHistogram("01142026-CuShield-ActiveBackground-10Percent" + suffix,
-               reprocess);
+  AddHistogram("01142026-CuShield-GeSamplesIn-10Percent" + suffix);
 
-  AddHistogram("01142026-CuShield-GeSamplesIn-MovedBack-90Percent" + suffix,
-               reprocess);
+  AddHistogram("01142026-CuShield-ActiveBackground-10Percent" + suffix);
+
+  AddHistogram("01142026-CuShield-GeSamplesIn-MovedBack-90Percent" + suffix);
+
+  AddHistogram("01152026-NewSetup-GeSamplesIn-5Percent" + suffix);
+  AddHistogram("01152026-NewSetup-ActiveBackground-5Percent" + suffix);
+  AddHistogram("01152026-NewSetup-PostReactor-Am241" + suffix);
+  AddHistogram("01152026-NewSetup-PostReactor-Ba133" + suffix);
+  AddHistogram("01162026-NoShield-GeOnCZT-0_5Percent" + suffix);
 }
