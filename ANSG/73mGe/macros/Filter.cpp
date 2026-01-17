@@ -47,12 +47,12 @@ void MapFiles(std::vector<TString> filenames) {
         new TH2F(PlottingUtils::GetRandomName(),
                  "; Interaction Energy [keV]; Interaction X Position [um]",
                  Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
-                 Constants::ZOOMED_XMAX, 15, -150, 150);
+                 Constants::ZOOMED_XMAX, 300, -150, 150);
     TH2F *YvsE_zoomed =
         new TH2F(PlottingUtils::GetRandomName(),
                  "; Interaction Energy [keV]; Interaction Y Position [um]",
                  Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
-                 Constants::ZOOMED_XMAX, 15, -150, 150);
+                 Constants::ZOOMED_XMAX, 300, -150, 150);
     TH2F *ZvsE_zoomed =
         new TH2F(PlottingUtils::GetRandomName(),
                  "; Interaction Energy [keV]; Interaction Z Position [um]",
@@ -80,17 +80,14 @@ void MapFiles(std::vector<TString> filenames) {
     TCanvas *canvasXvsE = new TCanvas("", "", 1200, 800);
     PlottingUtils::ConfigureCanvas(canvasXvsE);
     PlottingUtils::ConfigureAndDraw2DHistogram(XvsE, canvasXvsE);
-    canvasXvsE->SetLogz(kFALSE);
 
     TCanvas *canvasYvsE = new TCanvas("", "", 1200, 800);
     PlottingUtils::ConfigureCanvas(canvasYvsE);
     PlottingUtils::ConfigureAndDraw2DHistogram(YvsE, canvasYvsE);
-    canvasYvsE->SetLogz(kFALSE);
 
     TCanvas *canvasZvsE = new TCanvas("", "", 1200, 800);
     PlottingUtils::ConfigureCanvas(canvasZvsE);
     PlottingUtils::ConfigureAndDraw2DHistogram(ZvsE, canvasZvsE);
-    canvasZvsE->SetLogz(kFALSE);
 
     TCanvas *canvasXvsE_zoomed = new TCanvas("", "", 1200, 800);
     PlottingUtils::ConfigureCanvas(canvasXvsE_zoomed);
@@ -211,19 +208,16 @@ void Map() {
   TString NoShieldBackground_01152026 =
       "01152026-NewSetup-ActiveBackground-5Percent";
 
-  TString NoShield_GeOnCZT_01162026 = "01162026-NoShield-GeOnCZT-0_5Percent";
-
   std::vector<TString> filenames;
   // filenames.push_back(CdShieldSignal);
   // filenames.push_back(CdShieldBackground);
-  // filenames.push_back(CuShieldSignal_01132026);
+  filenames.push_back(CuShieldSignal_01132026);
   // filenames.push_back(CuShieldBackground_01132026);
   // filenames.push_back(CuShieldSignal_01142026);
   // filenames.push_back(CuShieldBackground_01142026);
   // filenames.push_back(NoShieldSignal_01152026);
   // filenames.push_back(NoShieldBackground_01152026);
-  filenames.push_back(NoShield_GeOnCZT_01162026);
 
   MapFiles(filenames);
-  // TripleMapFiles(filenames);
+  TripleMapFiles(filenames);
 }
