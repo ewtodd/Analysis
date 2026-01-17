@@ -199,30 +199,61 @@ void TripleMapFiles(std::vector<TString> filenames) {
 
 void Map() {
   InitUtils::SetROOTPreferences();
-  TString CdShieldSignal = "01132026-CdShield-GeSamplesIn-10Percent";
+
+  // January 12, 2026
+  TString PassiveBackground_01122026 = "01122026-PassiveBackground";
+  TString Calibration_01122026 = "01122026-Calibration";
+
+  // January 13, 2026
+  TString ActiveBackground_5Percent_01132026 =
+      "01132026-ActiveBackground-5Percent";
+  TString ActiveBackground_25Percent_01132026 =
+      "01132026-ActiveBackground-25Percent";
+  TString ActiveBackground_90Percent_01132026 =
+      "01132026-ActiveBackground-90Percent";
+
+  TString CdShieldSignal_10Percent = "01132026-CdShield-GeSamplesIn-10Percent";
+  TString CdShieldSignal_25Percent = "01132026-CdShield-GeSamplesIn-25Percent";
   TString CdShieldBackground = "01132026-CdShield-ActiveBackground-10Percent";
+
   TString CuShieldSignal_01132026 = "01132026-CuShield-GeSamplesIn-10Percent";
   TString CuShieldBackground_01132026 =
       "01132026-CuShield-ActiveBackground-Am241-10Percent";
+
+  TString PostReactor_Calibration_01132026 = "01132026-PostReactor-Calibration";
+
+  // January 14, 2026
   TString CuShieldSignal_01142026 = "01142026-CuShield-GeSamplesIn-10Percent";
   TString CuShieldBackground_01142026 =
       "01142026-CuShield-ActiveBackground-10Percent";
+  TString CuShieldSignal_MovedBack_01142026 =
+      "01142026-CuShield-GeSamplesIn-MovedBack-90Percent";
+
+  // January 15, 2026
   TString NoShieldSignal_01152026 = "01152026-NewSetup-GeSamplesIn-5Percent";
   TString NoShieldBackground_01152026 =
       "01152026-NewSetup-ActiveBackground-5Percent";
+  TString PostReactor_Am241_01152026 = "01152026-NewSetup-PostReactor-Am241";
+  TString PostReactor_Ba133_01152026 = "01152026-NewSetup-PostReactor-Ba133";
+  TString ShutterClosed_01152026 = "01152026-NewSetup-ShutterClosed-5Percent";
 
+  // January 16, 2026
   TString NoShield_GeOnCZT_01162026 = "01162026-NoShield-GeOnCZT-0_5Percent";
+  TString NoShield_ActiveBackground_01162026 =
+      "01162026-NoShield-ActiveBackground-0_5Percent";
+  TString NoShield_GraphiteCastle_Signal_01162026 =
+      "01162026-NoShield-GeSamplesIn-GraphiteCastle-10Percent";
+  TString NoShield_GraphiteCastle_Background_01162026 =
+      "01162026-NoShield-ActiveBackground-GraphiteCastle-10Percent";
+  TString PostReactor_Am241_Ba133_01162026 =
+      "01162026-NoShield-PostReactor-Am241-Ba133";
 
   std::vector<TString> filenames;
-  // filenames.push_back(CdShieldSignal);
-  // filenames.push_back(CdShieldBackground);
-  // filenames.push_back(CuShieldSignal_01132026);
-  // filenames.push_back(CuShieldBackground_01132026);
-  // filenames.push_back(CuShieldSignal_01142026);
-  // filenames.push_back(CuShieldBackground_01142026);
-  // filenames.push_back(NoShieldSignal_01152026);
-  // filenames.push_back(NoShieldBackground_01152026);
+  // Now you can push any of these as needed
   filenames.push_back(NoShield_GeOnCZT_01162026);
+  filenames.push_back(NoShield_GraphiteCastle_Signal_01162026);
+  // filenames.push_back(PostReactor_Am241_01152026);
+  // etc.
 
   MapFiles(filenames);
   // TripleMapFiles(filenames);
