@@ -3,11 +3,12 @@
 #include "PlottingUtils.hpp"
 #include <TFile.h>
 #include <TH1F.h>
+#include <TH2F.h>
 #include <TParameter.h>
 #include <TROOT.h>
 #include <TTree.h>
 
-void Compare(std::vector<TString> filenames) {
+void Filter(std::vector<TString> filenames) {
   Int_t n_files = filenames.size();
 
   for (Int_t j = 0; j < n_files; j++) {
@@ -19,26 +20,23 @@ void Compare(std::vector<TString> filenames) {
     Float_t energy = 0;
     Float_t x = 0, y = 0, z = 0;
 
+    Int_t nInteractions = 0;
+
     tree_with_pos->SetBranchAddress("energykeV", &energy);
     tree_with_pos->SetBranchAddress("xum", &x);
     tree_with_pos->SetBranchAddress("yum", &y);
     tree_with_pos->SetBranchAddress("zum", &z);
+    if (!Constants::FILTERED)
+      tree_with_pos->SetBranchAddress("nInteractions", &nInteractions);
 
-    TH2F *XvsE_zoomed =
-        new TH2F(PlottingUtils::GetRandomName(),
-                 "; Interaction Energy [keV]; Interaction X Position [um]",
-                 Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
-                 Constants::ZOOMED_XMAX, 20, -215, 215);
-    TH2F *YvsE_zoomed =
-        new TH2F(PlottingUtils::GetRandomName(),
-                 "; Interaction Energy [keV]; Interaction Y Position [um]",
-                 Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
-                 Constants::ZOOMED_XMAX, 20, -215, 215);
-    TH2F *ZvsE_zoomed =
-        new TH2F(PlottingUtils::GetRandomName(),
-                 "; Interaction Energy [keV]; Interaction Z Position [um]",
-                 Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
-                 Constants::ZOOMED_XMAX, 200, 0, 100);
+    TH2F *XY = new TH2F(PlottingUtils::GetRandomName(),
+                        "; X Position [um]; Y Position [um]", 22, -215, 215, 22,
+                        -215, 215);
+
+    TH2F *EZ = new TH2F(PlottingUtils::GetRandomName(),
+                        "; Energy [keV]; Interaction Z Position [um]",
+                        Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
+                        Constants::ZOOMED_XMAX, 200, 0, 100);
 
     Int_t n_entries = tree_with_pos->GetEntries();
 
@@ -49,73 +47,137 @@ void Compare(std::vector<TString> filenames) {
       std::cerr << "WARNING: Could not find N42_RealTime_Total parameter in "
                 << filepath << std::endl;
     }
-    TString perSecond = Constants::NORMALIZE_BY_TIME && param ? " / s" : "";
 
-    TH1F *zoomedHistSeventyToOneHundred =
+    TH1F *includedSpectrum =
         new TH1F(PlottingUtils::GetRandomName(),
-                 Form("%s; Energy [keV]; Counts / %d eV%s", filename.Data(),
-                      Constants::BIN_WIDTH_EV, perSecond.Data()),
+                 Form("%s; Energy [keV]; Counts / %d eV", filename.Data(),
+                      Constants::BIN_WIDTH_EV),
                  Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
                  Constants::ZOOMED_XMAX);
 
+    TH1F *excludedSpectrum =
+        new TH1F(PlottingUtils::GetRandomName(),
+                 Form("%s; Energy [keV]; Counts / %d eV", filename.Data(),
+                      Constants::BIN_WIDTH_EV),
+                 Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
+                 Constants::ZOOMED_XMAX);
+
+    Bool_t in_excluded_region;
+
     for (Int_t i = 0; i < n_entries; i++) {
+      in_excluded_region = kFALSE;
+
       tree_with_pos->GetEntry(i);
 
+      if (!Constants::FILTERED) {
+        if (nInteractions != 1)
+          in_excluded_region = kTRUE;
+      }
+
+      if (z < Constants::FILTER_DEPTH_UM)
+        in_excluded_region = kTRUE;
+
       if (energy > Constants::ZOOMED_XMIN && energy < Constants::ZOOMED_XMAX) {
-        ZvsE_zoomed->Fill(energy, z);
-        zoomedHistSeventyToOneHundred->Fill(energy);
-        XvsE_zoomed->Fill(energy, x);
-        YvsE_zoomed->Fill(energy, y);
+        XY->Fill(x, y);
+        EZ->Fill(energy, z);
+
+        for (size_t r = 0; r < Constants::FILTER_REGIONS_EXCLUDE_XY_UM.size();
+             r++) {
+          if (x >= Constants::FILTER_REGIONS_EXCLUDE_XY_UM[r].xmin &&
+              x <= Constants::FILTER_REGIONS_EXCLUDE_XY_UM[r].xmax &&
+              y >= Constants::FILTER_REGIONS_EXCLUDE_XY_UM[r].ymin &&
+              y <= Constants::FILTER_REGIONS_EXCLUDE_XY_UM[r].ymax) {
+            in_excluded_region = kTRUE;
+            break;
+          }
+        }
+        if (in_excluded_region) {
+          excludedSpectrum->Fill(energy);
+        } else
+          includedSpectrum->Fill(energy);
       }
     }
 
     std::cout << "Created histograms for " << filename << std::endl;
 
-    TCanvas *canvasXvsE_zoomed = new TCanvas("", "", 1200, 800);
-    PlottingUtils::ConfigureCanvas(canvasXvsE_zoomed);
-    PlottingUtils::ConfigureAndDraw2DHistogram(XvsE_zoomed, canvasXvsE_zoomed);
-    TLine *lineX = new TLine(68.75, -150, 68.75, 150);
-    lineX->SetLineColor(kRed);
-    lineX->SetLineWidth(2);
-    lineX->SetLineStyle(2);
-    lineX->Draw();
-    PlottingUtils::SaveFigure(canvasXvsE_zoomed, filename + "_XvsE_zoomed.png",
+    TCanvas *canvasXY = new TCanvas("", "", 1200, 800);
+    canvasXY->SetRightMargin(0.2);
+    XY->Draw("COLZ");
+    PlottingUtils::Configure2DHistogram(XY, canvasXY);
+    canvasXY->SetLogz(kFALSE);
+    canvasXY->Update();
+
+    for (size_t r = 0; r < Constants::FILTER_REGIONS_EXCLUDE_XY_UM.size();
+         r++) {
+      TBox *box = new TBox(Constants::FILTER_REGIONS_EXCLUDE_XY_UM[r].xmin,
+                           Constants::FILTER_REGIONS_EXCLUDE_XY_UM[r].ymin,
+                           Constants::FILTER_REGIONS_EXCLUDE_XY_UM[r].xmax,
+                           Constants::FILTER_REGIONS_EXCLUDE_XY_UM[r].ymax);
+      box->SetLineColor(kBlack);
+      box->SetLineWidth(3);
+      box->SetLineStyle(2);
+      box->SetFillColorAlpha(kBlack, 0.5);
+      box->Draw();
+    }
+
+    PlottingUtils::SaveFigure(canvasXY, filename + "_YvsX.png", kFALSE);
+
+    TCanvas *canvasEZ = new TCanvas("", "", 1200, 800);
+    canvasEZ->SetRightMargin(0.2);
+    EZ->Draw("COLZ");
+    PlottingUtils::Configure2DHistogram(EZ, canvasEZ);
+    canvasEZ->SetLogz(kFALSE);
+    canvasEZ->Update();
+
+    TBox *box = new TBox(Constants::ZOOMED_XMIN, 0, Constants::ZOOMED_XMAX,
+                         Constants::FILTER_DEPTH_UM);
+    box->SetLineColor(kBlack);
+    box->SetLineWidth(3);
+    box->SetLineStyle(2);
+    box->SetFillColorAlpha(kBlack, 0.5);
+    box->Draw();
+
+    PlottingUtils::SaveFigure(canvasEZ, filename + "_ZvsE.png", kFALSE);
+
+    TCanvas *canvasRegions = new TCanvas("", "", 1200, 800);
+    PlottingUtils::ConfigureCanvas(canvasRegions, kFALSE);
+
+    Double_t maxY = TMath::Max(includedSpectrum->GetMaximum(),
+                               excludedSpectrum->GetMaximum());
+
+    PlottingUtils::ConfigureHistogram(includedSpectrum, kRed);
+    includedSpectrum->GetYaxis()->SetRangeUser(0, maxY * 1.1);
+    includedSpectrum->SetFillStyle(0);
+    includedSpectrum->SetLineWidth(2);
+    includedSpectrum->GetYaxis()->SetTitleOffset(1.5);
+    includedSpectrum->Draw("HIST");
+
+    PlottingUtils::ConfigureHistogram(excludedSpectrum, kBlack);
+    excludedSpectrum->SetFillStyle(0);
+    excludedSpectrum->SetLineWidth(2);
+    excludedSpectrum->Draw("HIST SAME");
+
+    TLine *lineRegional = new TLine(68.75, 0, 68.75, maxY * 1.1);
+    lineRegional->SetLineColor(kRed);
+    lineRegional->SetLineWidth(2);
+    lineRegional->SetLineStyle(2);
+    lineRegional->Draw();
+
+    TLegend *leg = new TLegend(0.78, 0.75, 0.9, 0.88);
+    leg->AddEntry(includedSpectrum, "Accepted", "l");
+    leg->AddEntry(excludedSpectrum, "Rejected", "l");
+    leg->Draw();
+
+    canvasRegions->SetLeftMargin(0.2);
+    PlottingUtils::SaveFigure(canvasRegions, filename + "_FilterSpectra.png",
                               kFALSE);
-
-    TCanvas *canvasYvsE_zoomed = new TCanvas("", "", 1200, 800);
-    PlottingUtils::ConfigureCanvas(canvasYvsE_zoomed);
-    PlottingUtils::ConfigureAndDraw2DHistogram(YvsE_zoomed, canvasYvsE_zoomed);
-    TLine *lineY = new TLine(68.75, -150, 68.75, 150);
-    lineY->SetLineColor(kRed);
-    lineY->SetLineWidth(2);
-    lineY->SetLineStyle(2);
-    lineY->Draw();
-    PlottingUtils::SaveFigure(canvasYvsE_zoomed, filename + "_YvsE_zoomed.png",
-                              kFALSE);
-
-    TCanvas *canvasZvsE_zoomed = new TCanvas("", "", 1200, 800);
-    PlottingUtils::ConfigureCanvas(canvasZvsE_zoomed);
-    PlottingUtils::ConfigureAndDraw2DHistogram(ZvsE_zoomed, canvasZvsE_zoomed);
-    TLine *lineZ = new TLine(68.75, 0, 68.75, 100);
-    lineZ->SetLineColor(kRed);
-    lineZ->SetLineWidth(2);
-    lineZ->SetLineStyle(2);
-    lineZ->Draw();
-    PlottingUtils::SaveFigure(canvasZvsE_zoomed, filename + "_ZvsE_zoomed.png",
-                              kFALSE);
-
-    TCanvas *canvasSeventyToOneHundred = new TCanvas("", "", 1200, 800);
-    PlottingUtils::ConfigureCanvas(canvasSeventyToOneHundred, kFALSE);
-    PlottingUtils::ConfigureAndDrawHistogram(zoomedHistSeventyToOneHundred,
-                                             kBlue);
-    zoomedHistSeventyToOneHundred->SetFillStyle(0);
-    zoomedHistSeventyToOneHundred->SetLineWidth(2);
-    PlottingUtils::SaveFigure(canvasSeventyToOneHundred,
-                              filename + "90_100.png", kFALSE);
-
     std::cout << "Wrote histograms for " << filename << std::endl;
 
-    ZvsE_zoomed->Write("ZvsE_zoomed", TObject::kOverwrite);
+    XY->Write("XY", TObject::kOverwrite);
+    EZ->Write("EZ", TObject::kOverwrite);
+
+    canvasRegions->cd();
+    canvasRegions->Write("AcceptedRejectedSpectra", TObject::kOverwrite);
 
     file->Close();
   }
@@ -186,10 +248,40 @@ void TestFilter() {
       "01162026-NoShield-PostReactor-Am241-Ba133" + suffix;
 
   std::vector<TString> filenames;
-  filenames.push_back(NoShield_GeOnCZT_01162026);
-  filenames.push_back(NoShield_ActiveBackground_01162026);
-  filenames.push_back(NoShield_GraphiteCastle_Signal_01162026);
-  filenames.push_back(NoShield_GraphiteCastle_Background_01162026);
-  filenames.push_back(PostReactor_Am241_Ba133_01162026);
-  Compare(filenames);
+
+  // January 12, 2026
+  //  filenames.push_back(PassiveBackground_01122026);
+  //  filenames.push_back(Calibration_01122026);
+  //
+  //  //  // January 13, 2026
+  //  filenames.push_back(ActiveBackground_5Percent_01132026);
+  //  filenames.push_back(ActiveBackground_25Percent_01132026);
+  //  filenames.push_back(ActiveBackground_90Percent_01132026);
+  //  filenames.push_back(CdShieldSignal_10Percent);
+  filenames.push_back(CdShieldSignal_25Percent);
+  //  filenames.push_back(CdShieldBackground);
+  //  filenames.push_back(CuShieldSignal_01132026);
+  //  filenames.push_back(CuShieldBackground_01132026);
+  //  filenames.push_back(PostReactor_Calibration_01132026);
+  //
+  //  // January 14, 2026
+  //  filenames.push_back(CuShieldSignal_01142026);
+  //  filenames.push_back(CuShieldBackground_01142026);
+  //  filenames.push_back(CuShieldSignal_MovedBack_01142026);
+  //
+  //  // January 15, 2026
+  //  filenames.push_back(NoShieldSignal_01152026);
+  //  filenames.push_back(NoShieldBackground_01152026);
+  //  filenames.push_back(PostReactor_Am241_01152026);
+  //  filenames.push_back(PostReactor_Ba133_01152026);
+  //  filenames.push_back(ShutterClosed_01152026);
+  //
+  //  // January 16, 2026
+  //  filenames.push_back(NoShield_GeOnCZT_01162026);
+  //  filenames.push_back(NoShield_ActiveBackground_01162026);
+  //  filenames.push_back(NoShield_GraphiteCastle_Signal_01162026);
+  //  filenames.push_back(NoShield_GraphiteCastle_Background_01162026);
+  //  filenames.push_back(PostReactor_Am241_Ba133_01162026);
+
+  Filter(filenames);
 }

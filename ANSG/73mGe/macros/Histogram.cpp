@@ -111,10 +111,8 @@ void Histogram() {
 
   TString suffix = Constants::FILTERED ? "_filtered" : "";
 
-  AddHistogram("01122026-PassiveBackground" + suffix);
   AddHistogram("01122026-Calibration" + suffix);
 
-  AddHistogram("01132026-ActiveBackground-5Percent" + suffix);
   AddHistogram("01132026-ActiveBackground-25Percent" + suffix);
   AddHistogram("01132026-ActiveBackground-90Percent" + suffix);
 
@@ -141,8 +139,6 @@ void Histogram() {
   AddHistogram("01152026-NewSetup-PostReactor-Ba133" + suffix);
   AddHistogram("01152026-NewSetup-ShutterClosed-5Percent" + suffix);
 
-  AddHistogram("01162026-NoShield-GeOnCZT-0_5Percent" + suffix);
-  AddHistogram("01162026-NoShield-ActiveBackground-0_5Percent" + suffix);
   AddHistogram("01162026-NoShield-GeSamplesIn-GraphiteCastle-10Percent" +
                suffix);
   AddHistogram("01162026-NoShield-ActiveBackground-GraphiteCastle-10Percent" +
