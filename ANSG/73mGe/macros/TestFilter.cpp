@@ -186,102 +186,43 @@ void Filter(std::vector<TString> filenames) {
 void TestFilter() {
   InitUtils::SetROOTPreferences();
 
-  TString suffix = Constants::FILTERED ? "_filtered" : "";
-
-  // January 12, 2026
-  TString PassiveBackground_01122026 = "01122026-PassiveBackground" + suffix;
-  TString Calibration_01122026 = "01122026-Calibration" + suffix;
-
-  // January 13, 2026
-  TString ActiveBackground_5Percent_01132026 =
-      "01132026-ActiveBackground-5Percent" + suffix;
-  TString ActiveBackground_25Percent_01132026 =
-      "01132026-ActiveBackground-25Percent" + suffix;
-  TString ActiveBackground_90Percent_01132026 =
-      "01132026-ActiveBackground-90Percent" + suffix;
-
-  TString CdShieldSignal_10Percent =
-      "01132026-CdShield-GeSamplesIn-10Percent" + suffix;
-  TString CdShieldSignal_25Percent =
-      "01132026-CdShield-GeSamplesIn-25Percent" + suffix;
-  TString CdShieldBackground =
-      "01132026-CdShield-ActiveBackground-10Percent" + suffix;
-
-  TString CuShieldSignal_01132026 =
-      "01132026-CuShield-GeSamplesIn-10Percent" + suffix;
-  TString CuShieldBackground_01132026 =
-      "01132026-CuShield-ActiveBackground-Am241-10Percent" + suffix;
-
-  TString PostReactor_Calibration_01132026 =
-      "01132026-PostReactor-Calibration" + suffix;
-
-  // January 14, 2026
-  TString CuShieldSignal_01142026 =
-      "01142026-CuShield-GeSamplesIn-10Percent" + suffix;
-  TString CuShieldBackground_01142026 =
-      "01142026-CuShield-ActiveBackground-10Percent" + suffix;
-  TString CuShieldSignal_MovedBack_01142026 =
-      "01142026-CuShield-GeSamplesIn-MovedBack-90Percent" + suffix;
-
-  // January 15, 2026
-  TString NoShieldSignal_01152026 =
-      "01152026-NewSetup-GeSamplesIn-5Percent" + suffix;
-  TString NoShieldBackground_01152026 =
-      "01152026-NewSetup-ActiveBackground-5Percent" + suffix;
-  TString PostReactor_Am241_01152026 =
-      "01152026-NewSetup-PostReactor-Am241" + suffix;
-  TString PostReactor_Ba133_01152026 =
-      "01152026-NewSetup-PostReactor-Ba133" + suffix;
-  TString ShutterClosed_01152026 =
-      "01152026-NewSetup-ShutterClosed-5Percent" + suffix;
-
-  // January 16, 2026
-  TString NoShield_GeOnCZT_01162026 =
-      "01162026-NoShield-GeOnCZT-0_5Percent" + suffix;
-  TString NoShield_ActiveBackground_01162026 =
-      "01162026-NoShield-ActiveBackground-0_5Percent" + suffix;
-  TString NoShield_GraphiteCastle_Signal_01162026 =
-      "01162026-NoShield-GeSamplesIn-GraphiteCastle-10Percent" + suffix;
-  TString NoShield_GraphiteCastle_Background_01162026 =
-      "01162026-NoShield-ActiveBackground-GraphiteCastle-10Percent" + suffix;
-  TString PostReactor_Am241_Ba133_01162026 =
-      "01162026-NoShield-PostReactor-Am241-Ba133" + suffix;
-
   std::vector<TString> filenames;
 
   // January 12, 2026
-  //  filenames.push_back(PassiveBackground_01122026);
-  //  filenames.push_back(Calibration_01122026);
-  //
-  //  //  // January 13, 2026
-  //  filenames.push_back(ActiveBackground_5Percent_01132026);
-  //  filenames.push_back(ActiveBackground_25Percent_01132026);
-  //  filenames.push_back(ActiveBackground_90Percent_01132026);
-  //  filenames.push_back(CdShieldSignal_10Percent);
-  filenames.push_back(CdShieldSignal_25Percent);
-  //  filenames.push_back(CdShieldBackground);
-  //  filenames.push_back(CuShieldSignal_01132026);
-  //  filenames.push_back(CuShieldBackground_01132026);
-  //  filenames.push_back(PostReactor_Calibration_01132026);
-  //
-  //  // January 14, 2026
-  //  filenames.push_back(CuShieldSignal_01142026);
-  //  filenames.push_back(CuShieldBackground_01142026);
-  //  filenames.push_back(CuShieldSignal_MovedBack_01142026);
-  //
-  //  // January 15, 2026
-  //  filenames.push_back(NoShieldSignal_01152026);
-  //  filenames.push_back(NoShieldBackground_01152026);
-  //  filenames.push_back(PostReactor_Am241_01152026);
-  //  filenames.push_back(PostReactor_Ba133_01152026);
-  //  filenames.push_back(ShutterClosed_01152026);
-  //
-  //  // January 16, 2026
-  //  filenames.push_back(NoShield_GeOnCZT_01162026);
-  //  filenames.push_back(NoShield_ActiveBackground_01162026);
-  //  filenames.push_back(NoShield_GraphiteCastle_Signal_01162026);
-  //  filenames.push_back(NoShield_GraphiteCastle_Background_01162026);
-  //  filenames.push_back(PostReactor_Am241_Ba133_01162026);
+  filenames.push_back(Constants::PASSIVEBACKGROUND_01122026);
+  filenames.push_back(Constants::CALIBRATION_01122026);
+
+  //  // January 13, 2026
+  filenames.push_back(Constants::ACTIVEBACKGROUND_TEST_5PERCENT_01132026);
+  filenames.push_back(Constants::ACTIVEBACKGROUND_TEST_90PERCENT_01132026);
+  filenames.push_back(Constants::CDSHIELDSIGNAL_10PERCENT_01132026);
+  filenames.push_back(Constants::CDSHIELDBACKGROUND_10PERCENT_01132026);
+  filenames.push_back(Constants::CDSHIELDSIGNAL_25PERCENT_01132026);
+  filenames.push_back(Constants::CDSHIELDBACKGROUND_25PERCENT_01132026);
+  filenames.push_back(Constants::CUSHIELDSIGNAL_10PERCENT_01132026);
+  filenames.push_back(Constants::CUSHIELDBACKGROUND_10PERCENT_01132026);
+  filenames.push_back(Constants::POSTREACTOR_AM241_01132026);
+
+  // January 14, 2026
+  filenames.push_back(Constants::CUSHIELDSIGNAL_10PERCENT_01142026);
+  filenames.push_back(Constants::CUSHIELDBACKGROUND_10PERCENT_01142026);
+  filenames.push_back(Constants::CUSHIELDSIGNAL_90PERCENT_01142026);
+
+  // January 15, 2026
+  filenames.push_back(Constants::NOSHIELDSIGNAL_5PERCENT_01152026);
+  filenames.push_back(Constants::NOSHIELDBACKGROUND_5PERCENT_01152026);
+  filenames.push_back(Constants::POSTREACTOR_AM241_01152026);
+  filenames.push_back(Constants::POSTREACTOR_BA133_01152026);
+  filenames.push_back(Constants::SHUTTERCLOSED_01152026);
+
+  // January 16, 2026
+  filenames.push_back(Constants::NOSHIELD_GEONCZT_0_5PERCENT_01162026);
+  filenames.push_back(Constants::NOSHIELD_ACTIVEBACKGROUND_0_5PERCENT_01162026);
+  filenames.push_back(
+      Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_01162026);
+  filenames.push_back(
+      Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_01162026);
+  filenames.push_back(Constants::POSTREACTOR_AM241_BA133_01162026);
 
   Filter(filenames);
 }

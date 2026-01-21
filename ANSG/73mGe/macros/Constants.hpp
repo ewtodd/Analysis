@@ -13,9 +13,11 @@ const Int_t BIN_WIDTH_EV = 275;
 const Float_t BIN_WIDTH_KEV = BIN_WIDTH_EV / 1000.0;
 
 const Int_t HIST_XMIN = 0, HIST_XMAX = 1500;
-const Int_t ZOOMED_XMIN = 60, ZOOMED_XMAX = 80;
+const Int_t ZOOMED_XMIN = 40, ZOOMED_XMAX = 100;
+const Int_t PEAK_XMIN = 63, PEAK_XMAX = 75;
 const Int_t HIST_NBINS = (HIST_XMAX - HIST_XMIN) / BIN_WIDTH_KEV;
 const Int_t ZOOMED_NBINS = (ZOOMED_XMAX - ZOOMED_XMIN) / BIN_WIDTH_KEV;
+const Int_t PEAK_NBINS = (PEAK_XMAX - PEAK_XMIN) / BIN_WIDTH_KEV;
 
 const Bool_t USE_REAL_TIME = kFALSE;
 const Bool_t NORMALIZE_BY_TIME = kTRUE;
@@ -27,6 +29,62 @@ const std::vector<Region> FILTER_REGIONS_EXCLUDE_XY_UM = {
     {-215, 215, 205, 215},
     {-215, -205, -205, 205},
     {205, 215, -205, 205}};
+
+const TString suffix = Constants::FILTERED ? "_filtered" : "";
+
+const TString PASSIVEBACKGROUND_01122026 =
+    "PassiveBackground_01122026" + suffix;
+const TString CALIBRATION_01122026 = "Calibration_01122026" + suffix;
+
+const TString ACTIVEBACKGROUND_TEST_5PERCENT_01132026 =
+    "ActiveBackground_Test_5Percent_01132026" + suffix;
+const TString ACTIVEBACKGROUND_TEST_90PERCENT_01132026 =
+    "ActiveBackground_Test_90Percent_01132026" + suffix;
+
+const TString CDSHIELDSIGNAL_10PERCENT_01132026 =
+    "CdShieldSignal_10Percent_01132026" + suffix;
+const TString CDSHIELDBACKGROUND_10PERCENT_01132026 =
+    "CdShieldBackground_10Percent_01132026" + suffix;
+const TString CDSHIELDSIGNAL_25PERCENT_01132026 =
+    "CdShieldSignal_25Percent_01132026" + suffix;
+const TString CDSHIELDBACKGROUND_25PERCENT_01132026 =
+    "CdShieldBackground_25Percent_01132026" + suffix;
+
+const TString CUSHIELDSIGNAL_10PERCENT_01132026 =
+    "CuShieldSignal_10Percent_01132026" + suffix;
+const TString CUSHIELDBACKGROUND_10PERCENT_01132026 =
+    "CuShieldBackground_10Percent_01132026" + suffix;
+
+const TString POSTREACTOR_AM241_01132026 =
+    "PostReactor_Am241_01132026" + suffix;
+
+const TString CUSHIELDSIGNAL_10PERCENT_01142026 =
+    "CuShieldSignal_10Percent_01142026" + suffix;
+const TString CUSHIELDBACKGROUND_10PERCENT_01142026 =
+    "CuShieldBackground_10Percent_01142026" + suffix;
+const TString CUSHIELDSIGNAL_90PERCENT_01142026 =
+    "CuShieldSignal_90Percent_01142026" + suffix;
+
+const TString NOSHIELDSIGNAL_5PERCENT_01152026 =
+    "NoShieldSignal_5Percent_01152026" + suffix;
+const TString NOSHIELDBACKGROUND_5PERCENT_01152026 =
+    "NoShieldBackground_5Percent_01152026" + suffix;
+const TString POSTREACTOR_AM241_01152026 =
+    "PostReactor_Am241_01152026" + suffix;
+const TString POSTREACTOR_BA133_01152026 =
+    "PostReactor_Ba133_01152026" + suffix;
+const TString SHUTTERCLOSED_01152026 = "ShutterClosed_01152026" + suffix;
+
+const TString NOSHIELD_GEONCZT_0_5PERCENT_01162026 =
+    "NoShield_GeOnCZT_0_5Percent_01162026" + suffix;
+const TString NOSHIELD_ACTIVEBACKGROUND_0_5PERCENT_01162026 =
+    "NoShield_ActiveBackground_0_5Percent_01162026" + suffix;
+const TString NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_01162026 =
+    "NoShield_GraphiteCastleSignal_10Percent_01162026" + suffix;
+const TString NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_01162026 =
+    "NoShield_GraphiteCastleBackground_10Percent_01162026" + suffix;
+const TString POSTREACTOR_AM241_BA133_01162026 =
+    "PostReactor_Am241_Ba133_01162026" + suffix;
 } // namespace Constants
 
 #endif

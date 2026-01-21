@@ -74,17 +74,26 @@ void AddHistogram(TString filename) {
            Constants::BIN_WIDTH_EV, perSecond.Data()),
       Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN, Constants::ZOOMED_XMAX);
 
+  TH1F *peakHist = new TH1F(
+      PlottingUtils::GetRandomName(),
+      Form("%s; Energy [keV]; Counts / %d eV%s", filename.Data(),
+           Constants::BIN_WIDTH_EV, perSecond.Data()),
+      Constants::PEAK_NBINS, Constants::PEAK_XMIN, Constants::PEAK_XMAX);
+
   for (Int_t i = 0; i < n_entries; i++) {
     tree->GetEntry(i);
     hist->Fill(energy);
     if (Constants::ZOOMED_XMIN < energy && energy < Constants::ZOOMED_XMAX)
       zoomedHist->Fill(energy);
+    if (Constants::PEAK_XMIN < energy && energy < Constants::PEAK_XMAX)
+      peakHist->Fill(energy);
   }
 
   if (Constants::NORMALIZE_BY_TIME && param) {
     Float_t normalization = 1.0 / n42_time;
     hist->Scale(normalization);
     zoomedHist->Scale(normalization);
+    peakHist->Scale(normalization);
   }
 
   std::cout << "Created histograms for " << filename
@@ -92,56 +101,69 @@ void AddHistogram(TString filename) {
             << ")" << std::endl;
 
   PlottingUtils::ConfigureHistogram(hist, kP10Violet);
-
   PlottingUtils::ConfigureHistogram(zoomedHist, kP10Violet);
+  PlottingUtils::ConfigureHistogram(peakHist, kP10Violet);
 
   hist->GetYaxis()->SetTitleOffset(1.2);
   zoomedHist->GetYaxis()->SetTitleOffset(1.2);
+  peakHist->GetYaxis()->SetTitleOffset(1.2);
 
   hist->Write("hist", TObject::kOverwrite);
   zoomedHist->Write("zoomedHist", TObject::kOverwrite);
+  peakHist->Write("peakHist", TObject::kOverwrite);
 
   std::cout << "Wrote histograms for " << filename << std::endl;
 
   file->Close();
 }
 
+void AddAllHistograms(std::vector<TString> filenames) {
+  Int_t n_files = filenames.size();
+  for (Int_t i = 0; i < n_files; i++) {
+    TString filename = filenames.at(i);
+    AddHistogram(filename);
+  }
+}
+
 void Histogram() {
   InitUtils::SetROOTPreferences();
+  std::vector<TString> filenames;
 
-  TString suffix = Constants::FILTERED ? "_filtered" : "";
+  // January 12, 2026
+  filenames.push_back(Constants::PASSIVEBACKGROUND_01122026);
+  filenames.push_back(Constants::CALIBRATION_01122026);
 
-  AddHistogram("01122026-Calibration" + suffix);
+  //  // January 13, 2026
+  filenames.push_back(Constants::ACTIVEBACKGROUND_TEST_5PERCENT_01132026);
+  filenames.push_back(Constants::ACTIVEBACKGROUND_TEST_90PERCENT_01132026);
+  filenames.push_back(Constants::CDSHIELDSIGNAL_10PERCENT_01132026);
+  filenames.push_back(Constants::CDSHIELDBACKGROUND_10PERCENT_01132026);
+  filenames.push_back(Constants::CDSHIELDSIGNAL_25PERCENT_01132026);
+  filenames.push_back(Constants::CDSHIELDBACKGROUND_25PERCENT_01132026);
+  filenames.push_back(Constants::CUSHIELDSIGNAL_10PERCENT_01132026);
+  filenames.push_back(Constants::CUSHIELDBACKGROUND_10PERCENT_01132026);
+  filenames.push_back(Constants::POSTREACTOR_AM241_01132026);
 
-  AddHistogram("01132026-ActiveBackground-25Percent" + suffix);
-  AddHistogram("01132026-ActiveBackground-90Percent" + suffix);
+  // January 14, 2026
+  filenames.push_back(Constants::CUSHIELDSIGNAL_10PERCENT_01142026);
+  filenames.push_back(Constants::CUSHIELDBACKGROUND_10PERCENT_01142026);
+  filenames.push_back(Constants::CUSHIELDSIGNAL_90PERCENT_01142026);
 
-  AddHistogram("01132026-CdShield-GeSamplesIn-10Percent" + suffix);
-  AddHistogram("01132026-CdShield-GeSamplesIn-25Percent" + suffix);
+  // January 15, 2026
+  filenames.push_back(Constants::NOSHIELDSIGNAL_5PERCENT_01152026);
+  filenames.push_back(Constants::NOSHIELDBACKGROUND_5PERCENT_01152026);
+  filenames.push_back(Constants::POSTREACTOR_AM241_01152026);
+  filenames.push_back(Constants::POSTREACTOR_BA133_01152026);
+  filenames.push_back(Constants::SHUTTERCLOSED_01152026);
 
-  AddHistogram("01132026-CdShield-ActiveBackground-10Percent" + suffix);
+  // January 16, 2026
+  filenames.push_back(Constants::NOSHIELD_GEONCZT_0_5PERCENT_01162026);
+  filenames.push_back(Constants::NOSHIELD_ACTIVEBACKGROUND_0_5PERCENT_01162026);
+  filenames.push_back(
+      Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_01162026);
+  filenames.push_back(
+      Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_01162026);
+  filenames.push_back(Constants::POSTREACTOR_AM241_BA133_01162026);
 
-  AddHistogram("01132026-CuShield-GeSamplesIn-10Percent" + suffix);
-
-  AddHistogram("01132026-CuShield-ActiveBackground-Am241-10Percent" + suffix);
-
-  AddHistogram("01132026-PostReactor-Calibration" + suffix);
-
-  AddHistogram("01142026-CuShield-GeSamplesIn-10Percent" + suffix);
-
-  AddHistogram("01142026-CuShield-ActiveBackground-10Percent" + suffix);
-
-  AddHistogram("01142026-CuShield-GeSamplesIn-MovedBack-90Percent" + suffix);
-
-  AddHistogram("01152026-NewSetup-GeSamplesIn-5Percent" + suffix);
-  AddHistogram("01152026-NewSetup-ActiveBackground-5Percent" + suffix);
-  AddHistogram("01152026-NewSetup-PostReactor-Am241" + suffix);
-  AddHistogram("01152026-NewSetup-PostReactor-Ba133" + suffix);
-  AddHistogram("01152026-NewSetup-ShutterClosed-5Percent" + suffix);
-
-  AddHistogram("01162026-NoShield-GeSamplesIn-GraphiteCastle-10Percent" +
-               suffix);
-  AddHistogram("01162026-NoShield-ActiveBackground-GraphiteCastle-10Percent" +
-               suffix);
-  AddHistogram("01162026-NoShield-PostReactor-Am241-Ba133" + suffix);
+  AddAllHistograms(filenames);
 }
