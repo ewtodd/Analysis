@@ -11,16 +11,16 @@
 void CheckDrift() {
   InitUtils::SetROOTPreferences();
 
-  TString suffix = Constants::FILTERED ? "_filtered" : "";
-
   std::vector<TString> calibFiles = {
-      "01132026-PostReactor-Calibration", "01152026-NewSetup-PostReactor-Am241",
-      "01152026-NewSetup-PostReactor-Ba133",
-      "01162026-NoShield-PostReactor-Am241-Ba133"};
+      Constants::POSTREACTOR_AM241_01132026,
+      Constants::POSTREACTOR_AM241_01152026,
+      Constants::POSTREACTOR_BA133_01152026,
+      Constants::POSTREACTOR_AM241_BA133_01162026};
 
   std::vector<Int_t> colors = PlottingUtils::GetDefaultColors();
 
   TCanvas *c1 = new TCanvas("c1", "Calibration Spectra Comparison", 1200, 800);
+  PlottingUtils::ConfigureCanvas(c1, kFALSE);
 
   TLegend *legend = new TLegend(0.42, 0.60, 0.89, 0.89);
   legend->SetBorderSize(1);
@@ -30,7 +30,7 @@ void CheckDrift() {
   Double_t maxVal = 0;
 
   for (size_t i = 0; i < calibFiles.size(); i++) {
-    TString filepath = "root_files/" + calibFiles[i] + suffix + ".root";
+    TString filepath = "root_files/" + calibFiles[i] + ".root";
     TFile *file = TFile::Open(filepath, "READ");
 
     if (!file || file->IsZombie()) {
@@ -58,7 +58,6 @@ void CheckDrift() {
     histClone->SetLineColor(colors[i % colors.size()]);
     histClone->SetLineWidth(2);
     histClone->SetFillStyle(0);
-    histClone->SetStats(0);
 
     histClone->GetYaxis()->SetTitle(
         Form("Normalized Counts / %d eV", Constants::BIN_WIDTH_EV));
@@ -76,7 +75,7 @@ void CheckDrift() {
   }
 
   if (histograms.size() > 0) {
-    histograms[0]->SetMaximum(maxVal * 1.5);
+    histograms[0]->SetMaximum(maxVal * 1.2);
     histograms[0]->Draw("HIST");
 
     for (size_t i = 1; i < histograms.size(); i++) {
