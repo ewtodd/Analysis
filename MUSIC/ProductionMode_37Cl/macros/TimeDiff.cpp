@@ -98,7 +98,7 @@ void CheckTimeDiff(std::vector<TString> input_filenames,
   }
 }
 
-void GridTimeDiff() {
+void TimeDiff() {
   Bool_t reprocess_initial = kTRUE;
 
   std::vector<TString> filenames, output_names;
