@@ -8,12 +8,11 @@
 #include <ostream>
 #include <vector>
 
-void ResetEvent(Int_t leftdE[16], Int_t rightdE[16], Int_t totaldE[16],
+void ResetEvent(Int_t leftdE[18], Int_t rightdE[18], Int_t totaldE[18],
                 ULong64_t timestamp_distribution[36], UInt_t all_flags[36],
-                Int_t hits[36], Int_t &cathode, Int_t &strip0, Int_t &strip17,
-                Int_t &grid) {
+                Int_t hits[36], Int_t &cathode, Int_t &grid) {
 
-  for (Int_t k = 0; k < 16; k++) {
+  for (Int_t k = 0; k < 18; k++) {
     leftdE[k] = rightdE[k] = totaldE[k] = 0;
   }
   for (Int_t k = 0; k < 36; k++) {
@@ -21,7 +20,7 @@ void ResetEvent(Int_t leftdE[16], Int_t rightdE[16], Int_t totaldE[16],
     all_flags[k] = 0;
     hits[k] = 0;
   }
-  cathode = strip0 = strip17 = grid = 0;
+  cathode = grid = 0;
 }
 
 Int_t GetStripNumber(TString map_name) {
@@ -30,14 +29,33 @@ Int_t GetStripNumber(TString map_name) {
   return num_str.Atoi();
 }
 
+Bool_t CheckEventComplete(Int_t leftdE[18], Int_t rightdE[18],
+                          Int_t totaldE[18], Int_t cathode) {
+  if (cathode == 0)
+    return kFALSE;
+
+  if (totaldE[0] == 0)
+    return kFALSE;
+
+  for (Int_t strip = 1; strip <= 15; strip += 2) {
+    if (leftdE[strip] == 0) {
+      return kFALSE;
+    }
+  }
+
+  for (Int_t strip = 2; strip <= 16; strip += 2) {
+    if (rightdE[strip] == 0) {
+      return kFALSE;
+    }
+  }
+
+  return kTRUE;
+}
+
 void BuildEvents(std::vector<TString> input_filenames,
                  std::vector<TString> output_names, Bool_t reprocess = kFALSE) {
   if (!reprocess)
     return;
-
-  const ULong64_t TIME_WINDOW = Constants::COINCIDENCE_WINDOW;
-  std::cout << "Using coincidence window of " << TIME_WINDOW * 1e-6
-            << " microseconds..." << std::endl;
 
   Int_t n_files = input_filenames.size();
   for (Int_t i = 0; i < n_files; i++) {
@@ -66,142 +84,182 @@ void BuildEvents(std::vector<TString> input_filenames,
     input_tree->SetBranchAddress("ShiftedTimestamp", &timestamp);
     input_tree->SetBranchAddress("Flags", &flags);
 
+    std::cout << "Loading baskets into memory..." << std::endl;
+    input_tree->LoadBaskets();
+
     TString output_name = output_names[i];
     TString output_filepath = "root_files/" + output_name + ".root";
     TFile *output_file = new TFile(output_filepath, "RECREATE");
 
-    Int_t leftdE[16], rightdE[16], totaldE[16];
-    ULong64_t timestamp_distribution[36];
+    Int_t leftdE[18], rightdE[18], totaldE[18];
+    ULong64_t all_timestamps[36];
     UInt_t all_flags[36];
     Int_t hits[36];
-    Int_t cathode, strip0, strip17, grid;
+    Int_t cathode, grid;
+    Bool_t is_complete;
 
     TTree *output_tree = new TTree("event", "MUSIC events");
-    output_tree->Branch("LeftdE", leftdE, "LeftdE[16]/I");
-    output_tree->Branch("RightdE", rightdE, "RightdE[16]/I");
-    output_tree->Branch("TotaldE", totaldE, "TotaldE[16]/I");
-    output_tree->Branch("TimestampDistribution", timestamp_distribution,
-                        "TimestampDistribution[36]/l");
+    output_tree->Branch("LeftdE", leftdE, "LeftdE[18]/I");
+    output_tree->Branch("RightdE", rightdE, "RightdE[18]/I");
+    output_tree->Branch("TotaldE", totaldE, "TotaldE[18]/I");
+    output_tree->Branch("AllTimestamps", all_timestamps, "AllTimestamps[36]/l");
     output_tree->Branch("AllFlags", all_flags, "AllFlags[36]/i");
     output_tree->Branch("Hits", hits, "Hits[36]/I");
     output_tree->Branch("Cathode", &cathode, "Cathode/I");
-    output_tree->Branch("Strip0", &strip0, "Strip0/I");
-    output_tree->Branch("Strip17", &strip17, "Strip17/I");
     output_tree->Branch("Grid", &grid, "Grid/I");
+    output_tree->Branch("IsComplete", &is_complete, "IsComplete/O");
 
-    ULong64_t event_time_zero = 0;
     Bool_t in_event = kFALSE;
 
-    ResetEvent(leftdE, rightdE, totaldE, timestamp_distribution, all_flags,
-               hits, cathode, strip0, strip17, grid);
+    ResetEvent(leftdE, rightdE, totaldE, all_timestamps, all_flags, hits,
+               cathode, grid);
 
     Long64_t n_entries = input_tree->GetEntries();
     std::cout << "Building events from " << n_entries << " entries..."
               << std::endl;
 
+    Int_t emptyChannelMapEvents = 0;
+    Int_t total_events = 0;
+    Int_t complete_events = 0;
+    Int_t incomplete_events = 0;
+    Int_t incomplete_with_fake = 0;
+    Int_t incomplete_with_saturation = 0;
+    Int_t incomplete_with_pileup = 0;
+
     for (Long64_t j = 0; j < n_entries; j++) {
       input_tree->GetEntry(j);
       TString map_name = Constants::channelMap.at({board, channel});
 
-      if (map_name == "")
+      if (map_name == "") {
+        emptyChannelMapEvents++;
         continue;
+      }
 
       if (map_name == "Grid") {
         if (in_event) {
-          for (Int_t k = 0; k < 36; k++) {
-            if (timestamp_distribution[k] > 0) {
-              timestamp_distribution[k] -= event_time_zero;
-            }
+          is_complete = CheckEventComplete(leftdE, rightdE, totaldE, cathode);
+          for (Int_t s = 1; s < 17; s++) {
+            totaldE[s] = leftdE[s] + rightdE[s];
           }
+          is_complete = CheckEventComplete(leftdE, rightdE, totaldE, cathode);
           output_tree->Fill();
+          total_events++;
+
+          if (is_complete) {
+            complete_events++;
+          } else {
+            incomplete_events++;
+
+            Bool_t has_fake = kFALSE;
+            Bool_t has_saturation = kFALSE;
+            Bool_t has_pileup = kFALSE;
+
+            for (Int_t k = 0; k < 36; k++) {
+              if (hits[k] > 0) {
+                UInt_t flag = all_flags[k];
+
+                if (flag & (1 << 24))
+                  has_fake = kTRUE;
+
+                if ((flag & (1 << 2)) || (flag & (1 << 3)))
+                  has_saturation = kTRUE;
+
+                if (flag & (1 << 30))
+                  has_pileup = kTRUE;
+              }
+            }
+
+            if (has_fake)
+              incomplete_with_fake++;
+            if (has_saturation)
+              incomplete_with_saturation++;
+            if (has_pileup)
+              incomplete_with_pileup++;
+          }
         }
 
-        ResetEvent(leftdE, rightdE, totaldE, timestamp_distribution, all_flags,
-                   hits, cathode, strip0, strip17, grid);
+        ResetEvent(leftdE, rightdE, totaldE, all_timestamps, all_flags, hits,
+                   cathode, grid);
 
         grid = energy;
-        event_time_zero = timestamp;
-        timestamp_distribution[35] = timestamp;
+        all_timestamps[35] = timestamp;
         all_flags[35] = flags;
         hits[35]++;
         in_event = kTRUE;
-      }
 
-      else {
-        if (!in_event)
-          continue;
-
-        Long64_t time_diff = (timestamp > event_time_zero)
-                                 ? (timestamp - event_time_zero)
-                                 : (event_time_zero - timestamp);
-
-        if (TMath::Abs(time_diff) > TIME_WINDOW) {
-          for (Int_t k = 0; k < 36; k++) {
-            if (timestamp_distribution[k] > 0) {
-              timestamp_distribution[k] -= event_time_zero;
-            }
-          }
-          output_tree->Fill();
-
-          ResetEvent(leftdE, rightdE, totaldE, timestamp_distribution,
-                     all_flags, hits, cathode, strip0, strip17, grid);
-          in_event = kFALSE;
-          continue;
-        }
-        std::cout << time_diff * 1e-6 << std::endl;
+      } else if (in_event) {
         if (map_name == "Strip0") {
-          strip0 = energy;
-          timestamp_distribution[0] = timestamp;
+          leftdE[0] = 0;
+          rightdE[0] = 0;
+          totaldE[0] = energy;
+          all_timestamps[0] = timestamp;
           all_flags[0] = flags;
           hits[0]++;
 
         } else if (map_name.BeginsWith("L")) {
           Int_t strip_num = GetStripNumber(map_name);
           leftdE[strip_num] = energy;
-          totaldE[strip_num] += energy;
-          timestamp_distribution[strip_num] = timestamp;
+          all_timestamps[strip_num] = timestamp;
           all_flags[strip_num] = flags;
           hits[strip_num]++;
 
         } else if (map_name.BeginsWith("R")) {
           Int_t strip_num = GetStripNumber(map_name);
           rightdE[strip_num] = energy;
-          totaldE[strip_num] += energy;
-          timestamp_distribution[strip_num + 16] = timestamp;
+          all_timestamps[strip_num + 16] = timestamp;
           all_flags[strip_num + 16] = flags;
           hits[strip_num + 16]++;
 
         } else if (map_name == "Strip17") {
-          strip17 = energy;
-          timestamp_distribution[33] = timestamp;
+          leftdE[17] = 0;
+          rightdE[17] = 0;
+          totaldE[17] = energy;
+          all_timestamps[33] = timestamp;
           all_flags[33] = flags;
           hits[33]++;
 
         } else if (map_name == "Cathode") {
           cathode = energy;
-          timestamp_distribution[34] = timestamp;
+          all_timestamps[34] = timestamp;
           all_flags[34] = flags;
           hits[34]++;
         }
       }
 
-      if (j % 1000000 == 0) {
+      if (j % 10000000 == 0) {
         std::cout << "  Progress: " << j << "/" << n_entries << std::endl;
       }
     }
 
-    if (in_event && grid > 0) {
-      for (Int_t k = 0; k < 36; k++) {
-        if (timestamp_distribution[k] > 0) {
-          timestamp_distribution[k] -= event_time_zero;
-        }
-      }
-      output_tree->Fill();
-    }
     output_file->cd();
-    output_tree->Write();
+    output_tree->Write("event", TObject::kOverwrite);
     output_file->Close();
     input_file->Close();
+
+    if (emptyChannelMapEvents != 0)
+      std::cout << "Observed " << emptyChannelMapEvents
+                << " events with empty entry in channel map." << std::endl;
+
+    std::cout << "Total events: " << total_events << std::endl;
+    std::cout << "Complete events: " << complete_events << " ("
+              << (100.0 * complete_events / total_events) << "%)" << std::endl;
+    std::cout << "Incomplete events: " << incomplete_events << " ("
+              << (100.0 * incomplete_events / total_events) << "%)"
+              << std::endl;
+
+    if (incomplete_events > 0) {
+      std::cout << "\nIncomplete events with rejection-quality flags:"
+                << std::endl;
+      std::cout << "  Fake events: " << incomplete_with_fake << " ("
+                << (100.0 * incomplete_with_fake / incomplete_events) << "%)"
+                << std::endl;
+      std::cout << "  Saturated: " << incomplete_with_saturation << " ("
+                << (100.0 * incomplete_with_saturation / incomplete_events)
+                << "%)" << std::endl;
+      std::cout << "  Pileup: " << incomplete_with_pileup << " ("
+                << (100.0 * incomplete_with_pileup / incomplete_events) << "%)"
+                << std::endl;
+    }
 
     std::cout << "Events saved to: " << output_filepath << std::endl;
   }
