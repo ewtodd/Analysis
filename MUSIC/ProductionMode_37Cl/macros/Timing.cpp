@@ -374,8 +374,18 @@ void TimesortData(std::vector<TString> input_filepaths,
       index_array[j] = timestamp_index[j].second;
     }
 
-    std::cout << "Bulk copying entries..." << std::endl;
-    output_tree->CopyEntries(input_tree, -1, "auto", index_array);
+    std::cout << "Loading baskets into memory..." << std::endl;
+    input_tree->LoadBaskets();
+
+    std::cout << "Copying entries in sorted order..." << std::endl;
+    for (Long64_t j = 0; j < n_entries; j++) {
+      input_tree->GetEntry(timestamp_index[j].second);
+      output_tree->Fill();
+
+      if (j % 10000000 == 0) {
+        std::cout << "  Progress: " << j << "/" << n_entries << std::endl;
+      }
+    }
 
     delete[] index_array;
 
@@ -389,7 +399,7 @@ void TimesortData(std::vector<TString> input_filepaths,
 
 void Timing() {
   Bool_t reprocess_calculation = kTRUE;
-  Bool_t reprocess_plotting = kFALSE;
+  Bool_t reprocess_plotting = kTRUE;
   Bool_t reprocess_sorting = kTRUE;
 
   InitUtils::SetROOTPreferences();
@@ -413,7 +423,6 @@ void Timing() {
       output_names, is_shifted, reprocess_calculation, reprocess_plotting);
   ApplyTimeShift(filepaths, results, kTRUE);
   is_shifted = kTRUE;
-  // reprocess_calculation = kFALSE;
   ExtractPulserData(filepaths, shifted_output_names, kTRUE,
                     reprocess_calculation);
   std::vector<TimeShiftResult> check_results =

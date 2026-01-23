@@ -12,9 +12,9 @@ const Int_t N_FILES = 1;
 const Int_t N_BOARDS = 4;
 const Int_t N_CHANNELS = 16;
 
-const ULong64_t COINCIDENCE_WINDOW = 100e6;
+const Int_t TRIGGER_THRESHOLD = 500;
 
-inline const std::map<std::pair<UShort_t, UShort_t>, TString> channelMap = {
+inline const std::map<std::pair<Int_t, Int_t>, TString> channelMap = {
     {{0, 0}, "Cathode"}, {{0, 1}, ""},         {{0, 2}, "L2"},
     {{0, 3}, ""},        {{0, 4}, "Strip0"},   {{0, 5}, "100HzPulserBoard0"},
     {{0, 6}, "L6"},      {{0, 7}, ""},         {{0, 8}, "L1"},
