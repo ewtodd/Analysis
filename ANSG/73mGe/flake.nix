@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     flake-utils.url = "github:numtide/flake-utils";
-    utils.url = "github:ewtodd/Analysis-Utilities";
+    utils.url = "/home/e-work/Software/Analysis-Utilities/";
   };
 
   outputs =
@@ -33,8 +33,10 @@
           ];
 
           shellHook = ''
+            export SHELL="/run/current-system/sw/bin/bash"
             echo "ROOT version: $(root-config --version)"
             echo "Analysis-Utilities version: ${analysis-utils.version}"
+            echo "Analysis-Utilities store-path: ${analysis-utils}"
 
             STDLIB_PATH="${pkgs.stdenv.cc.cc}/include/c++/${pkgs.stdenv.cc.cc.version}"
             STDLIB_MACHINE_PATH="$STDLIB_PATH/x86_64-unknown-linux-gnu"
