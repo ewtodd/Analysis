@@ -9,51 +9,49 @@
 #include <TSystem.h>
 #include <vector>
 
-FitResultGaussianTailStep
-FitSinglePeak(const TString input_name, const TString peak_name,
-              const TString branch_name, const TString tree_name,
-              const TString formatted_branch_name, const Int_t color,
-              const Float_t expected_mu) {
+FitResultDetailed FitSinglePeak(const TString input_name,
+                                const TString peak_name, const Int_t color,
+                                const Float_t expected_mu) {
 
-  TCanvas *canvas = new TCanvas("", "", 1200, 800);
+  TCanvas *canvas = new TCanvas(PlottingUtils::GetRandomName(), "", 1200, 800);
   PlottingUtils::ConfigureCanvas(canvas, kFALSE);
 
-  FittingUtils *fitter = new FittingUtils(kFALSE, kTRUE, kFALSE);
-  fitter->LoadProcessed(input_name, branch_name, tree_name);
-  fitter->SetNumHistBins(Constants::ZOOMED_NBINS);
-  fitter->SetMinHistValue(Constants::ZOOMED_XMIN);
-  fitter->SetMaxHistValue(Constants::ZOOMED_XMAX);
-  fitter->SetExpectedMu(expected_mu);
-  fitter->SetFitRange(expected_mu - 0.20 * expected_mu,
-                      expected_mu + 0.12 * expected_mu);
-  FitResultGaussianTailStep result;
-
-  if (peak_name == "Am_59.5keV") {
-    fitter->SetExpectedAmplitude(11000);
-    fitter->SetExpectedTail(10);
-    fitter->SetExpectedTailAmplitude(200);
-    fitter->SetExpectedStepAmplitude(200);
-    fitter->SetExpectedMu(59.6788);
-    fitter->SetExpectedSigma(1);
-    fitter->GetFitFunction()->SetParLimits(0, 0, 20000);
+  TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
+  if (!file || file->IsZombie()) {
+    std::cerr << "ERROR: Cannot open " << input_name << ".root" << std::endl;
+    return {};
   }
 
-  result = fitter->FitPeakGaussianLowTailLowStep(canvas, color, peak_name,
-                                                 formatted_branch_name);
+  TH1F *zoomedHist = static_cast<TH1F *>(file->Get("zoomedHist"));
+
+  FittingUtils *fitter = new FittingUtils(zoomedHist, kTRUE);
+
+  FitResultDetailed result;
+
+  fitter->SetMu(expected_mu);
+
+  if (peak_name == "Am_59.5keV") {
+    fitter->SetFitRange(56, 64);
+    fitter->SetMu(59.8);
+    fitter->SetSigma(0.1);
+    fitter->SetGausAmplitude(10);
+  }
+
+  result = fitter->FitPeakDetailed(canvas, color, peak_name);
   return result;
   delete fitter;
   delete canvas;
 }
 
-std::vector<FitResultGaussianTailStep> FitMultiplePeaks(
+std::vector<FitResultDetailed> FitMultiplePeaks(
     std::vector<TString> input_names, std::vector<TString> peak_names,
-    std::vector<Float_t> mu_guesses, const TString formatted_branch_name,
+    std::vector<Float_t> mu_guesses,
     std::vector<Int_t> colors = PlottingUtils::GetDefaultColors()) {
 
-  std::vector<FitResultGaussianTailStep> results;
+  std::vector<FitResultDetailed> results;
   Int_t entries = input_names.size();
   for (Int_t i = 0; i < entries; i++) {
-    FitResultGaussianTailStep result;
+    FitResultDetailed result;
     if (input_names[i] != "zero") {
 
       Bool_t isFiltered = input_names[i].Contains("_filtered");
@@ -68,14 +66,13 @@ std::vector<FitResultGaussianTailStep> FitMultiplePeaks(
 
       if (isFiltered) {
         tree_name = "bef_tree";
-        energyBranchName = "energy";
+        energyBranchName = "energykeV";
       } else {
         tree_name = "bef_tree_event_summary";
         energyBranchName = "totalEnergy";
       }
 
-      result = FitSinglePeak(input_names[i], peak_names[i], energyBranchName,
-                             tree_name, formatted_branch_name, colors[i],
+      result = FitSinglePeak(input_names[i], peak_names[i], colors[i],
                              mu_guesses[i]);
     } else {
       result.mu = 0;
@@ -180,24 +177,53 @@ void PulseHeightToDepositedEnergy(
 void Calibration() {
   InitUtils::SetROOTPreferences();
 
-  std::vector<Float_t> calibration_values_keV = {0,
-                                                 59.5409, // 72.8042, 74.9694,
-                                                 84.936};
-  std::vector<Float_t> mu_guesses = {0, 59.5409, // 72.8042, 74.9694,
-                                     84.936};
+  std::vector<Float_t> calibration_values_keV = {
+      0, 59.5409};                                // 72.8042, 74.9694, 84.936};
+  std::vector<Float_t> mu_guesses = {0, 59.5409}; // 72.8042, 74.9694,84.936};
 
-  TString suffix = Constants::FILTERED ? "_filtered" : "";
+  std::vector<TString> filenames;
 
-  TString input_name_Am241 = "01132026-PostReactor-Calibration" + suffix;
-  TString input_name_PbXRays =
-      "01142026-CuShield-ActiveBackground-10Percent" + suffix;
+  // January 12, 2026
+  filenames.push_back(Constants::PASSIVEBACKGROUND_01122026);
+  filenames.push_back(Constants::CALIBRATION_01122026);
 
-  std::vector<TString> input_names_calibrations = {"zero", input_name_Am241,
-                                                   input_name_PbXRays};
+  //  // January 13, 2026
+  filenames.push_back(Constants::ACTIVEBACKGROUND_TEST_5PERCENT_01132026);
+  filenames.push_back(Constants::ACTIVEBACKGROUND_TEST_90PERCENT_01132026);
+  filenames.push_back(Constants::CDSHIELDSIGNAL_10PERCENT_01132026);
+  filenames.push_back(Constants::CDSHIELDBACKGROUND_10PERCENT_01132026);
+  filenames.push_back(Constants::CDSHIELDSIGNAL_25PERCENT_01132026);
+  filenames.push_back(Constants::CDSHIELDBACKGROUND_25PERCENT_01132026);
+  filenames.push_back(Constants::CUSHIELDSIGNAL_10PERCENT_01132026);
+  filenames.push_back(Constants::CUSHIELDBACKGROUND_10PERCENT_01132026);
+  filenames.push_back(Constants::POSTREACTOR_AM241_01132026);
 
-  std::vector<TString> peak_names = {"zero",
-                                     "Am_59.5keV", //"Pb_72.8keV", "Pb_75.0keV",
-                                     "Pb_84.9keV"};
+  // January 14, 2026
+  filenames.push_back(Constants::CUSHIELDSIGNAL_10PERCENT_01142026);
+  filenames.push_back(Constants::CUSHIELDBACKGROUND_10PERCENT_01142026);
+  filenames.push_back(Constants::CUSHIELDSIGNAL_90PERCENT_01142026);
+
+  // January 15, 2026
+  filenames.push_back(Constants::NOSHIELDSIGNAL_5PERCENT_01152026);
+  filenames.push_back(Constants::NOSHIELDBACKGROUND_5PERCENT_01152026);
+  filenames.push_back(Constants::POSTREACTOR_AM241_01152026);
+  filenames.push_back(Constants::POSTREACTOR_BA133_01152026);
+  filenames.push_back(Constants::SHUTTERCLOSED_01152026);
+
+  // January 16, 2026
+  filenames.push_back(Constants::NOSHIELD_GEONCZT_0_5PERCENT_01162026);
+  filenames.push_back(Constants::NOSHIELD_ACTIVEBACKGROUND_0_5PERCENT_01162026);
+  filenames.push_back(
+      Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_01162026);
+  filenames.push_back(
+      Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_01162026);
+  filenames.push_back(Constants::POSTREACTOR_AM241_BA133_01162026);
+
+  std::vector<TString> input_names_calibrations = {
+      "zero", Constants::POSTREACTOR_AM241_01132026};
+
+  std::vector<TString> peak_names = {
+      "zero", "Am_59.5keV"}; //"Pb_72.8keV", "Pb_75.0keV", "Pb_84.9keV"};
 
   std::vector<Int_t> defaultColors = PlottingUtils::GetDefaultColors();
   std::vector<Int_t> colors = {0,
@@ -207,9 +233,8 @@ void Calibration() {
                                defaultColors[1],
                                defaultColors[1]};
 
-  std::vector<FitResultGaussianTailStep> fit_results =
-      FitMultiplePeaks(input_names_calibrations, peak_names, mu_guesses,
-                       "Precalibrated Energy [keV]", colors);
+  std::vector<FitResultDetailed> fit_results = FitMultiplePeaks(
+      input_names_calibrations, peak_names, mu_guesses, colors);
 
   Int_t size = calibration_values_keV.size();
 
