@@ -9,7 +9,7 @@ struct Region {
 
 namespace Constants {
 
-const Int_t BIN_WIDTH_EV = 250;
+const Int_t BIN_WIDTH_EV = 275;
 const Float_t BIN_WIDTH_KEV = BIN_WIDTH_EV / 1000.0;
 
 const Int_t HIST_XMIN = 0, HIST_XMAX = 1500;
