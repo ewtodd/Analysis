@@ -10,11 +10,8 @@
 #include <vector>
 
 FitResultDetailed FitSinglePeak(const TString input_name,
-                                const TString peak_name, const Int_t color,
+                                const TString peak_name,
                                 const Float_t expected_mu) {
-
-  TCanvas *canvas = new TCanvas(PlottingUtils::GetRandomName(), "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas, kFALSE);
 
   TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
   if (!file || file->IsZombie()) {
@@ -24,29 +21,30 @@ FitResultDetailed FitSinglePeak(const TString input_name,
 
   TH1F *zoomedHist = static_cast<TH1F *>(file->Get("zoomedHist"));
 
-  FittingUtils *fitter = new FittingUtils(zoomedHist, kTRUE);
+  zoomedHist->SetDirectory(0);
+  file->Close();
+  delete file;
 
+  FittingUtils *fitter = nullptr;
   FitResultDetailed result;
 
-  fitter->SetMu(expected_mu);
-
   if (peak_name == "Am_59.5keV") {
-    fitter->SetFitRange(56, 64);
-    fitter->SetMu(59.8);
-    fitter->SetSigma(0.1);
-    fitter->SetGausAmplitude(10);
+    fitter = new FittingUtils(zoomedHist, 50, 70, kTRUE, kTRUE, kTRUE, kTRUE);
+  }
+  if (peak_name == "Ba_80.98keV") {
+    fitter = new FittingUtils(zoomedHist, 75, 93, kTRUE, kTRUE, kTRUE, kTRUE);
   }
 
-  result = fitter->FitPeakDetailed(canvas, color, peak_name);
+  result = fitter->FitPeakDetailed(peak_name);
   return result;
+  delete zoomedHist;
   delete fitter;
-  delete canvas;
 }
 
-std::vector<FitResultDetailed> FitMultiplePeaks(
-    std::vector<TString> input_names, std::vector<TString> peak_names,
-    std::vector<Float_t> mu_guesses,
-    std::vector<Int_t> colors = PlottingUtils::GetDefaultColors()) {
+std::vector<FitResultDetailed>
+FitMultiplePeaks(std::vector<TString> input_names,
+                 std::vector<TString> peak_names,
+                 std::vector<Float_t> mu_guesses) {
 
   std::vector<FitResultDetailed> results;
   Int_t entries = input_names.size();
@@ -72,8 +70,7 @@ std::vector<FitResultDetailed> FitMultiplePeaks(
         energyBranchName = "totalEnergy";
       }
 
-      result = FitSinglePeak(input_names[i], peak_names[i], colors[i],
-                             mu_guesses[i]);
+      result = FitSinglePeak(input_names[i], peak_names[i], mu_guesses[i]);
     } else {
       result.mu = 0;
       result.mu_error = 0;
@@ -178,8 +175,9 @@ void Calibration() {
   InitUtils::SetROOTPreferences();
 
   std::vector<Float_t> calibration_values_keV = {
-      0, 59.5409};                                // 72.8042, 74.9694, 84.936};
-  std::vector<Float_t> mu_guesses = {0, 59.5409}; // 72.8042, 74.9694,84.936};
+      0, 59.5409, 80.98}; // 72.8042, 74.9694, 84.936};
+  std::vector<Float_t> mu_guesses = {0, 59.5409,
+                                     80.98}; // 72.8042, 74.9694,84.936};
 
   std::vector<TString> filenames;
 
@@ -220,21 +218,15 @@ void Calibration() {
   filenames.push_back(Constants::POSTREACTOR_AM241_BA133_01162026);
 
   std::vector<TString> input_names_calibrations = {
-      "zero", Constants::POSTREACTOR_AM241_01132026};
+      "zero", Constants::POSTREACTOR_AM241_01132026,
+      Constants::POSTREACTOR_BA133_01152026};
 
   std::vector<TString> peak_names = {
-      "zero", "Am_59.5keV"}; //"Pb_72.8keV", "Pb_75.0keV", "Pb_84.9keV"};
+      "zero", "Am_59.5keV",
+      "Ba_80.98keV"}; //"Pb_72.8keV", "Pb_75.0keV", "Pb_84.9keV"};
 
-  std::vector<Int_t> defaultColors = PlottingUtils::GetDefaultColors();
-  std::vector<Int_t> colors = {0,
-                               defaultColors[1],
-                               defaultColors[0],
-                               defaultColors[1],
-                               defaultColors[1],
-                               defaultColors[1]};
-
-  std::vector<FitResultDetailed> fit_results = FitMultiplePeaks(
-      input_names_calibrations, peak_names, mu_guesses, colors);
+  std::vector<FitResultDetailed> fit_results =
+      FitMultiplePeaks(input_names_calibrations, peak_names, mu_guesses);
 
   Int_t size = calibration_values_keV.size();
 

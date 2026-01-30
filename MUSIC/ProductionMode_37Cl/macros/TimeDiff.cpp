@@ -71,7 +71,7 @@ void CheckTimeDiff(std::vector<TString> input_filenames,
       input_tree->GetEntry(j);
       TString map_name = Constants::channelMap.at({board, channel});
 
-      if (map_name == "L1") {
+      if (map_name == "Grid") {
         gridTimediff = timestamp - lastGrid;
         lastGrid = timestamp;
         grid = energy;

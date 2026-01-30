@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     flake-utils.url = "github:numtide/flake-utils";
-    utils.url = "/home/e-work/Software/Analysis-Utilities";
+    utils.url = "github:ewtodd/Analysis-Utilities";
   };
 
   outputs =
@@ -33,6 +33,7 @@
           ];
 
           shellHook = ''
+            export SHELL="/run/current-system/sw/bin/bash"
             echo "ROOT version: $(root-config --version)"
             echo "Analysis-Utilities: ${analysis-utils.version}"
 
@@ -48,6 +49,8 @@
             export ROOT_INCLUDE_PATH="$PWD/include:${analysis-utils}/include''${ROOT_INCLUDE_PATH:+:$ROOT_INCLUDE_PATH}"
             # Local lib first means linker will use it preferentially
             export LD_LIBRARY_PATH="$PWD/lib:${analysis-utils}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+            cd macros
           '';
         };
       }

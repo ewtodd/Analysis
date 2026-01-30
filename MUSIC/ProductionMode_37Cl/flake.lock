@@ -38,11 +38,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1768940263,
-        "narHash": "sha256-sJERJIYTKPFXkoz/gBaBtRKke82h4DkX3BBSsKbfbvI=",
+        "lastModified": 1769598131,
+        "narHash": "sha256-e7VO/kGLgRMbWtpBqdWl0uFg8Y2XWFMdz0uUJvlML8o=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "3ceaaa8bc963ced4d830e06ea2d0863b6490ff03",
+        "rev": "fa83fd837f3098e3e678e6cf017b2b36102c7211",
         "type": "github"
       },
       "original": {
@@ -111,14 +111,17 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1769026816,
-        "narHash": "sha256-k3eU8rthN03HNC5M0+XlLmw49zGqjqjjsMZFkwBbBDM=",
-        "path": "/home/e-work/Software/Analysis-Utilities",
-        "type": "path"
+        "lastModified": 1769710978,
+        "narHash": "sha256-WCWCITPRe49CMO7rZUvtj+xs2KuyOCnvtICy7BmGd/s=",
+        "owner": "ewtodd",
+        "repo": "Analysis-Utilities",
+        "rev": "5360b616a8e71c95048dedc6c20a6219b40657e9",
+        "type": "github"
       },
       "original": {
-        "path": "/home/e-work/Software/Analysis-Utilities",
-        "type": "path"
+        "owner": "ewtodd",
+        "repo": "Analysis-Utilities",
+        "type": "github"
       }
     }
   },

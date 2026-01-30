@@ -30,20 +30,17 @@ Int_t GetStripNumber(TString map_name) {
 }
 
 Bool_t CheckEventComplete(Int_t leftdE[18], Int_t rightdE[18],
-                          Int_t totaldE[18], Int_t cathode) {
-  if (cathode == 0)
-    return kFALSE;
-
+                          Int_t totaldE[18]) {
   if (totaldE[0] == 0)
     return kFALSE;
 
-  for (Int_t strip = 1; strip <= 15; strip += 2) {
+  for (Int_t strip = 1; strip <= 7; strip += 2) {
     if (leftdE[strip] == 0) {
       return kFALSE;
     }
   }
 
-  for (Int_t strip = 2; strip <= 16; strip += 2) {
+  for (Int_t strip = 2; strip <= 8; strip += 2) {
     if (rightdE[strip] == 0) {
       return kFALSE;
     }
@@ -137,16 +134,15 @@ void BuildEvents(std::vector<TString> input_filenames,
 
       if (map_name == "Grid") {
         if (in_event) {
-          is_complete = CheckEventComplete(leftdE, rightdE, totaldE, cathode);
           for (Int_t s = 1; s < 17; s++) {
             totaldE[s] = leftdE[s] + rightdE[s];
           }
-          is_complete = CheckEventComplete(leftdE, rightdE, totaldE, cathode);
-          output_tree->Fill();
+          is_complete = CheckEventComplete(leftdE, rightdE, totaldE);
           total_events++;
 
           if (is_complete) {
             complete_events++;
+            output_tree->Fill();
           } else {
             incomplete_events++;
 
