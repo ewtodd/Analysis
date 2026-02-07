@@ -138,11 +138,11 @@ void BuildEvents(std::vector<TString> input_filenames,
             totaldE[s] = leftdE[s] + rightdE[s];
           }
           is_complete = CheckEventComplete(leftdE, rightdE, totaldE);
+          output_tree->Fill();
           total_events++;
 
           if (is_complete) {
             complete_events++;
-            output_tree->Fill();
           } else {
             incomplete_events++;
 

@@ -3,6 +3,7 @@
 #include "PlottingUtils.hpp"
 #include <TCanvas.h>
 #include <TF1.h>
+#include <TLine.h>
 
 void DrawTailFunctions() {
   InitUtils::SetROOTPreferences();
@@ -10,7 +11,7 @@ void DrawTailFunctions() {
   Double_t mu = 59.5;
   Double_t sigma = 1;
   Double_t tail_amplitude = 1;
-  Double_t tail_range = 2;
+  Double_t tail_range = 0.9;
 
   TF1 *low_tail = new TF1(
       "low_tail",
@@ -40,7 +41,14 @@ void DrawTailFunctions() {
   low_tail->SetLineColor(kBlue);
   low_tail->SetLineWidth(2);
   low_tail->Draw();
-  PlottingUtils::SaveFigure(c1, "low_tail_test.png", kFALSE);
+
+  TLine *line1 = new TLine(mu, 0, mu, low_tail->GetMaximum());
+  line1->SetLineColor(kBlack);
+  line1->SetLineStyle(2);
+  line1->SetLineWidth(2);
+  line1->Draw();
+
+  PlottingUtils::SaveFigure(c1, "low_tail_test.png", kTRUE);
 
   TCanvas *c2 = new TCanvas("c2", "High Tail Test", 800, 600);
   PlottingUtils::ConfigureCanvas(c2, kFALSE);
@@ -48,7 +56,14 @@ void DrawTailFunctions() {
   high_tail->SetLineColor(kRed);
   high_tail->SetLineWidth(2);
   high_tail->Draw();
-  PlottingUtils::SaveFigure(c2, "high_tail_test.png", kFALSE);
+
+  TLine *line2 = new TLine(mu, 0, mu, high_tail->GetMaximum());
+  line2->SetLineColor(kBlack);
+  line2->SetLineStyle(2);
+  line2->SetLineWidth(2);
+  line2->Draw();
+
+  PlottingUtils::SaveFigure(c2, "high_tail_test.png", kTRUE);
 
   delete low_tail;
   delete high_tail;

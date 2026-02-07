@@ -17,7 +17,8 @@ FitResultDetailed FitSinglePeak(const TString input_name,
   if (!file || file->IsZombie()) {
     std::cerr << "ERROR: Cannot open " << input_name << ".root" << std::endl;
     return {};
-  }
+  } else
+    std::cout << "FOUND " << input_name << ".root" << std::endl;
 
   TH1F *zoomedHist = static_cast<TH1F *>(file->Get("zoomedHist"));
 
@@ -29,16 +30,75 @@ FitResultDetailed FitSinglePeak(const TString input_name,
   FitResultDetailed result;
 
   if (peak_name == "Am_59.5keV") {
-    fitter = new FittingUtils(zoomedHist, 50, 70, kTRUE, kTRUE, kTRUE, kTRUE);
+    fitter =
+        new FittingUtils(zoomedHist, 50, 64, kTRUE, kTRUE, kTRUE, kTRUE, kTRUE);
   }
   if (peak_name == "Ba_80.98keV") {
-    fitter = new FittingUtils(zoomedHist, 75, 93, kTRUE, kTRUE, kTRUE, kTRUE);
+    fitter = new FittingUtils(zoomedHist, 74, 85, kFALSE, kTRUE, kTRUE, kTRUE,
+                              kTRUE);
+    std::vector<Double_t> params = {
+        81.346,   // Mu
+        0.755432, // Sigma
+        8091.01,  // GausAmplitude
+        376.894,  // BkgConst
+        -1.46859, // BkgSlope
+        1361.7,   // StepAmplitude
+        14490,    // LowTailAmplitude
+        1.31752,  // LowTailSlope
+        9507.4,   // HighTailAmplitude (was fixed)
+        0.710555  // HighTailSlope (was fixed)
+    };
+    fitter->SetManualParameters(params);
   }
-
-  result = fitter->FitPeakDetailed(peak_name);
-  return result;
+  result = fitter->FitPeakDetailed(input_name, peak_name);
   delete zoomedHist;
   delete fitter;
+  return result;
+}
+
+FitResultDoublePeakDetailed FitDoublePeak(const TString input_name,
+                                          const TString peak_name,
+                                          const Float_t mu1_init,
+                                          const Float_t mu2_init) {
+
+  TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
+  if (!file || file->IsZombie()) {
+    std::cerr << "ERROR: Cannot open " << input_name << ".root" << std::endl;
+    return {};
+  } else
+    std::cout << "FOUND " << input_name << ".root" << std::endl;
+
+  TH1F *zoomedHist = static_cast<TH1F *>(file->Get("zoomedHist"));
+
+  zoomedHist->SetDirectory(0);
+  file->Close();
+  delete file;
+
+  FittingUtils *fitter = nullptr;
+  FitResultDoublePeakDetailed result;
+
+  if (peak_name == "Am_59.5_Ba_53.16keV") {
+    fitter = new FittingUtils(zoomedHist, 50, 67, kFALSE, kTRUE, kTRUE, kTRUE,
+                              kTRUE);
+  }
+  if (peak_name == "Pb_KAlpha") {
+    if (input_name == Constants::CDSHIELDBACKGROUND_25PERCENT_01132026) {
+      fitter = new FittingUtils(zoomedHist, 63, 81, kFALSE, kTRUE, kTRUE, kTRUE,
+                                kTRUE);
+    } else if (input_name == Constants::CUSHIELDBACKGROUND_10PERCENT_01142026) {
+      fitter = new FittingUtils(zoomedHist, 60, 80, kFALSE, kTRUE, kTRUE, kTRUE,
+                                kTRUE);
+
+    } else
+      fitter = new FittingUtils(zoomedHist, 65, 81, kFALSE, kTRUE, kTRUE, kTRUE,
+                                kTRUE);
+  }
+
+  result =
+      fitter->FitDoublePeakDetailed(input_name, peak_name, mu1_init, mu2_init);
+  delete zoomedHist;
+  delete fitter;
+  return result;
 }
 
 std::vector<FitResultDetailed>
@@ -88,30 +148,28 @@ TF1 *CreateAndSaveCalibration(std::vector<Float_t> mu,
 
   Int_t size = calibration_values_keV.size();
 
-  TGraphErrors *calibration_curve =
-      new TGraphErrors(size, mu.data(), calibration_values_keV.data(),
-                       mu_errors.data(), nullptr);
+  TGraph *calibration_curve =
+      new TGraph(size, mu.data(), calibration_values_keV.data());
   TCanvas *canvas = new TCanvas("", "", 1200, 800);
   PlottingUtils::ConfigureCanvas(canvas);
   PlottingUtils::ConfigureGraph(
       calibration_curve, kBlue,
       "; Precalibrated Energy [keV]; Deposited Energy [keV]");
 
-  Double_t x_min, x_max, y_min, y_max;
-  calibration_curve->ComputeRange(x_min, y_min, x_max, y_max);
-  calibration_curve->GetXaxis()->SetRangeUser(0, x_max * 1.2);
-  calibration_curve->GetYaxis()->SetRangeUser(0, y_max * 1.2);
+  calibration_curve->GetXaxis()->SetRangeUser(-5, 100);
+  calibration_curve->GetYaxis()->SetRangeUser(-5, 100);
   calibration_curve->GetXaxis()->SetNdivisions(506);
-  calibration_curve->SetMarkerStyle(21);
+  calibration_curve->SetMarkerStyle(5);
   calibration_curve->SetMarkerSize(2);
-  calibration_curve->Draw("APE");
+  calibration_curve->Draw("AP");
 
-  TF1 *calibration_fit = new TF1("linear", "pol1", 0, 5000);
+  TF1 *calibration_fit = new TF1("linear", "pol1", -10, 100);
   calibration_fit->SetParameter(0, 0);
-  calibration_fit->SetParLimits(0, -1e-2, 1e-2);
-  calibration_fit->SetParameter(1, 0.076);
+  calibration_fit->SetParameter(1, 1);
+  calibration_fit->SetNpx(1000);
 
-  TFitResultPtr fit_result = calibration_curve->Fit(calibration_fit);
+  TFitResultPtr fit_result = calibration_curve->Fit(calibration_fit, "LRE");
+
   calibration_fit->Draw("SAME");
 
   PlottingUtils::SaveFigure(canvas, "calibration.png", kFALSE);
@@ -174,73 +232,100 @@ void PulseHeightToDepositedEnergy(
 void Calibration() {
   InitUtils::SetROOTPreferences();
 
-  std::vector<Float_t> calibration_values_keV = {
-      0, 59.5409, 80.98}; // 72.8042, 74.9694, 84.936};
-  std::vector<Float_t> mu_guesses = {0, 59.5409,
-                                     80.98}; // 72.8042, 74.9694,84.936};
-
-  std::vector<TString> filenames;
-
-  // January 12, 2026
-  filenames.push_back(Constants::PASSIVEBACKGROUND_01122026);
-  filenames.push_back(Constants::CALIBRATION_01122026);
-
-  //  // January 13, 2026
-  filenames.push_back(Constants::ACTIVEBACKGROUND_TEST_5PERCENT_01132026);
-  filenames.push_back(Constants::ACTIVEBACKGROUND_TEST_90PERCENT_01132026);
-  filenames.push_back(Constants::CDSHIELDSIGNAL_10PERCENT_01132026);
-  filenames.push_back(Constants::CDSHIELDBACKGROUND_10PERCENT_01132026);
-  filenames.push_back(Constants::CDSHIELDSIGNAL_25PERCENT_01132026);
-  filenames.push_back(Constants::CDSHIELDBACKGROUND_25PERCENT_01132026);
-  filenames.push_back(Constants::CUSHIELDSIGNAL_10PERCENT_01132026);
-  filenames.push_back(Constants::CUSHIELDBACKGROUND_10PERCENT_01132026);
-  filenames.push_back(Constants::POSTREACTOR_AM241_01132026);
-
-  // January 14, 2026
-  filenames.push_back(Constants::CUSHIELDSIGNAL_10PERCENT_01142026);
-  filenames.push_back(Constants::CUSHIELDBACKGROUND_10PERCENT_01142026);
-  filenames.push_back(Constants::CUSHIELDSIGNAL_90PERCENT_01142026);
-
-  // January 15, 2026
-  filenames.push_back(Constants::NOSHIELDSIGNAL_5PERCENT_01152026);
-  filenames.push_back(Constants::NOSHIELDBACKGROUND_5PERCENT_01152026);
-  filenames.push_back(Constants::POSTREACTOR_AM241_01152026);
-  filenames.push_back(Constants::POSTREACTOR_BA133_01152026);
-  filenames.push_back(Constants::SHUTTERCLOSED_01152026);
-
-  // January 16, 2026
-  filenames.push_back(Constants::NOSHIELD_GEONCZT_0_5PERCENT_01162026);
-  filenames.push_back(Constants::NOSHIELD_ACTIVEBACKGROUND_0_5PERCENT_01162026);
-  filenames.push_back(
-      Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_01162026);
-  filenames.push_back(
-      Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_01162026);
-  filenames.push_back(Constants::POSTREACTOR_AM241_BA133_01162026);
-
   std::vector<TString> input_names_calibrations = {
-      "zero", Constants::POSTREACTOR_AM241_01132026,
+      "zero", Constants::CALIBRATION_01122026,
+      Constants::POSTREACTOR_AM241_01132026,
+      Constants::POSTREACTOR_AM241_01152026,
       Constants::POSTREACTOR_BA133_01152026};
 
-  std::vector<TString> peak_names = {
-      "zero", "Am_59.5keV",
-      "Ba_80.98keV"}; //"Pb_72.8keV", "Pb_75.0keV", "Pb_84.9keV"};
+  std::vector<TString> peak_names = {"zero", "Am_59.5keV", "Am_59.5keV",
+                                     "Am_59.5keV", "Ba_80.98keV"};
+
+  std::vector<Float_t> mu_guesses_single = {0, 59.5409, 59.5409, 59.5409,
+                                            80.98};
 
   std::vector<FitResultDetailed> fit_results =
-      FitMultiplePeaks(input_names_calibrations, peak_names, mu_guesses);
+      FitMultiplePeaks(input_names_calibrations, peak_names, mu_guesses_single);
 
-  Int_t size = calibration_values_keV.size();
+  FitResultDoublePeakDetailed am_ba =
+      FitDoublePeak(Constants::POSTREACTOR_AM241_BA133_01162026,
+                    "Am_59.5_Ba_53.16keV", 53.1, 59.5);
+
+  FitResultDoublePeakDetailed pb_kalpha_results_1 =
+      FitDoublePeak(Constants::CDSHIELDBACKGROUND_10PERCENT_01132026,
+                    "Pb_KAlpha", 72.8042, 74.9694);
+
+  FitResultDoublePeakDetailed pb_kalpha_results_2 =
+      FitDoublePeak(Constants::CDSHIELDBACKGROUND_25PERCENT_01132026,
+                    "Pb_KAlpha", 72.8042, 74.9694);
+
+  FitResultDoublePeakDetailed pb_kalpha_results_3 =
+      FitDoublePeak(Constants::CUSHIELDBACKGROUND_10PERCENT_01132026,
+                    "Pb_KAlpha", 72.8042, 74.9694);
+
+  FitResultDoublePeakDetailed pb_kalpha_results_4 =
+      FitDoublePeak(Constants::CUSHIELDBACKGROUND_10PERCENT_01142026,
+                    "Pb_KAlpha", 72.8042, 74.9694);
 
   std::vector<Float_t> mu;
   std::vector<Float_t> mu_errors;
+  std::vector<Float_t> calibration_values_keV;
 
-  for (Int_t i = 0; i < size; i++) {
+  for (Int_t i = 0; i < fit_results.size(); i++) {
     mu.push_back(fit_results[i].mu);
     mu_errors.push_back(fit_results[i].mu_error);
+    if (i == 0) {
+      calibration_values_keV.push_back(0);
+    } else if (i == 1 || i == 2 | i == 3) {
+      calibration_values_keV.push_back(59.5409);
+    } else if (i == 4) {
+      calibration_values_keV.push_back(80.98);
+    } else {
+      std::cerr << "Warning: Unexpected index " << i << " in fit_results!"
+                << std::endl;
+    }
   }
 
-  //  TF1 *calibration_function =
-  //      CreateAndSaveCalibration(mu, calibration_values_keV, mu_errors);
-  //
-  //  std::vector<TString> input_names = {input_name_Am241, input_name_PbXRays};
-  //  PulseHeightToDepositedEnergy(input_names, calibration_function);
+  mu.push_back(am_ba.peak1.mu);
+  mu_errors.push_back(am_ba.peak1.mu_error);
+  calibration_values_keV.push_back(53.16);
+
+  mu.push_back(am_ba.peak2.mu);
+  mu_errors.push_back(am_ba.peak2.mu_error);
+  calibration_values_keV.push_back(59.5409);
+
+  mu.push_back(pb_kalpha_results_1.peak1.mu);
+  mu_errors.push_back(pb_kalpha_results_1.peak1.mu_error);
+  calibration_values_keV.push_back(72.8042);
+
+  mu.push_back(pb_kalpha_results_1.peak2.mu);
+  mu_errors.push_back(pb_kalpha_results_1.peak2.mu_error);
+  calibration_values_keV.push_back(74.9694);
+
+  mu.push_back(pb_kalpha_results_2.peak1.mu);
+  mu_errors.push_back(pb_kalpha_results_2.peak1.mu_error);
+  calibration_values_keV.push_back(72.8042);
+
+  mu.push_back(pb_kalpha_results_2.peak2.mu);
+  mu_errors.push_back(pb_kalpha_results_2.peak2.mu_error);
+  calibration_values_keV.push_back(74.9694);
+
+  mu.push_back(pb_kalpha_results_3.peak1.mu);
+  mu_errors.push_back(pb_kalpha_results_3.peak1.mu_error);
+  calibration_values_keV.push_back(72.8042);
+
+  mu.push_back(pb_kalpha_results_3.peak2.mu);
+  mu_errors.push_back(pb_kalpha_results_3.peak2.mu_error);
+  calibration_values_keV.push_back(74.9694);
+
+  mu.push_back(pb_kalpha_results_4.peak1.mu);
+  mu_errors.push_back(pb_kalpha_results_4.peak1.mu_error);
+  calibration_values_keV.push_back(72.8042);
+
+  mu.push_back(pb_kalpha_results_4.peak2.mu);
+  mu_errors.push_back(pb_kalpha_results_4.peak2.mu_error);
+  calibration_values_keV.push_back(74.9694);
+
+  TF1 *calibration_function =
+      CreateAndSaveCalibration(mu, calibration_values_keV, mu_errors);
 }
