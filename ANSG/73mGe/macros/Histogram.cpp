@@ -80,6 +80,7 @@ void AddHistogram(TString filename) {
            Constants::BIN_WIDTH_EV, perSecond.Data()),
       Constants::PEAK_NBINS, Constants::PEAK_XMIN, Constants::PEAK_XMAX);
 
+  tree->LoadBaskets();
   for (Int_t i = 0; i < n_entries; i++) {
     tree->GetEntry(i);
     hist->Fill(energy);

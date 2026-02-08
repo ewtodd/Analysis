@@ -111,13 +111,13 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1770414606,
-        "narHash": "sha256-bpJRGxZXpbxK8E+zUjQVHvsvD9qWZTH7v/466pnvTZA=",
-        "path": "/home/e-work/Software/Analysis-Utilities/",
+        "lastModified": 1770590177,
+        "narHash": "sha256-85M0yU9vl5s+UUJ8ppr93oJ5EA6AiyMkWFOBHuNxffA=",
+        "path": "/home/e-work/Software/Analysis-Utilities",
         "type": "path"
       },
       "original": {
-        "path": "/home/e-work/Software/Analysis-Utilities/",
+        "path": "/home/e-work/Software/Analysis-Utilities",
         "type": "path"
       }
     }

@@ -3,7 +3,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     flake-utils.url = "github:numtide/flake-utils";
-    utils.url = "github:ewtodd/Analysis-Utilities";
+    utils.url = "/home/e-work/Software/Analysis-Utilities";
   };
   outputs =
     {
@@ -44,8 +44,7 @@
             # Local lib first means linker will use it preferentially
             export LD_LIBRARY_PATH="$PWD/lib:${analysis-utils}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
             exec ${pkgs.zsh}/bin/zsh
-            cd macros
-          '';
+         '';
         };
       }
     );
