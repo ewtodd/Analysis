@@ -159,14 +159,18 @@ FitTriplePeak(const TString input_name, const TString peak_name,
 
   if (peak_name == "Ge") {
     if (input_name == Constants::CDSHIELDSIGNAL_25PERCENT_01132026) {
-      fitter = new FittingUtils(zoomedHist, 63, 81, kFALSE, kTRUE, kTRUE, kTRUE,
+      fitter = new FittingUtils(zoomedHist, 65, 81, kFALSE, kTRUE, kTRUE, kTRUE,
                                 kTRUE);
+    } else if (input_name == Constants::CDSHIELDSIGNAL_10PERCENT_01132026) {
+      fitter = new FittingUtils(zoomedHist, 64, 80, kFALSE, kTRUE, kTRUE, kTRUE,
+                                kTRUE);
+
     } else if (input_name == Constants::CUSHIELDSIGNAL_10PERCENT_01142026) {
-      fitter = new FittingUtils(zoomedHist, 60, 80, kFALSE, kTRUE, kTRUE, kTRUE,
+      fitter = new FittingUtils(zoomedHist, 62, 80, kFALSE, kTRUE, kTRUE, kTRUE,
                                 kTRUE);
 
     } else if (input_name == Constants::CUSHIELDSIGNAL_90PERCENT_01142026) {
-      fitter = new FittingUtils(zoomedHist, 63, 81, kFALSE, kTRUE, kTRUE, kTRUE,
+      fitter = new FittingUtils(zoomedHist, 63, 80, kFALSE, kTRUE, kTRUE, kTRUE,
                                 kTRUE);
 
     } else
@@ -283,29 +287,29 @@ void Results() {
   reduced_chi2.push_back(
       calibrated_cu_shield_signal_10_percent_01142026.reduced_chi2);
 
-  run_names.push_back("Cu Shield Signal 90% (01/14/2026)");
-  mu.push_back(calibrated_cu_shield_signal_90_percent_01142026.peak3.mu);
-  mu_errors.push_back(
-      calibrated_cu_shield_signal_90_percent_01142026.peak3.mu_error);
-  reduced_chi2.push_back(
-      calibrated_cu_shield_signal_90_percent_01142026.reduced_chi2);
-
-  run_names.push_back("No Shield Signal 5% (01/15/2026)");
-  mu.push_back(calibrated_no_shield_signal_5_percent_01152026.peak2.mu);
-  mu_errors.push_back(
-      calibrated_no_shield_signal_5_percent_01152026.peak2.mu_error);
-  reduced_chi2.push_back(
-      calibrated_no_shield_signal_5_percent_01152026.reduced_chi2);
-
-  run_names.push_back("No Shield Graphite Castle Signal 10% (01/16/2026)");
-  mu.push_back(
-      calibrated_no_shield_graphite_castle_signal_10_percent_01162026.peak2.mu);
-  mu_errors.push_back(
-      calibrated_no_shield_graphite_castle_signal_10_percent_01162026.peak2
-          .mu_error);
-  reduced_chi2.push_back(
-      calibrated_no_shield_graphite_castle_signal_10_percent_01162026
-          .reduced_chi2);
+  //  run_names.push_back("Cu Shield Signal 90% (01/14/2026)");
+  //  mu.push_back(calibrated_cu_shield_signal_90_percent_01142026.peak3.mu);
+  //  mu_errors.push_back(
+  //      calibrated_cu_shield_signal_90_percent_01142026.peak3.mu_error);
+  //  reduced_chi2.push_back(
+  //      calibrated_cu_shield_signal_90_percent_01142026.reduced_chi2);
+  //
+  //  run_names.push_back("No Shield Signal 5% (01/15/2026)");
+  //  mu.push_back(calibrated_no_shield_signal_5_percent_01152026.peak2.mu);
+  //  mu_errors.push_back(
+  //      calibrated_no_shield_signal_5_percent_01152026.peak2.mu_error);
+  //  reduced_chi2.push_back(
+  //      calibrated_no_shield_signal_5_percent_01152026.reduced_chi2);
+  //
+  //  run_names.push_back("No Shield Graphite Castle Signal 10% (01/16/2026)");
+  //  mu.push_back(
+  //      calibrated_no_shield_graphite_castle_signal_10_percent_01162026.peak2.mu);
+  //  mu_errors.push_back(
+  //      calibrated_no_shield_graphite_castle_signal_10_percent_01162026.peak2
+  //          .mu_error);
+  //  reduced_chi2.push_back(
+  //      calibrated_no_shield_graphite_castle_signal_10_percent_01162026
+  //          .reduced_chi2);
 
   std::cout << "Individual Run Results (Ge Peak mu):" << std::endl;
 

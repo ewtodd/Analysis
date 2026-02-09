@@ -17,14 +17,14 @@ const Int_t HIST_NBINS = (HIST_XMAX - HIST_XMIN) / BIN_WIDTH_KEV;
 const Int_t ZOOMED_NBINS = (ZOOMED_XMAX - ZOOMED_XMIN) / BIN_WIDTH_KEV;
 const Int_t PEAK_NBINS = (PEAK_XMAX - PEAK_XMIN) / BIN_WIDTH_KEV;
 const Bool_t USE_REAL_TIME = kFALSE;
-const Bool_t NORMALIZE_BY_TIME = kFALSE;
+const Bool_t NORMALIZE_BY_TIME = kTRUE;
 const Bool_t FILTERED = kTRUE;
-const Int_t FILTER_DEPTH_UM = 80;
+const Int_t FILTER_DEPTH_UM = 70;
 const std::vector<Region> FILTER_REGIONS_EXCLUDE_XY_UM = {
-    {-215, 215, -215, -205},
-    {-215, 215, 205, 215},
-    {-215, -205, -205, 205},
-    {205, 215, -205, 205}};
+    {-215, 215, -215, -210},
+    {-215, 215, 210, 215},
+    {-215, -210, -210, 210},
+    {210, 215, -210, 210}};
 const TString suffix = Constants::FILTERED ? "_filtered" : "";
 
 const TString PASSIVEBACKGROUND_01122026 =
