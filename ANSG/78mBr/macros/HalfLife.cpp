@@ -1,3 +1,4 @@
+#include "Constants.hpp"
 #include "InitUtils.hpp"
 #include "PlottingUtils.hpp"
 #include <Math/Factory.h>
@@ -53,8 +54,15 @@ void PlotPSPvsLO(std::vector<TString> input_names) {
   for (Int_t i = 0; i < entries; i++) {
     TString input_name = input_names[i];
 
-    TH2F *PSPvsLO = new TH2F("", "; Light Output [keVee]; PSP; Counts", 250, 0,
-                             1200, 100, 0, 1);
+    const Int_t psp_nbins = 100;
+    const Float_t psp_min = 0, psp_max = 1;
+    const Float_t psp_bin_width = (psp_max - psp_min) / psp_nbins;
+    TH2F *PSPvsLO =
+        new TH2F("",
+                 Form("; Light Output [keVee]; PSP; Counts / %d keV / %.2f",
+                      Constants::LO_BIN_WIDTH, psp_bin_width),
+                 Constants::LO_HIST_NBINS, Constants::LO_HIST_XMIN,
+                 Constants::LO_HIST_XMAX, psp_nbins, psp_min, psp_max);
 
     TCanvas *canvas = new TCanvas("", "", 1200, 800);
     PlottingUtils::ConfigureCanvas(canvas);
@@ -700,13 +708,26 @@ void PlotDoublePeaks(Bool_t reprocess = kFALSE) {
   features_tree->SetBranchAddress("peak1_light_output", &peak1_light_output);
   features_tree->SetBranchAddress("peak2_light_output", &peak2_light_output);
 
-  TH2F *LO1vsLO2 =
-      new TH2F("", "; Peak 1 Light Output [keVee]; Peak 2 Light Output [keVee]",
-               150, 100, 200, 150, 0, 50);
-  TH1F *peak1_hist =
-      new TH1F("", "; Peak 1 Light Output [keVee]; Counts", 150, 100, 200);
-  TH1F *peak2_hist =
-      new TH1F("", "; Peak 2 Light Output [keVee]; Counts", 150, 0, 50);
+  const Int_t peak1_nbins = 150, peak1_min = 100, peak1_max = 200;
+  const Int_t peak2_nbins = 150, peak2_min = 0, peak2_max = 50;
+  const Float_t peak1_bin_width =
+      (Float_t)(peak1_max - peak1_min) / peak1_nbins;
+  const Float_t peak2_bin_width =
+      (Float_t)(peak2_max - peak2_min) / peak2_nbins;
+  TH2F *LO1vsLO2 = new TH2F(
+      "",
+      Form("; Peak 1 Light Output [keVee]; Peak 2 Light Output [keVee]; "
+           "Counts / %.2f keV / %.2f keV",
+           peak1_bin_width, peak2_bin_width),
+      peak1_nbins, peak1_min, peak1_max, peak2_nbins, peak2_min, peak2_max);
+  TH1F *peak1_hist = new TH1F(
+      "",
+      Form("; Peak 1 Light Output [keVee]; Counts / %.2f keV", peak1_bin_width),
+      peak1_nbins, peak1_min, peak1_max);
+  TH1F *peak2_hist = new TH1F(
+      "",
+      Form("; Peak 2 Light Output [keVee]; Counts / %.2f keV", peak2_bin_width),
+      peak2_nbins, peak2_min, peak2_max);
 
   Int_t num_entries = features_tree->GetEntries();
   for (Int_t j = 0; j < num_entries; j++) {
@@ -780,13 +801,13 @@ void FitAndExtractHalfLife(Bool_t reprocess = kFALSE) {
   std::cout << "Peak 1 mean: " << mean_x << " +/- " << sigma_x << std::endl;
   std::cout << "Peak 2 mean: " << mean_y << " +/- " << sigma_y << std::endl;
 
-  Int_t lower = 0;
-  Int_t upper = 300;
+  const Int_t time_lower = 0, time_upper = 300;
+  const Int_t time_bin_width = 2;
+  const Int_t time_nbins = (time_upper - time_lower) / time_bin_width;
 
-  Int_t bins = (upper - lower) / 2;
-
-  TH1F *time_diff_hist =
-      new TH1F("", "; Time Difference [ns]; Counts / 2 ns", bins, lower, upper);
+  TH1F *time_diff_hist = new TH1F(
+      "", Form("; Time Difference [ns]; Counts / %d ns", time_bin_width),
+      time_nbins, time_lower, time_upper);
   time_diff_hist->Sumw2();
 
   Int_t num_entries = features_tree->GetEntries();
@@ -846,7 +867,7 @@ void FitAndExtractHalfLife(Bool_t reprocess = kFALSE) {
   marker_upper->SetMarkerColor(kRed);
   marker_upper->SetMarkerSize(1);
   marker_upper->Draw();
-  exponential->SetRange(lower, upper);
+  exponential->SetRange(time_lower, time_upper);
   exponential->Draw("SAME");
 
   TLegend *leg = new TLegend(0.6, 0.75, 0.88, 0.88);
@@ -885,35 +906,18 @@ void FitAndExtractHalfLife(Bool_t reprocess = kFALSE) {
 void HalfLife() {
   InitUtils::SetROOTPreferences();
 
-  Bool_t reprocess_initial = kFALSE;
-  Bool_t reprocess_candidate = kFALSE;
-  Bool_t reprocess_waveform = kFALSE;
+  Bool_t reprocess_initial = kTRUE;
+  Bool_t reprocess_candidate = kTRUE;
+  Bool_t reprocess_waveform = kTRUE;
   Bool_t reprocess_halflife = kTRUE;
 
-  TString input_name_Am241 = "calibration_Am241";
-  TString input_name_Eu152 = "calibration_Eu152";
-  TString input_name_bkg = "background";
-  TString input_name_irradiation_one = "irradiation_one";
-  TString input_name_irradiation_two = "irradiation_two";
-  TString input_name_irradiation_three = "irradiation_three";
-  TString input_name_irradiation_four = "irradiation_four";
-
-  std::vector<Int_t> defaultColors = PlottingUtils::GetDefaultColors();
-  std::vector<TString> input_names = {input_name_Am241,
-                                      input_name_Eu152,
-                                      input_name_bkg,
-                                      input_name_irradiation_one,
-                                      input_name_irradiation_two,
-                                      input_name_irradiation_three,
-                                      input_name_irradiation_four};
+  std::vector<TString> input_names = Constants::ALL_DATASETS;
 
   CalculatePSPvsLO(input_names, reprocess_initial);
   if (reprocess_initial)
     PlotPSPvsLO(input_names);
 
-  std::vector<TString> irradiation_names = {
-      input_name_irradiation_one, input_name_irradiation_two,
-      input_name_irradiation_three, input_name_irradiation_four};
+  std::vector<TString> irradiation_names = Constants::IRRADIATION_DATASETS;
 
   GetCandidateWaveforms(irradiation_names, reprocess_candidate);
   AnalyzeDoubleWaveforms(reprocess_waveform);

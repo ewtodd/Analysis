@@ -1,3 +1,4 @@
+#include "Constants.hpp"
 #include "FittingUtils.hpp"
 #include "InitUtils.hpp"
 #include "PlottingUtils.hpp"
@@ -6,111 +7,152 @@
 #include <TGraphErrors.h>
 #include <TROOT.h>
 #include <TSystem.h>
+#include <iomanip>
 #include <vector>
 
-FitResult FitSinglePeak(const TString input_name, const TString peak_name,
-                        const TString branch_name,
-                        const TString formatted_branch_name, const Int_t color,
-                        const Float_t expected_mu) {
-  TCanvas *canvas = new TCanvas("", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas, kFALSE);
+struct CalibrationData {
+  std::vector<Float_t> mu;
+  std::vector<Float_t> mu_errors;
+  std::vector<Float_t> calibration_values_keV;
+  std::vector<Float_t> reduced_chi2;
+  std::vector<TString> peak_names;
+};
 
-  FittingUtils *fitter = new FittingUtils();
-  fitter->LoadProcessed(input_name, branch_name);
-  fitter->SetNumHistBins(1500);
-  fitter->SetMaxHistValue(16384);
-  fitter->SetExpectedMu(expected_mu);
-  fitter->SetFitRange(expected_mu - 0.1 * expected_mu,
-                      expected_mu + 0.1 * expected_mu);
-  FitResult result;
+FitResultStandard FitSinglePeak(const TString input_name,
+                                const TString peak_name,
+                                const Float_t expected_mu) {
+
+  TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
+  if (!file || file->IsZombie()) {
+    std::cerr << "Cannot open " << input_name << ".root" << std::endl;
+    return {};
+  }
+
+  TH1F *hist = static_cast<TH1F *>(file->Get("Pulse Height"));
+  if (!hist) {
+    std::cerr << "Cannot find 'Pulse Height' histogram in " << input_name
+              << ".root" << std::endl;
+    file->Close();
+    delete file;
+    return {};
+  }
+
+  hist->SetDirectory(0);
+  file->Close();
+  delete file;
+
+  FittingUtils *fitter = nullptr;
+  FitResultStandard result = {};
+
+  Float_t fit_low = expected_mu * 0.85;
+  Float_t fit_high = expected_mu * 1.15;
 
   if (peak_name == "La_33keV") {
-    fitter->SetNumHistBins(5000);
-    fitter->SetExpectedAmplitude(3433);
-    fitter->SetExpectedSigma(38);
-    fitter->SetExpectedBackground(0);
-    fitter->SetFitRange(expected_mu - 0.18 * expected_mu,
-                        expected_mu + 0.18 * expected_mu);
+    fit_low = 250;
+    fit_high = 800;
+    fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kFALSE);
+  } else if (peak_name == "Am_59keV") {
+    fit_low = 600;
+    fit_high = 900;
+    fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kFALSE);
+  } else if (peak_name == "Eu_122keV") {
+    fit_low = expected_mu * 0.90;
+    fit_high = expected_mu * 1.08;
+    fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kFALSE);
+  } else if (peak_name == "Eu_245keV") {
+    fit_low = 2990;
+    fit_high = 3500;
+    fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kFALSE);
+  } else if (peak_name == "Eu_344keV") {
+    fit_low = 4100;
+    fit_high = 5000;
+    fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kFALSE);
+  } else {
+    fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kFALSE);
   }
 
-  if (peak_name == "Am_59keV") {
-    fitter->SetExpectedAmplitude(550);
-    fitter->SetExpectedSigma(34);
-    fitter->SetFitRange(expected_mu - 0.13 * expected_mu,
-                        expected_mu + 0.13 * expected_mu);
-    TF1 *function = fitter->GetFitFunction();
-    function->SetParLimits(0, 0, 3000);
-  }
+  result = fitter->FitPeakStandard(input_name, peak_name);
 
-  if (peak_name == "Eu_122keV") {
-    fitter->SetExpectedSigma(50);
-    fitter->SetFitRange(expected_mu - 0.1 * expected_mu,
-                        expected_mu + 0.08 * expected_mu);
-  }
-
-  if (peak_name == "Eu_344keV") {
-    fitter->SetExpectedAmplitude(1600);
-    fitter->SetExpectedSigma(187);
-    fitter->SetFitRange(expected_mu - 0.12 * expected_mu,
-                        expected_mu + 0.12 * expected_mu);
-  }
-
-  if (peak_name == "Eu_411keV") {
-    fitter->SetExpectedSigma(100);
-    TF1 *function = fitter->GetFitFunction();
-    function->SetParLimits(0, 0, 3000);
-    function->SetParLimits(2, 40, 300);
-    fitter->SetNumHistBins(500);
-    function->SetParLimits(4, 0, 1e2);
-  }
-  if (peak_name == "Eu_444eV") {
-    fitter->SetExpectedSigma(250);
-    TF1 *function = fitter->GetFitFunction();
-    function->SetParLimits(0, 0, 3000);
-    function->SetParLimits(2, 100, 300);
-    fitter->SetNumHistBins(500);
-    function->SetParLimits(4, -1e2, 0);
-  }
-
-  result = fitter->FitPeak(canvas, color, peak_name, formatted_branch_name);
-  return result;
+  delete hist;
   delete fitter;
-  delete canvas;
+  return result;
 }
 
-std::vector<FitResult> FitMultiplePeaks(
-    std::vector<TString> input_names, std::vector<TString> peak_names,
-    std::vector<Float_t> mu_guesses, const TString branch_name,
-    const TString formatted_branch_name,
-    std::vector<Int_t> colors = PlottingUtils::GetDefaultColors()) {
+CalibrationData FitCalibrationPeaks() {
+  CalibrationData cal_data;
 
-  std::vector<FitResult> results;
-  Int_t entries = input_names.size();
-  for (Int_t i = 0; i < entries; i++) {
-    FitResult result;
-    if (input_names[i] != "zero") {
-      result = FitSinglePeak(input_names[i], peak_names[i], branch_name,
-                             formatted_branch_name, colors[i], mu_guesses[i]);
-    } else {
-      result.mu = 0;
-      result.mu_error = 0;
-      result.sigma = 0;
-      result.sigma_error = 0;
-    }
-    results.push_back(result);
+  // Zero point
+  cal_data.peak_names.push_back("Zero");
+  cal_data.mu.push_back(0);
+  cal_data.mu_errors.push_back(0);
+  cal_data.calibration_values_keV.push_back(0);
+  cal_data.reduced_chi2.push_back(0);
+
+  // La K-alpha 33 keV
+  FitResultStandard la_result = FitSinglePeak(
+      Constants::CALIBRATION_EU152, "La_33keV", 525); // ~525 ADC expected
+  cal_data.peak_names.push_back("La_33keV");
+  cal_data.mu.push_back(la_result.mu);
+  cal_data.mu_errors.push_back(la_result.mu_error);
+  cal_data.calibration_values_keV.push_back(Constants::E_LA_33KEV);
+  cal_data.reduced_chi2.push_back(la_result.reduced_chi2);
+
+  // Am-241 59.5 keV
+  FitResultStandard am_result = FitSinglePeak(
+      Constants::CALIBRATION_AM241, "Am_59keV", 780); // ~780 ADC expected
+  cal_data.peak_names.push_back("Am_59keV");
+  cal_data.mu.push_back(am_result.mu);
+  cal_data.mu_errors.push_back(am_result.mu_error);
+  cal_data.calibration_values_keV.push_back(Constants::E_AM241_59KEV);
+  cal_data.reduced_chi2.push_back(am_result.reduced_chi2);
+
+  // Eu-152 122 keV
+  FitResultStandard eu122_result = FitSinglePeak(
+      Constants::CALIBRATION_EU152, "Eu_122keV", 1650); // ~1650 ADC expected
+  cal_data.peak_names.push_back("Eu_122keV");
+  cal_data.mu.push_back(eu122_result.mu);
+  cal_data.mu_errors.push_back(eu122_result.mu_error);
+  cal_data.calibration_values_keV.push_back(Constants::E_EU152_122KEV);
+  cal_data.reduced_chi2.push_back(eu122_result.reduced_chi2);
+
+  // Eu-152 245 keV
+  FitResultStandard eu245_result = FitSinglePeak(
+      Constants::CALIBRATION_EU152, "Eu_245keV", 3275); // ~3250 ADC expected
+  cal_data.peak_names.push_back("Eu_245keV");
+  cal_data.mu.push_back(eu245_result.mu);
+  cal_data.mu_errors.push_back(eu245_result.mu_error);
+  cal_data.calibration_values_keV.push_back(Constants::E_EU152_245KEV);
+  cal_data.reduced_chi2.push_back(eu245_result.reduced_chi2);
+
+  // Eu-152 344 keV
+  FitResultStandard eu344_result = FitSinglePeak(
+      Constants::CALIBRATION_EU152, "Eu_344keV", 4577); // ~4577 ADC expected
+  cal_data.peak_names.push_back("Eu_344keV");
+  cal_data.mu.push_back(eu344_result.mu);
+  cal_data.mu_errors.push_back(eu344_result.mu_error);
+  cal_data.calibration_values_keV.push_back(Constants::E_EU152_344KEV);
+  cal_data.reduced_chi2.push_back(eu344_result.reduced_chi2);
+
+  return cal_data;
+}
+
+void PrintCalibrationSummary(const CalibrationData &cal_data) {
+  for (size_t i = 0; i < cal_data.mu.size(); ++i) {
+    std::cout << cal_data.peak_names[i] << ": " << std::fixed
+              << std::setprecision(2) << cal_data.mu[i] << " +/- "
+              << cal_data.mu_errors[i] << " ADC -> "
+              << cal_data.calibration_values_keV[i] << " keV" << std::endl;
   }
-  return results;
 }
 
-TF1 *CreateAndSaveCalibration(std::vector<Float_t> mu,
-                              std::vector<Float_t> calibration_values_keV,
-                              std::vector<Float_t> mu_errors) {
+TF1 *CreateAndSaveCalibration(const CalibrationData &cal_data) {
 
-  Int_t size = calibration_values_keV.size();
+  Int_t size = cal_data.calibration_values_keV.size();
 
-  TGraphErrors *calibration_curve =
-      new TGraphErrors(size, mu.data(), calibration_values_keV.data(),
-                       mu_errors.data(), nullptr);
+  TGraphErrors *calibration_curve = new TGraphErrors(
+      size, cal_data.mu.data(), cal_data.calibration_values_keV.data(),
+      cal_data.mu_errors.data(), nullptr);
+
   TCanvas *canvas = new TCanvas("", "", 1200, 800);
   PlottingUtils::ConfigureCanvas(canvas);
   PlottingUtils::ConfigureGraph(calibration_curve, kBlue,
@@ -130,39 +172,63 @@ TF1 *CreateAndSaveCalibration(std::vector<Float_t> mu,
   calibration_fit->SetParLimits(0, -1e-2, 1e-2);
   calibration_fit->SetParameter(1, 0.076);
 
-  TFitResultPtr fit_result = calibration_curve->Fit(calibration_fit);
+  TFitResultPtr fit_result = calibration_curve->Fit(calibration_fit, "LRE");
   calibration_fit->Draw("SAME");
-
   PlottingUtils::SaveFigure(canvas, "calibration.png", kFALSE);
+
+  delete canvas;
   return calibration_fit;
 }
 
-void PulseHeightToLightOutput(
-    std::vector<TString> input_names, TF1 *calibration_function,
-    std::vector<Int_t> colors = PlottingUtils::GetDefaultColors()) {
-  Int_t entries = input_names.size();
+void PulseHeightToLightOutput(const std::vector<TString> &input_names,
+                              TF1 *calibration_function) {
 
   TString calibration_function_filepath =
       "root_files/calibration_function.root";
   TFile *calibration_file =
       new TFile(calibration_function_filepath, "RECREATE");
   calibration_function->Write("calibration", TObject::kOverwrite);
+  calibration_file->Close();
+  delete calibration_file;
 
-  for (Int_t i = 0; i < entries; i++) {
+  std::vector<Int_t> colors = PlottingUtils::GetDefaultColors();
+
+  for (size_t i = 0; i < input_names.size(); i++) {
     TString input_name = input_names[i];
+    Int_t color = colors[i % colors.size()];
+
     TH1F *light_output_hist =
-        new TH1F("", "; Light Output [keVee]; Counts", 500, 0,
-                 calibration_function->Eval(16384));
+        new TH1F("",
+                 Form("; Light Output [keVee]; Counts / %.1d keV",
+                      Constants::LO_BIN_WIDTH),
+                 Constants::LO_HIST_NBINS, Constants::LO_HIST_XMIN,
+                 Constants::LO_HIST_XMAX);
+
     TCanvas *canvas = new TCanvas("", "", 1200, 800);
     PlottingUtils::ConfigureCanvas(canvas);
 
     TString output_filepath = "root_files/" + input_name + ".root";
-
     TFile *output = new TFile(output_filepath, "UPDATE");
+
+    if (!output || output->IsZombie()) {
+      std::cerr << "Cannot open " << output_filepath << std::endl;
+      delete light_output_hist;
+      delete canvas;
+      continue;
+    }
 
     output->cd();
 
     TTree *features_tree = static_cast<TTree *>(output->Get("features"));
+    if (!features_tree) {
+      std::cerr << "Cannot find 'features' tree in " << output_filepath
+                << std::endl;
+      output->Close();
+      delete output;
+      delete light_output_hist;
+      delete canvas;
+      continue;
+    }
 
     Float_t pulse_height, light_output_keVee;
     features_tree->SetBranchAddress("pulse_height", &pulse_height);
@@ -178,71 +244,32 @@ void PulseHeightToLightOutput(
       light_output_hist->Fill(light_output_keVee);
     }
 
-    PlottingUtils::ConfigureAndDrawHistogram(light_output_hist, colors[i]);
+    PlottingUtils::ConfigureAndDrawHistogram(light_output_hist, color);
     PlottingUtils::SaveFigure(canvas, input_name + "_light_output.png");
 
     features_tree->Write("", TObject::kOverwrite);
     light_output_hist->Write("Light Output", TObject::kOverwrite);
     output->Close();
+    delete output;
     delete canvas;
     delete light_output_hist;
   }
-  calibration_file->Close();
 }
 
 void Calibration() {
   InitUtils::SetROOTPreferences();
 
-  std::vector<Float_t> calibration_values_keV = {0,     33.4,  59.5409,
-                                                 121.8, 244.7, 344.3};
-  std::vector<Float_t> mu_guesses = {0, 525, 780, 1650, 3250, 4577};
+  CalibrationData cal_data = FitCalibrationPeaks();
 
-  TString input_name_Am241 = "calibration_Am241";
-  TString input_name_Eu152 = "calibration_Eu152";
-  TString input_name_bkg = "background";
-  TString input_name_irradiation_one = "irradiation_one";
-  TString input_name_irradiation_two = "irradiation_two";
-  TString input_name_irradiation_three = "irradiation_three";
-  TString input_name_irradiation_four = "irradiation_four";
+  PrintCalibrationSummary(cal_data);
 
-  std::vector<TString> input_names_calibrations = {
-      "zero",           input_name_Eu152, input_name_Am241,
-      input_name_Eu152, input_name_Eu152, input_name_Eu152};
+  TF1 *calibration_function = CreateAndSaveCalibration(cal_data);
 
-  std::vector<TString> peak_names = {"zero",      "La_33keV",  "Am_59keV",
-                                     "Eu_122keV", "Eu_244keV", "Eu_344keV"};
+  std::vector<TString> datasets_to_calibrate = {
+      Constants::CALIBRATION_AM241, Constants::CALIBRATION_EU152,
+      Constants::BACKGROUND,        Constants::IRRADIATION_ONE,
+      Constants::IRRADIATION_TWO,   Constants::IRRADIATION_THREE,
+      Constants::IRRADIATION_FOUR};
 
-  std::vector<Int_t> defaultColors = PlottingUtils::GetDefaultColors();
-  std::vector<Int_t> colors = {0,
-                               defaultColors[1],
-                               defaultColors[0],
-                               defaultColors[1],
-                               defaultColors[1],
-                               defaultColors[1]};
-
-  std::vector<FitResult> fit_results =
-      FitMultiplePeaks(input_names_calibrations, peak_names, mu_guesses,
-                       "pulse_height", "Pulse Height [ADC]", colors);
-
-  Int_t size = calibration_values_keV.size();
-
-  std::vector<Float_t> mu;
-  std::vector<Float_t> mu_errors;
-
-  for (Int_t i = 0; i < size; i++) {
-    mu.push_back(fit_results[i].mu);
-    mu_errors.push_back(fit_results[i].mu_error);
-  }
-
-  TF1 *calibration_function =
-      CreateAndSaveCalibration(mu, calibration_values_keV, mu_errors);
-
-  std::vector<TString> input_names = {input_name_Am241,
-                                      input_name_Eu152,
-                                      input_name_bkg,
-                                      input_name_irradiation_one,
-                                      input_name_irradiation_two,
-                                      input_name_irradiation_three,
-                                      input_name_irradiation_four};
-  PulseHeightToLightOutput(input_names, calibration_function);
+  PulseHeightToLightOutput(datasets_to_calibrate, calibration_function);
 }

@@ -1,3 +1,4 @@
+#include "Constants.hpp"
 #include "InitUtils.hpp"
 #include "PlottingUtils.hpp"
 #include "WaveformProcessingUtils.hpp"
@@ -15,10 +16,10 @@ void InitialWaveformProcessing(const TString filepath,
   processor->SetNumberOfSamplesForBaseline(10);
   processor->SetSampleWindows(18, 135);
   processor->SetGates(5, 40, 220);
+  processor->SetSaveSampleWaveforms(5);
   processor->SetMaxEvents(-1);
   processor->SetVerbose(kTRUE);
   processor->ProcessFile(filepath, output_name);
-
   std::cout << "MACRO: Processed raw waveforms." << std::endl;
   std::cout << "MACRO: Now reading results file." << std::endl;
 
@@ -36,10 +37,17 @@ void InitialWaveformProcessing(const TString filepath,
   PlottingUtils::ConfigureCanvas(canvas, kFALSE);
 
   TH1F *long_integral_hist =
-      new TH1F("", "; Pulse Integral [a.u.]; Counts", 500, 0, 4e5);
+      new TH1F("",
+               Form("; Pulse Integral [a.u.]; Counts / %d a.u.",
+                    Constants::PI_BIN_WIDTH),
+               Constants::PI_HIST_NBINS, Constants::PI_HIST_XMIN,
+               Constants::PI_HIST_XMAX);
 
-  TH1F *pulse_height_hist =
-      new TH1F("", "; Pulse Height [ADC]; Counts", 500, 0, 16384);
+  TH1F *pulse_height_hist = new TH1F(
+      "",
+      Form("; Pulse Height [ADC]; Counts / %d ADC", Constants::PH_BIN_WIDTH),
+      Constants::PH_HIST_NBINS, Constants::PH_HIST_XMIN,
+      Constants::PH_HIST_XMAX);
 
   Int_t num_entries = features_tree->GetEntries();
 
@@ -81,54 +89,29 @@ void ProcessFiles(
 void InitialProcessing() {
   InitUtils::SetROOTPreferences();
 
-  TString filepath_Am241 =
+  std::vector<TString> filepaths = {
       "/home/e-work/LabData/ANSG/78mBr/half_life_2/DAQ/"
       "59_5keV_calibration_300s/RAW/"
-      "DataR_CH0@DT5730S_31017_59_5keV_calibration_300s.root";
-  TString output_name_Am241 = "calibration_Am241";
-  TString filepath_Eu152 =
+      "DataR_CH0@DT5730S_31017_59_5keV_calibration_300s.root",
       "/home/e-work/LabData/ANSG/78mBr/half_life_2/DAQ/"
       "Europium_calibration_300s/RAW/"
-      "DataR_CH0@DT5730S_31017_Europium_calibration_300s.root";
-  TString output_name_Eu152 = "calibration_Eu152";
-  TString filepath_bkg = "/home/e-work/LabData/ANSG/78mBr/day2/"
-                         "bkg_day2/RAW/DataR_CH0@DT5730B_969_bkg_day2.root";
-  TString output_name_bkg = "background";
-
-  TString filepath_irradiation_one =
+      "DataR_CH0@DT5730S_31017_Europium_calibration_300s.root",
+      "/home/e-work/LabData/ANSG/78mBr/day2/bkg_day2/RAW/"
+      "DataR_CH0@DT5730B_969_bkg_day2.root",
       "/home/e-work/LabData/ANSG/78mBr/half_life_2/DAQ/irradiation_1/RAW/"
-      "DataR_CH0@DT5730S_31017_irradiation_1.root";
-  TString output_name_irradiation_one = "irradiation_one";
-
-  TString filepath_irradiation_two =
+      "DataR_CH0@DT5730S_31017_irradiation_1.root",
       "/home/e-work/LabData/ANSG/78mBr/half_life_2/DAQ/irradiation_2/RAW/"
-      "DataR_CH0@DT5730S_31017_irradiation_2.root";
-  TString output_name_irradiation_two = "irradiation_two";
-
-  TString filepath_irradiation_three =
+      "DataR_CH0@DT5730S_31017_irradiation_2.root",
       "/home/e-work/LabData/ANSG/78mBr/half_life_2/DAQ/irradiation_3/RAW/"
-      "DataR_CH0@DT5730S_31017_irradiation_3.root";
-  TString output_name_irradiation_three = "irradiation_three";
-
-  TString filepath_irradiation_four =
+      "DataR_CH0@DT5730S_31017_irradiation_3.root",
       "/home/e-work/LabData/ANSG/78mBr/day2/irradiation_day2/RAW/"
-      "DataR_CH0@DT5730B_969_irradiation_day2.root";
-  TString output_name_irradiation_four = "irradiation_four";
+      "DataR_CH0@DT5730B_969_irradiation_day2.root"};
 
-  std::vector<TString> filepaths = {filepath_Am241,
-                                    filepath_Eu152,
-                                    filepath_bkg,
-                                    filepath_irradiation_one,
-                                    filepath_irradiation_two,
-                                    filepath_irradiation_three,
-                                    filepath_irradiation_four};
-  std::vector<TString> output_names = {output_name_Am241,
-                                       output_name_Eu152,
-                                       output_name_bkg,
-                                       output_name_irradiation_one,
-                                       output_name_irradiation_two,
-                                       output_name_irradiation_three,
-                                       output_name_irradiation_four};
+  std::vector<TString> output_names = {
+      Constants::CALIBRATION_AM241, Constants::CALIBRATION_EU152,
+      Constants::BACKGROUND,        Constants::IRRADIATION_ONE,
+      Constants::IRRADIATION_TWO,   Constants::IRRADIATION_THREE,
+      Constants::IRRADIATION_FOUR};
 
   ProcessFiles(filepaths, output_names);
 }
