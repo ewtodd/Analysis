@@ -11,32 +11,13 @@ void AddHistogram(TString filename) {
   TString filepath = "root_files/" + filename + ".root";
   TFile *file = new TFile(filepath, "UPDATE");
 
-  Bool_t isFiltered = filename.Contains("_filtered");
-
-  if (isFiltered && !Constants::FILTERED) {
-    std::cerr << "File name contains filtered but constant is not set."
-              << std::endl;
-  }
-
-  if ((isFiltered || Constants::FILTERED) && Constants::NORMALIZE_BY_TIME) {
-    std::cout << "WARNING: normalization by time on filtered data may not be "
-                 "reliable."
-              << std::endl;
-  }
-
   TTree *tree = nullptr;
   TString treeName;
   TString energyBranchName;
 
-  if (isFiltered) {
-    treeName = "bef_tree";
-    energyBranchName = "energykeV";
-    tree = static_cast<TTree *>(file->Get(treeName));
-  } else {
-    treeName = "bef_tree_event_summary";
-    energyBranchName = "totalEnergykeV";
-    tree = static_cast<TTree *>(file->Get(treeName));
-  }
+  treeName = "CZT";
+  energyBranchName = "fEDep";
+  tree = static_cast<TTree *>(file->Get(treeName));
 
   if (!tree) {
     std::cerr << "ERROR: Could not find tree '" << treeName << "' in file "
@@ -45,22 +26,11 @@ void AddHistogram(TString filename) {
     return;
   }
 
-  TParameter<Double_t> *param =
-      (TParameter<Double_t> *)file->Get("N42_RealTime_Total");
-
-  if (!param) {
-    std::cerr << "WARNING: Could not find N42_RealTime_Total parameter in "
-              << filepath << std::endl;
-  }
-
-  Double_t n42_time = param ? param->GetVal() : 1.0;
-
-  Float_t energy;
+  Double_t energy;
   tree->SetBranchAddress(energyBranchName, &energy);
 
   Int_t n_entries = tree->GetEntries();
-
-  TString perSecond = Constants::NORMALIZE_BY_TIME && param ? " / s" : "";
+  TString perSecond = "";
 
   TH1F *hist = new TH1F(
       PlottingUtils::GetRandomName(),
@@ -88,13 +58,6 @@ void AddHistogram(TString filename) {
       zoomedHist->Fill(energy);
     if (Constants::PEAK_XMIN < energy && energy < Constants::PEAK_XMAX)
       peakHist->Fill(energy);
-  }
-
-  if (Constants::NORMALIZE_BY_TIME && param) {
-    Float_t normalization = 1.0 / n42_time;
-    hist->Scale(normalization);
-    zoomedHist->Scale(normalization);
-    peakHist->Scale(normalization);
   }
 
   std::cout << "Created histograms for " << filename
@@ -126,7 +89,12 @@ void AddAllHistograms(std::vector<TString> filenames) {
   }
 }
 
-void Histogram() {
+void SimHistogram() {
   InitUtils::SetROOTPreferences();
-  AddAllHistograms(Constants::ALL_DATASETS);
+  std::vector<TString> filenames;
+
+  filenames.push_back(Constants::SIM_1E6);
+  filenames.push_back(Constants::SIM_5E7);
+
+  AddAllHistograms(filenames);
 }

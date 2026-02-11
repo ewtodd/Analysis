@@ -33,13 +33,13 @@ FitResultDetailed FitSinglePeak(const TString input_name,
   FitResultDetailed result;
 
   if (peak_name == "Background") {
-    if (input_name == Constants::NOSHIELDBACKGROUND_5PERCENT_01152026) {
-      fitter = new FittingUtils(zoomedHist, 67, 77, kFALSE, kTRUE, kTRUE, kTRUE,
+    if (input_name == Constants::NOSHIELDBACKGROUND_5PERCENT_20260115) {
+      fitter = new FittingUtils(zoomedHist, 67, 77, kTRUE, kTRUE, kTRUE, kTRUE,
                                 kTRUE);
     } else if (input_name ==
                Constants::
-                   NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_01162026) {
-      fitter = new FittingUtils(zoomedHist, 67, 80, kFALSE, kTRUE, kTRUE, kTRUE,
+                   NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_20260116) {
+      fitter = new FittingUtils(zoomedHist, 67, 80, kTRUE, kTRUE, kTRUE, kTRUE,
                                 kTRUE);
     }
   }
@@ -73,13 +73,13 @@ FitDoublePeak(const TString input_name, const TString peak_name,
   FitResultDoublePeakDetailed result;
 
   if (peak_name == "Pb_KAlpha") {
-    if (input_name == Constants::CDSHIELDBACKGROUND_25PERCENT_01132026) {
+    if (input_name == Constants::CDSHIELDBACKGROUND_25PERCENT_20260113) {
       fitter = new FittingUtils(zoomedHist, 63, 81, kFALSE, kTRUE, kTRUE, kTRUE,
                                 kTRUE);
-    } else if (input_name == Constants::CUSHIELDBACKGROUND_10PERCENT_01142026) {
+    } else if (input_name == Constants::CUSHIELDBACKGROUND_10PERCENT_20260114) {
       fitter = new FittingUtils(zoomedHist, 60, 80, kFALSE, kTRUE, kTRUE, kTRUE,
                                 kTRUE);
-    } else if (input_name == Constants::CDSHIELDBACKGROUND_10PERCENT_01132026) {
+    } else if (input_name == Constants::CDSHIELDBACKGROUND_10PERCENT_20260113) {
       fitter = new FittingUtils(zoomedHist, 63, 80, kFALSE, kTRUE, kTRUE, kTRUE,
                                 kTRUE);
     } else
@@ -118,11 +118,11 @@ FitDoublePeakConstrained(const TString input_name, const TString peak_name,
   FitResultDoublePeakDetailed result;
 
   if (peak_name == "Ge") {
-    if (input_name == Constants::NOSHIELDSIGNAL_5PERCENT_01152026) {
+    if (input_name == Constants::NOSHIELDSIGNAL_5PERCENT_20260115) {
       fitter = new FittingUtils(zoomedHist, 64, 77, kFALSE, kTRUE, kTRUE, kTRUE,
                                 kTRUE);
     } else if (input_name ==
-               Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_01162026) {
+               Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_20260116) {
       fitter = new FittingUtils(zoomedHist, 60, 77, kFALSE, kTRUE, kTRUE, kTRUE,
                                 kTRUE);
     }
@@ -158,18 +158,18 @@ FitTriplePeak(const TString input_name, const TString peak_name,
   FitResultTriplePeakDetailed result;
 
   if (peak_name == "Ge") {
-    if (input_name == Constants::CDSHIELDSIGNAL_25PERCENT_01132026) {
+    if (input_name == Constants::CDSHIELDSIGNAL_25PERCENT_20260113) {
       fitter = new FittingUtils(zoomedHist, 65, 81, kFALSE, kTRUE, kTRUE, kTRUE,
                                 kTRUE);
-    } else if (input_name == Constants::CDSHIELDSIGNAL_10PERCENT_01132026) {
+    } else if (input_name == Constants::CDSHIELDSIGNAL_10PERCENT_20260113) {
       fitter = new FittingUtils(zoomedHist, 64, 80, kFALSE, kTRUE, kTRUE, kTRUE,
                                 kTRUE);
 
-    } else if (input_name == Constants::CUSHIELDSIGNAL_10PERCENT_01142026) {
+    } else if (input_name == Constants::CUSHIELDSIGNAL_10PERCENT_20260114) {
       fitter = new FittingUtils(zoomedHist, 62, 80, kFALSE, kTRUE, kTRUE, kTRUE,
                                 kTRUE);
 
-    } else if (input_name == Constants::CUSHIELDSIGNAL_90PERCENT_01142026) {
+    } else if (input_name == Constants::CUSHIELDSIGNAL_90PERCENT_20260114) {
       fitter = new FittingUtils(zoomedHist, 63, 80, kFALSE, kTRUE, kTRUE, kTRUE,
                                 kTRUE);
 
@@ -193,122 +193,122 @@ void Results() {
   std::vector<TString> run_names;
 
   FitResultDoublePeakDetailed
-      calibrated_cd_shield_background_10_percent_01132026 =
-          FitDoublePeak(Constants::CDSHIELDBACKGROUND_10PERCENT_01132026,
+      calibrated_cd_shield_background_10_percent_20260113 =
+          FitDoublePeak(Constants::CDSHIELDBACKGROUND_10PERCENT_20260113,
                         "Pb_KAlpha", 72.8042, 74.9694, kTRUE);
 
   FitResultDoublePeakDetailed
-      calibrated_cd_shield_background_25_percent_01132026 =
-          FitDoublePeak(Constants::CDSHIELDBACKGROUND_25PERCENT_01132026,
+      calibrated_cd_shield_background_25_percent_20260113 =
+          FitDoublePeak(Constants::CDSHIELDBACKGROUND_25PERCENT_20260113,
                         "Pb_KAlpha", 72.8042, 74.9694, kTRUE);
 
   FitResultDoublePeakDetailed
-      calibrated_cu_shield_background_10_percent_01132026 =
-          FitDoublePeak(Constants::CUSHIELDBACKGROUND_10PERCENT_01132026,
+      calibrated_cu_shield_background_10_percent_20260113 =
+          FitDoublePeak(Constants::CUSHIELDBACKGROUND_10PERCENT_20260113,
                         "Pb_KAlpha", 72.8042, 74.9694, kTRUE);
 
   FitResultDoublePeakDetailed
-      calibrated_cu_shield_background_10_percent_01142026 =
-          FitDoublePeak(Constants::CUSHIELDBACKGROUND_10PERCENT_01142026,
+      calibrated_cu_shield_background_10_percent_20260114 =
+          FitDoublePeak(Constants::CUSHIELDBACKGROUND_10PERCENT_20260114,
                         "Pb_KAlpha", 72.8042, 74.9694, kTRUE);
 
-  FitResultTriplePeakDetailed calibrated_cd_shield_signal_10_percent_01132026 =
-      FitTriplePeak(Constants::CDSHIELDSIGNAL_10PERCENT_01132026, "Ge",
-                    calibrated_cd_shield_background_10_percent_01132026, 68.75,
+  FitResultTriplePeakDetailed calibrated_cd_shield_signal_10_percent_20260113 =
+      FitTriplePeak(Constants::CDSHIELDSIGNAL_10PERCENT_20260113, "Ge",
+                    calibrated_cd_shield_background_10_percent_20260113, 68.75,
                     kTRUE);
 
-  FitResultTriplePeakDetailed calibrated_cd_shield_signal_25_percent_01132026 =
-      FitTriplePeak(Constants::CDSHIELDSIGNAL_25PERCENT_01132026, "Ge",
-                    calibrated_cd_shield_background_25_percent_01132026, 68.75,
+  FitResultTriplePeakDetailed calibrated_cd_shield_signal_25_percent_20260113 =
+      FitTriplePeak(Constants::CDSHIELDSIGNAL_25PERCENT_20260113, "Ge",
+                    calibrated_cd_shield_background_25_percent_20260113, 68.75,
                     kTRUE);
 
-  FitResultTriplePeakDetailed calibrated_cu_shield_signal_10_percent_01132026 =
-      FitTriplePeak(Constants::CUSHIELDSIGNAL_10PERCENT_01132026, "Ge",
-                    calibrated_cu_shield_background_10_percent_01132026, 68.75,
+  FitResultTriplePeakDetailed calibrated_cu_shield_signal_10_percent_20260113 =
+      FitTriplePeak(Constants::CUSHIELDSIGNAL_10PERCENT_20260113, "Ge",
+                    calibrated_cu_shield_background_10_percent_20260113, 68.75,
                     kTRUE);
 
-  FitResultTriplePeakDetailed calibrated_cu_shield_signal_10_percent_01142026 =
-      FitTriplePeak(Constants::CUSHIELDSIGNAL_10PERCENT_01142026, "Ge",
-                    calibrated_cu_shield_background_10_percent_01142026, 68.75,
+  FitResultTriplePeakDetailed calibrated_cu_shield_signal_10_percent_20260114 =
+      FitTriplePeak(Constants::CUSHIELDSIGNAL_10PERCENT_20260114, "Ge",
+                    calibrated_cu_shield_background_10_percent_20260114, 68.75,
                     kTRUE);
 
-  FitResultTriplePeakDetailed calibrated_cu_shield_signal_90_percent_01142026 =
-      FitTriplePeak(Constants::CUSHIELDSIGNAL_90PERCENT_01142026, "Ge",
-                    calibrated_cu_shield_background_10_percent_01142026, 68.75,
+  FitResultTriplePeakDetailed calibrated_cu_shield_signal_90_percent_20260114 =
+      FitTriplePeak(Constants::CUSHIELDSIGNAL_90PERCENT_20260114, "Ge",
+                    calibrated_cu_shield_background_10_percent_20260114, 68.75,
                     kTRUE);
 
-  FitResultDetailed calibrated_no_shield_background_5_percent_01152026 =
-      FitSinglePeak(Constants::NOSHIELDBACKGROUND_5PERCENT_01152026,
+  FitResultDetailed calibrated_no_shield_background_5_percent_20260115 =
+      FitSinglePeak(Constants::NOSHIELDBACKGROUND_5PERCENT_20260115,
                     "Background", 72, kTRUE);
 
   FitResultDetailed
-      calibrated_no_shield_graphite_castle_background_10_percent_01162026 =
+      calibrated_no_shield_graphite_castle_background_10_percent_20260116 =
           FitSinglePeak(
-              Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_01162026,
+              Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_20260116,
               "Background", 72, kTRUE);
 
-  FitResultDoublePeakDetailed calibrated_no_shield_signal_5_percent_01152026 =
+  FitResultDoublePeakDetailed calibrated_no_shield_signal_5_percent_20260115 =
       FitDoublePeakConstrained(
-          Constants::NOSHIELDSIGNAL_5PERCENT_01152026, "Ge",
-          calibrated_no_shield_background_5_percent_01152026, 68.75, kTRUE);
+          Constants::NOSHIELDSIGNAL_5PERCENT_20260115, "Ge",
+          calibrated_no_shield_background_5_percent_20260115, 68.75, kTRUE);
 
   FitResultDoublePeakDetailed
-      calibrated_no_shield_graphite_castle_signal_10_percent_01162026 =
+      calibrated_no_shield_graphite_castle_signal_10_percent_20260116 =
           FitDoublePeakConstrained(
-              Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_01162026, "Ge",
-              calibrated_no_shield_graphite_castle_background_10_percent_01162026,
+              Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_20260116, "Ge",
+              calibrated_no_shield_graphite_castle_background_10_percent_20260116,
               68.75, kTRUE);
 
   run_names.push_back("Cd Shield Signal 10% (01/13/2026)");
-  mu.push_back(calibrated_cd_shield_signal_10_percent_01132026.peak3.mu);
+  mu.push_back(calibrated_cd_shield_signal_10_percent_20260113.peak3.mu);
   mu_errors.push_back(
-      calibrated_cd_shield_signal_10_percent_01132026.peak3.mu_error);
+      calibrated_cd_shield_signal_10_percent_20260113.peak3.mu_error);
   reduced_chi2.push_back(
-      calibrated_cd_shield_signal_10_percent_01132026.reduced_chi2);
+      calibrated_cd_shield_signal_10_percent_20260113.reduced_chi2);
 
   run_names.push_back("Cd Shield Signal 25% (01/13/2026)");
-  mu.push_back(calibrated_cd_shield_signal_25_percent_01132026.peak3.mu);
+  mu.push_back(calibrated_cd_shield_signal_25_percent_20260113.peak3.mu);
   mu_errors.push_back(
-      calibrated_cd_shield_signal_25_percent_01132026.peak3.mu_error);
+      calibrated_cd_shield_signal_25_percent_20260113.peak3.mu_error);
   reduced_chi2.push_back(
-      calibrated_cd_shield_signal_25_percent_01132026.reduced_chi2);
+      calibrated_cd_shield_signal_25_percent_20260113.reduced_chi2);
 
   run_names.push_back("Cu Shield Signal 10% (01/13/2026)");
-  mu.push_back(calibrated_cu_shield_signal_10_percent_01132026.peak3.mu);
+  mu.push_back(calibrated_cu_shield_signal_10_percent_20260113.peak3.mu);
   mu_errors.push_back(
-      calibrated_cu_shield_signal_10_percent_01132026.peak3.mu_error);
+      calibrated_cu_shield_signal_10_percent_20260113.peak3.mu_error);
   reduced_chi2.push_back(
-      calibrated_cu_shield_signal_10_percent_01132026.reduced_chi2);
+      calibrated_cu_shield_signal_10_percent_20260113.reduced_chi2);
 
   run_names.push_back("Cu Shield Signal 10% (01/14/2026)");
-  mu.push_back(calibrated_cu_shield_signal_10_percent_01142026.peak3.mu);
+  mu.push_back(calibrated_cu_shield_signal_10_percent_20260114.peak3.mu);
   mu_errors.push_back(
-      calibrated_cu_shield_signal_10_percent_01142026.peak3.mu_error);
+      calibrated_cu_shield_signal_10_percent_20260114.peak3.mu_error);
   reduced_chi2.push_back(
-      calibrated_cu_shield_signal_10_percent_01142026.reduced_chi2);
+      calibrated_cu_shield_signal_10_percent_20260114.reduced_chi2);
 
   //  run_names.push_back("Cu Shield Signal 90% (01/14/2026)");
-  //  mu.push_back(calibrated_cu_shield_signal_90_percent_01142026.peak3.mu);
+  //  mu.push_back(calibrated_cu_shield_signal_90_percent_20260114.peak3.mu);
   //  mu_errors.push_back(
-  //      calibrated_cu_shield_signal_90_percent_01142026.peak3.mu_error);
+  //      calibrated_cu_shield_signal_90_percent_20260114.peak3.mu_error);
   //  reduced_chi2.push_back(
-  //      calibrated_cu_shield_signal_90_percent_01142026.reduced_chi2);
+  //      calibrated_cu_shield_signal_90_percent_20260114.reduced_chi2);
   //
   //  run_names.push_back("No Shield Signal 5% (01/15/2026)");
-  //  mu.push_back(calibrated_no_shield_signal_5_percent_01152026.peak2.mu);
+  //  mu.push_back(calibrated_no_shield_signal_5_percent_20260115.peak2.mu);
   //  mu_errors.push_back(
-  //      calibrated_no_shield_signal_5_percent_01152026.peak2.mu_error);
+  //      calibrated_no_shield_signal_5_percent_20260115.peak2.mu_error);
   //  reduced_chi2.push_back(
-  //      calibrated_no_shield_signal_5_percent_01152026.reduced_chi2);
+  //      calibrated_no_shield_signal_5_percent_20260115.reduced_chi2);
   //
   //  run_names.push_back("No Shield Graphite Castle Signal 10% (01/16/2026)");
   //  mu.push_back(
-  //      calibrated_no_shield_graphite_castle_signal_10_percent_01162026.peak2.mu);
+  //      calibrated_no_shield_graphite_castle_signal_10_percent_20260116.peak2.mu);
   //  mu_errors.push_back(
-  //      calibrated_no_shield_graphite_castle_signal_10_percent_01162026.peak2
+  //      calibrated_no_shield_graphite_castle_signal_10_percent_20260116.peak2
   //          .mu_error);
   //  reduced_chi2.push_back(
-  //      calibrated_no_shield_graphite_castle_signal_10_percent_01162026
+  //      calibrated_no_shield_graphite_castle_signal_10_percent_20260116
   //          .reduced_chi2);
 
   std::cout << "Individual Run Results (Ge Peak mu):" << std::endl;

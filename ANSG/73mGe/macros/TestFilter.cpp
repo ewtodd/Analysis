@@ -188,41 +188,36 @@ void TestFilter() {
 
   std::vector<TString> filenames;
 
-  //  // January 12, 2026
-  //  filenames.push_back(Constants::PASSIVEBACKGROUND_01122026);
-  //  filenames.push_back(Constants::CALIBRATION_01122026);
+  //  filenames.push_back(Constants::PASSIVEBACKGROUND_20260112);
+  //  filenames.push_back(Constants::CALIBRATION_20260112);
   //
-  //  //  // January 13, 2026
-  //  filenames.push_back(Constants::ACTIVEBACKGROUND_TEST_5PERCENT_01132026);
-  //  filenames.push_back(Constants::ACTIVEBACKGROUND_TEST_90PERCENT_01132026);
-  //  filenames.push_back(Constants::CDSHIELDSIGNAL_10PERCENT_01132026);
-  //  filenames.push_back(Constants::CDSHIELDBACKGROUND_10PERCENT_01132026);
-  filenames.push_back(Constants::CDSHIELDSIGNAL_25PERCENT_01132026);
-  //  filenames.push_back(Constants::CDSHIELDBACKGROUND_25PERCENT_01132026);
-  //  filenames.push_back(Constants::CUSHIELDSIGNAL_10PERCENT_01132026);
-  //  filenames.push_back(Constants::CUSHIELDBACKGROUND_10PERCENT_01132026);
-  //  filenames.push_back(Constants::POSTREACTOR_AM241_01132026);
+  //  filenames.push_back(Constants::ACTIVEBACKGROUND_TEST_5PERCENT_20260113);
+  //  filenames.push_back(Constants::ACTIVEBACKGROUND_TEST_90PERCENT_20260113);
+  //  filenames.push_back(Constants::CDSHIELDSIGNAL_10PERCENT_20260113);
+  //  filenames.push_back(Constants::CDSHIELDBACKGROUND_10PERCENT_20260113);
+  filenames.push_back(Constants::CDSHIELDSIGNAL_25PERCENT_20260113);
+  //  filenames.push_back(Constants::CDSHIELDBACKGROUND_25PERCENT_20260113);
+  //  filenames.push_back(Constants::CUSHIELDSIGNAL_10PERCENT_20260113);
+  //  filenames.push_back(Constants::CUSHIELDBACKGROUND_10PERCENT_20260113);
+  //  filenames.push_back(Constants::POSTREACTOR_AM241_20260113);
   //
-  //  // January 14, 2026
-  //  filenames.push_back(Constants::CUSHIELDSIGNAL_10PERCENT_01142026);
-  //  filenames.push_back(Constants::CUSHIELDBACKGROUND_10PERCENT_01142026);
-  //  filenames.push_back(Constants::CUSHIELDSIGNAL_90PERCENT_01142026);
+  //  filenames.push_back(Constants::CUSHIELDSIGNAL_10PERCENT_20260114);
+  //  filenames.push_back(Constants::CUSHIELDBACKGROUND_10PERCENT_20260114);
+  //  filenames.push_back(Constants::CUSHIELDSIGNAL_90PERCENT_20260114);
   //
-  //  // January 15, 2026
-  //  filenames.push_back(Constants::NOSHIELDSIGNAL_5PERCENT_01152026);
-  //  filenames.push_back(Constants::NOSHIELDBACKGROUND_5PERCENT_01152026);
-  //  filenames.push_back(Constants::POSTREACTOR_AM241_01152026);
-  //  filenames.push_back(Constants::POSTREACTOR_BA133_01152026);
-  //  filenames.push_back(Constants::SHUTTERCLOSED_01152026);
+  //  filenames.push_back(Constants::NOSHIELDSIGNAL_5PERCENT_20260115);
+  //  filenames.push_back(Constants::NOSHIELDBACKGROUND_5PERCENT_20260115);
+  //  filenames.push_back(Constants::POSTREACTOR_AM241_20260115);
+  //  filenames.push_back(Constants::POSTREACTOR_BA133_20260115);
+  //  filenames.push_back(Constants::SHUTTERCLOSED_20260115);
   //
-  //  // January 16, 2026
-  //  filenames.push_back(Constants::NOSHIELD_GEONCZT_0_5PERCENT_01162026);
-  //  filenames.push_back(Constants::NOSHIELD_ACTIVEBACKGROUND_0_5PERCENT_01162026);
+  //  filenames.push_back(Constants::NOSHIELD_GEONCZT_0_5PERCENT_20260116);
+  //  filenames.push_back(Constants::NOSHIELD_ACTIVEBACKGROUND_0_5PERCENT_20260116);
   //  filenames.push_back(
-  //      Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_01162026);
+  //      Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_20260116);
   //  filenames.push_back(
-  //      Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_01162026);
-  filenames.push_back(Constants::POSTREACTOR_AM241_BA133_01162026);
+  //      Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_20260116);
+  filenames.push_back(Constants::POSTREACTOR_AM241_BA133_20260116);
 
   Filter(filenames);
 }
