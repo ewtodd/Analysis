@@ -18,6 +18,48 @@ struct CalibrationData {
   std::vector<TString> peak_names;
 };
 
+FitResultDetailed FitSinglePeakDetailed(const TString input_name,
+                                        const TString peak_name,
+                                        const Float_t expected_mu) {
+
+  TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
+  if (!file || file->IsZombie()) {
+    std::cerr << "ERROR: Cannot open " << input_name << ".root" << std::endl;
+    return {};
+  } else
+    std::cout << "FOUND " << input_name << ".root" << std::endl;
+
+  TH1F *hist = static_cast<TH1F *>(file->Get("long_integral"));
+  if (!hist) {
+    std::cerr << "Cannot find 'Pulse Integral' histogram in " << input_name
+              << ".root" << std::endl;
+    file->Close();
+    delete file;
+    return {};
+  }
+
+  hist->SetDirectory(0);
+  file->Close();
+  delete file;
+
+  FittingUtils *fitter = nullptr;
+  FitResultDetailed result;
+
+  Float_t fit_low, fit_high;
+
+  if (peak_name == "Am_59keV") {
+    fit_low = 2000;
+    fit_high = 9000;
+    fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kTRUE, kTRUE,
+                              kTRUE, kTRUE);
+  }
+
+  result = fitter->FitPeakDetailed(input_name, peak_name);
+  delete hist;
+  delete fitter;
+  return result;
+}
+
 FitResultStandard FitSinglePeak(const TString input_name,
                                 const TString peak_name,
                                 const Float_t expected_mu) {
@@ -28,9 +70,9 @@ FitResultStandard FitSinglePeak(const TString input_name,
     return {};
   }
 
-  TH1F *hist = static_cast<TH1F *>(file->Get("pulse_height"));
+  TH1F *hist = static_cast<TH1F *>(file->Get("long_integral"));
   if (!hist) {
-    std::cerr << "Cannot find 'Pulse Height' histogram in " << input_name
+    std::cerr << "Cannot find 'Pulse Integral' histogram in " << input_name
               << ".root" << std::endl;
     file->Close();
     delete file;
@@ -44,33 +86,29 @@ FitResultStandard FitSinglePeak(const TString input_name,
   FittingUtils *fitter = nullptr;
   FitResultStandard result = {};
 
-  Float_t fit_low = expected_mu * 0.85;
-  Float_t fit_high = expected_mu * 1.15;
+  Float_t fit_low, fit_high;
 
-  if (peak_name == "La_33keV") {
-    fit_low = 250;
-    fit_high = 800;
+  if (peak_name == "Am_59keV") {
+    fit_low = 2500;
+    fit_high = 7000;
     fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kFALSE);
-  } else if (peak_name == "Am_59keV") {
-    fit_low = 600;
-    fit_high = 900;
+  } else if (peak_name == "Cs_662keV") {
+    fit_low = 34000;
+    fit_high = 45000;
     fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kFALSE);
-  } else if (peak_name == "Eu_122keV") {
-    fit_low = expected_mu * 0.90;
-    fit_high = expected_mu * 1.08;
+  } else if (peak_name == "Na_511keV") {
+    fit_low = 25000;
+    fit_high = 36000;
     fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kFALSE);
-  } else if (peak_name == "Eu_245keV") {
-    fit_low = 2990;
-    fit_high = 3500;
+  } else if (peak_name == "Na_1274keV") {
+    fit_low = 72000;
+    fit_high = 83000;
     fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kFALSE);
-  } else if (peak_name == "Eu_344keV") {
-    fit_low = 4100;
-    fit_high = 5000;
-    fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kFALSE);
-  } else {
+  } else if (peak_name == "Co_1332keV") {
+    fit_low = 77000;
+    fit_high = 83000;
     fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kFALSE);
   }
-
   result = fitter->FitPeakStandard(input_name, peak_name);
 
   delete hist;
@@ -88,50 +126,50 @@ CalibrationData FitCalibrationPeaks() {
   cal_data.calibration_values_keV.push_back(0);
   cal_data.reduced_chi2.push_back(0);
 
-  // La K-alpha 33 keV
-  FitResultStandard la_result = FitSinglePeak(
-      Constants::CALIBRATION_EU152, "La_33keV", 525); // ~525 ADC expected
-  cal_data.peak_names.push_back("La_33keV");
-  cal_data.mu.push_back(la_result.mu);
-  cal_data.mu_errors.push_back(la_result.mu_error);
-  cal_data.calibration_values_keV.push_back(Constants::E_LA_33KEV);
-  cal_data.reduced_chi2.push_back(la_result.reduced_chi2);
-
   // Am-241 59.5 keV
-  FitResultStandard am_result = FitSinglePeak(
-      Constants::CALIBRATION_AM241, "Am_59keV", 780); // ~780 ADC expected
+  FitResultDetailed am_result =
+      FitSinglePeakDetailed(Constants::AM241, "Am_59keV", 4000);
   cal_data.peak_names.push_back("Am_59keV");
   cal_data.mu.push_back(am_result.mu);
   cal_data.mu_errors.push_back(am_result.mu_error);
   cal_data.calibration_values_keV.push_back(Constants::E_AM241_59KEV);
   cal_data.reduced_chi2.push_back(am_result.reduced_chi2);
 
-  // Eu-152 122 keV
-  FitResultStandard eu122_result = FitSinglePeak(
-      Constants::CALIBRATION_EU152, "Eu_122keV", 1650); // ~1650 ADC expected
-  cal_data.peak_names.push_back("Eu_122keV");
-  cal_data.mu.push_back(eu122_result.mu);
-  cal_data.mu_errors.push_back(eu122_result.mu_error);
-  cal_data.calibration_values_keV.push_back(Constants::E_EU152_122KEV);
-  cal_data.reduced_chi2.push_back(eu122_result.reduced_chi2);
+  // Na-22 511 keV
+  FitResultStandard na511_result =
+      FitSinglePeak(Constants::NA22, "Na_511keV", 39000);
+  cal_data.peak_names.push_back("Na_511keV");
+  cal_data.mu.push_back(na511_result.mu);
+  cal_data.mu_errors.push_back(na511_result.mu_error);
+  cal_data.calibration_values_keV.push_back(Constants::E_NA22_511KEV);
+  cal_data.reduced_chi2.push_back(na511_result.reduced_chi2);
 
-  // Eu-152 245 keV
-  FitResultStandard eu245_result = FitSinglePeak(
-      Constants::CALIBRATION_EU152, "Eu_245keV", 3275); // ~3250 ADC expected
-  cal_data.peak_names.push_back("Eu_245keV");
-  cal_data.mu.push_back(eu245_result.mu);
-  cal_data.mu_errors.push_back(eu245_result.mu_error);
-  cal_data.calibration_values_keV.push_back(Constants::E_EU152_245KEV);
-  cal_data.reduced_chi2.push_back(eu245_result.reduced_chi2);
+  // Cs-137 662 keV
+  FitResultStandard cs_result =
+      FitSinglePeak(Constants::CS137, "Cs_662keV", 30251);
+  cal_data.peak_names.push_back("Cs_662keV");
+  cal_data.mu.push_back(cs_result.mu);
+  cal_data.mu_errors.push_back(cs_result.mu_error);
+  cal_data.calibration_values_keV.push_back(Constants::E_CS137_662KEV);
+  cal_data.reduced_chi2.push_back(cs_result.reduced_chi2);
 
-  // Eu-152 344 keV
-  FitResultStandard eu344_result = FitSinglePeak(
-      Constants::CALIBRATION_EU152, "Eu_344keV", 4577); // ~4577 ADC expected
-  cal_data.peak_names.push_back("Eu_344keV");
-  cal_data.mu.push_back(eu344_result.mu);
-  cal_data.mu_errors.push_back(eu344_result.mu_error);
-  cal_data.calibration_values_keV.push_back(Constants::E_EU152_344KEV);
-  cal_data.reduced_chi2.push_back(eu344_result.reduced_chi2);
+  // Na-22 1274.5 keV
+  FitResultStandard na1274_result =
+      FitSinglePeak(Constants::NA22, "Na_1274keV", 76000);
+  cal_data.peak_names.push_back("Na_1274keV");
+  cal_data.mu.push_back(na1274_result.mu);
+  cal_data.mu_errors.push_back(na1274_result.mu_error);
+  cal_data.calibration_values_keV.push_back(Constants::E_NA22_1274KEV);
+  cal_data.reduced_chi2.push_back(na1274_result.reduced_chi2);
+
+  // Co-60 1332.5 keV
+  FitResultStandard co_result =
+      FitSinglePeak(Constants::CO60, "Co_1332keV", 78295);
+  cal_data.peak_names.push_back("Co_1332keV");
+  cal_data.mu.push_back(co_result.mu);
+  cal_data.mu_errors.push_back(co_result.mu_error);
+  cal_data.calibration_values_keV.push_back(Constants::E_CO60_1332KEV);
+  cal_data.reduced_chi2.push_back(co_result.reduced_chi2);
 
   return cal_data;
 }
@@ -167,7 +205,7 @@ TF1 *CreateAndSaveCalibration(const CalibrationData &cal_data) {
   calibration_curve->SetMarkerSize(2);
   calibration_curve->Draw("APE");
 
-  TF1 *calibration_fit = new TF1("linear", "pol1", 0, 5000);
+  TF1 *calibration_fit = new TF1("linear", "pol1", 0, Constants::ADC_MAX);
   calibration_fit->SetParameter(0, 0);
   calibration_fit->SetParLimits(0, -1e-2, 1e-2);
   calibration_fit->SetParameter(1, 0.076);
@@ -180,8 +218,8 @@ TF1 *CreateAndSaveCalibration(const CalibrationData &cal_data) {
   return calibration_fit;
 }
 
-void PulseHeightToLightOutput(const std::vector<TString> &input_names,
-                              TF1 *calibration_function) {
+void LongIntegralToLightOutput(const std::vector<TString> &input_names,
+                               TF1 *calibration_function) {
 
   TString calibration_function_filepath =
       "root_files/calibration_function.root";
@@ -230,8 +268,8 @@ void PulseHeightToLightOutput(const std::vector<TString> &input_names,
       continue;
     }
 
-    Float_t pulse_height, light_output_keVee;
-    features_tree->SetBranchAddress("pulse_height", &pulse_height);
+    Float_t long_integral, light_output_keVee;
+    features_tree->SetBranchAddress("long_integral", &long_integral);
     features_tree->Branch("light_output", &light_output_keVee,
                           "light_output/F");
 
@@ -239,7 +277,7 @@ void PulseHeightToLightOutput(const std::vector<TString> &input_names,
 
     for (Int_t j = 0; j < num_entries; j++) {
       features_tree->GetEntry(j);
-      light_output_keVee = calibration_function->Eval(pulse_height);
+      light_output_keVee = calibration_function->Eval(long_integral);
       features_tree->GetBranch("light_output")->Fill();
       light_output_hist->Fill(light_output_keVee);
     }
@@ -265,11 +303,5 @@ void Calibration() {
 
   TF1 *calibration_function = CreateAndSaveCalibration(cal_data);
 
-  std::vector<TString> datasets_to_calibrate = {
-      Constants::CALIBRATION_AM241, Constants::CALIBRATION_EU152,
-      Constants::BACKGROUND,        Constants::IRRADIATION_ONE,
-      Constants::IRRADIATION_TWO,   Constants::IRRADIATION_THREE,
-      Constants::IRRADIATION_FOUR};
-
-  PulseHeightToLightOutput(datasets_to_calibrate, calibration_function);
+  std::vector<TString> datasets_to_calibrate = Constants::ALL_OUTPUT_NAMES;
 }

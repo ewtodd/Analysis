@@ -1,5 +1,6 @@
-ANSG/YAP-PSD
 ANSG-Archival
+ANSG/YAP-PSD/Python/
+*.C
 *.h5
 *.pkl
 __pycache__
