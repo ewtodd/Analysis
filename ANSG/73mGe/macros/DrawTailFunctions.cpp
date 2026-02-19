@@ -11,7 +11,7 @@ void DrawTailFunctions() {
   Double_t mu = 59.5;
   Double_t sigma = 1;
   Double_t tail_amplitude = 1;
-  Double_t tail_range = 0.9;
+  Double_t tail_slope = 0.9;
 
   TF1 *low_tail = new TF1(
       "low_tail",
@@ -21,7 +21,9 @@ void DrawTailFunctions() {
   low_tail->SetParameter(0, mu);
   low_tail->SetParameter(1, sigma);
   low_tail->SetParameter(2, tail_amplitude);
-  low_tail->SetParameter(3, tail_range);
+  low_tail->SetParameter(3, tail_slope);
+  low_tail->SetParameter(4, 100000);
+  low_tail->SetParameter(5, 50);
   low_tail->SetNpx(1000);
 
   TF1 *high_tail = new TF1(
@@ -32,7 +34,7 @@ void DrawTailFunctions() {
   high_tail->SetParameter(0, mu);
   high_tail->SetParameter(1, sigma);
   high_tail->SetParameter(2, tail_amplitude);
-  high_tail->SetParameter(3, tail_range);
+  high_tail->SetParameter(3, tail_slope);
   high_tail->SetNpx(1000);
 
   TCanvas *c1 = new TCanvas("c1", "Low Tail Test", 800, 600);

@@ -18,9 +18,8 @@ struct CalibrationData {
   std::vector<TString> peak_names;
 };
 
-FitResultDetailed FitSinglePeakDetailed(const TString input_name,
-                                        const TString peak_name,
-                                        const Float_t expected_mu) {
+FitResult FitSinglePeak(const TString input_name, const TString peak_name,
+                        const Float_t expected_mu) {
 
   TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
   if (!file || file->IsZombie()) {
@@ -43,74 +42,28 @@ FitResultDetailed FitSinglePeakDetailed(const TString input_name,
   delete file;
 
   FittingUtils *fitter = nullptr;
-  FitResultDetailed result;
+  FitResult result;
 
   Float_t fit_low, fit_high;
-
   if (peak_name == "Am_59keV") {
-    fit_low = 2000;
-    fit_high = 9000;
-    fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kTRUE, kTRUE,
-                              kTRUE, kTRUE);
-  }
-
-  result = fitter->FitPeakDetailed(input_name, peak_name);
-  delete hist;
-  delete fitter;
-  return result;
-}
-
-FitResultStandard FitSinglePeak(const TString input_name,
-                                const TString peak_name,
-                                const Float_t expected_mu) {
-
-  TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
-  if (!file || file->IsZombie()) {
-    std::cerr << "Cannot open " << input_name << ".root" << std::endl;
-    return {};
-  }
-
-  TH1F *hist = static_cast<TH1F *>(file->Get("long_integral"));
-  if (!hist) {
-    std::cerr << "Cannot find 'Pulse Integral' histogram in " << input_name
-              << ".root" << std::endl;
-    file->Close();
-    delete file;
-    return {};
-  }
-
-  hist->SetDirectory(0);
-  file->Close();
-  delete file;
-
-  FittingUtils *fitter = nullptr;
-  FitResultStandard result = {};
-
-  Float_t fit_low, fit_high;
-
-  if (peak_name == "Am_59keV") {
-    fit_low = 2500;
-    fit_high = 7000;
-    fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kFALSE);
-  } else if (peak_name == "Cs_662keV") {
-    fit_low = 34000;
-    fit_high = 45000;
-    fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kFALSE);
+    fit_low = 500;
+    fit_high = 9500;
+    fitter = new FittingUtils(hist, fit_low, fit_high);
   } else if (peak_name == "Na_511keV") {
-    fit_low = 25000;
-    fit_high = 36000;
-    fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kFALSE);
+    fit_low = 26000;
+    fit_high = 35000;
+    fitter = new FittingUtils(hist, fit_low, fit_high);
+  } else if (peak_name == "Cs_662keV") {
+    fit_low = 35500;
+    fit_high = 47000;
+    fitter = new FittingUtils(hist, fit_low, fit_high, kTRUE, kTRUE);
   } else if (peak_name == "Na_1274keV") {
-    fit_low = 72000;
-    fit_high = 83000;
-    fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kFALSE);
-  } else if (peak_name == "Co_1332keV") {
-    fit_low = 77000;
-    fit_high = 83000;
-    fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kFALSE);
+    fit_low = 70000;
+    fit_high = 84000;
+    fitter = new FittingUtils(hist, fit_low, fit_high, kFALSE, kTRUE);
   }
-  result = fitter->FitPeakStandard(input_name, peak_name);
 
+  result = fitter->FitPeak(input_name, peak_name);
   delete hist;
   delete fitter;
   return result;
@@ -119,57 +72,39 @@ FitResultStandard FitSinglePeak(const TString input_name,
 CalibrationData FitCalibrationPeaks() {
   CalibrationData cal_data;
 
-  // Zero point
   cal_data.peak_names.push_back("Zero");
   cal_data.mu.push_back(0);
   cal_data.mu_errors.push_back(0);
   cal_data.calibration_values_keV.push_back(0);
   cal_data.reduced_chi2.push_back(0);
 
-  // Am-241 59.5 keV
-  FitResultDetailed am_result =
-      FitSinglePeakDetailed(Constants::AM241, "Am_59keV", 4000);
+  FitResult am_result = FitSinglePeak(Constants::AM241, "Am_59keV", 3700);
   cal_data.peak_names.push_back("Am_59keV");
-  cal_data.mu.push_back(am_result.mu);
-  cal_data.mu_errors.push_back(am_result.mu_error);
+  cal_data.mu.push_back(am_result.peaks.at(0).mu);
+  cal_data.mu_errors.push_back(am_result.peaks.at(0).mu_error);
   cal_data.calibration_values_keV.push_back(Constants::E_AM241_59KEV);
   cal_data.reduced_chi2.push_back(am_result.reduced_chi2);
 
-  // Na-22 511 keV
-  FitResultStandard na511_result =
-      FitSinglePeak(Constants::NA22, "Na_511keV", 39000);
+  FitResult na511_result = FitSinglePeak(Constants::NA22, "Na_511keV", 31000);
   cal_data.peak_names.push_back("Na_511keV");
-  cal_data.mu.push_back(na511_result.mu);
-  cal_data.mu_errors.push_back(na511_result.mu_error);
+  cal_data.mu.push_back(na511_result.peaks.at(0).mu);
+  cal_data.mu_errors.push_back(na511_result.peaks.at(0).mu_error);
   cal_data.calibration_values_keV.push_back(Constants::E_NA22_511KEV);
   cal_data.reduced_chi2.push_back(na511_result.reduced_chi2);
 
-  // Cs-137 662 keV
-  FitResultStandard cs_result =
-      FitSinglePeak(Constants::CS137, "Cs_662keV", 30251);
+  FitResult cs_result = FitSinglePeak(Constants::CS137, "Cs_662keV", 36850);
   cal_data.peak_names.push_back("Cs_662keV");
-  cal_data.mu.push_back(cs_result.mu);
-  cal_data.mu_errors.push_back(cs_result.mu_error);
+  cal_data.mu.push_back(cs_result.peaks.at(0).mu);
+  cal_data.mu_errors.push_back(cs_result.peaks.at(0).mu_error);
   cal_data.calibration_values_keV.push_back(Constants::E_CS137_662KEV);
   cal_data.reduced_chi2.push_back(cs_result.reduced_chi2);
 
-  // Na-22 1274.5 keV
-  FitResultStandard na1274_result =
-      FitSinglePeak(Constants::NA22, "Na_1274keV", 76000);
+  FitResult na1274_result = FitSinglePeak(Constants::NA22, "Na_1274keV", 70000);
   cal_data.peak_names.push_back("Na_1274keV");
-  cal_data.mu.push_back(na1274_result.mu);
-  cal_data.mu_errors.push_back(na1274_result.mu_error);
+  cal_data.mu.push_back(na1274_result.peaks.at(0).mu);
+  cal_data.mu_errors.push_back(na1274_result.peaks.at(0).mu_error);
   cal_data.calibration_values_keV.push_back(Constants::E_NA22_1274KEV);
   cal_data.reduced_chi2.push_back(na1274_result.reduced_chi2);
-
-  // Co-60 1332.5 keV
-  FitResultStandard co_result =
-      FitSinglePeak(Constants::CO60, "Co_1332keV", 78295);
-  cal_data.peak_names.push_back("Co_1332keV");
-  cal_data.mu.push_back(co_result.mu);
-  cal_data.mu_errors.push_back(co_result.mu_error);
-  cal_data.calibration_values_keV.push_back(Constants::E_CO60_1332KEV);
-  cal_data.reduced_chi2.push_back(co_result.reduced_chi2);
 
   return cal_data;
 }
@@ -178,7 +113,7 @@ void PrintCalibrationSummary(const CalibrationData &cal_data) {
   for (size_t i = 0; i < cal_data.mu.size(); ++i) {
     std::cout << cal_data.peak_names[i] << ": " << std::fixed
               << std::setprecision(2) << cal_data.mu[i] << " +/- "
-              << cal_data.mu_errors[i] << " ADC -> "
+              << cal_data.mu_errors[i] << " a.u. -> "
               << cal_data.calibration_values_keV[i] << " keV" << std::endl;
   }
 }
@@ -191,31 +126,83 @@ TF1 *CreateAndSaveCalibration(const CalibrationData &cal_data) {
       size, cal_data.mu.data(), cal_data.calibration_values_keV.data(),
       cal_data.mu_errors.data(), nullptr);
 
-  TCanvas *canvas = new TCanvas("", "", 1200, 800);
+  TF1 *quadratic_fit = new TF1("calibration_function", "pol2", -10, 90000);
+  quadratic_fit->SetParameter(0, 0);
+  quadratic_fit->SetParameter(1, 0.02);
+
+  calibration_curve->Fit(quadratic_fit, "LRE");
+  quadratic_fit->SetNpx(10000);
+
+  std::vector<Float_t> mu_no_am, mu_err_no_am, energy_no_am;
+  for (Int_t i = 0; i < size; ++i) {
+    if (cal_data.peak_names[i] == "Am_59keV")
+      continue;
+    mu_no_am.push_back(cal_data.mu[i]);
+    mu_err_no_am.push_back(cal_data.mu_errors[i]);
+    energy_no_am.push_back(cal_data.calibration_values_keV[i]);
+  }
+
+  TGraphErrors *graph_no_am =
+      new TGraphErrors(mu_no_am.size(), mu_no_am.data(), energy_no_am.data(),
+                       mu_err_no_am.data(), nullptr);
+
+  TF1 *linear_fit = new TF1("linear_fit", "pol1", -10, 90000);
+  linear_fit->SetParameter(0, 0);
+  linear_fit->SetParameter(1, 0.02);
+  graph_no_am->Fit(linear_fit, "LRE");
+  linear_fit->SetNpx(10000);
+
+  TCanvas *canvas = new TCanvas("c_cal_curve", "Calibration Curve", 1200, 800);
   PlottingUtils::ConfigureCanvas(canvas);
-  PlottingUtils::ConfigureGraph(calibration_curve, kBlue,
-                                "; Pulse Height [ADC]; Deposited Energy [keV]");
+
+  calibration_curve->SetMarkerStyle(20);
+  calibration_curve->SetMarkerSize(1.2);
+  calibration_curve->SetMarkerColor(kBlack);
+  calibration_curve->SetLineColor(kBlack);
+  calibration_curve->SetTitle("");
+  calibration_curve->GetXaxis()->SetTitle("Pulse Integral [a.u.]");
+  calibration_curve->GetYaxis()->SetTitle("Deposited Energy [keV]");
+  calibration_curve->GetXaxis()->SetTitleSize(0.06);
+  calibration_curve->GetXaxis()->SetNdivisions(506);
+  calibration_curve->GetYaxis()->SetTitleSize(0.06);
+  calibration_curve->GetXaxis()->SetLabelSize(0.06);
+  calibration_curve->GetYaxis()->SetLabelSize(0.06);
+  calibration_curve->GetXaxis()->SetTitleOffset(1.2);
+  calibration_curve->GetYaxis()->SetTitleOffset(1.2);
 
   Double_t x_min, x_max, y_min, y_max;
   calibration_curve->ComputeRange(x_min, y_min, x_max, y_max);
-  calibration_curve->GetXaxis()->SetRangeUser(-250, x_max * 1.2);
-  calibration_curve->GetYaxis()->SetRangeUser(-25, y_max * 1.2);
-  calibration_curve->GetXaxis()->SetNdivisions(506);
-  calibration_curve->SetMarkerStyle(21);
-  calibration_curve->SetMarkerSize(2);
-  calibration_curve->Draw("APE");
+  calibration_curve->GetYaxis()->SetRangeUser(-10, y_max * 1.1);
+  calibration_curve->GetXaxis()->SetRangeUser(-10, x_max * 1.1);
 
-  TF1 *calibration_fit = new TF1("linear", "pol1", 0, Constants::ADC_MAX);
-  calibration_fit->SetParameter(0, 0);
-  calibration_fit->SetParLimits(0, -1e-2, 1e-2);
-  calibration_fit->SetParameter(1, 0.076);
+  quadratic_fit->GetXaxis()->SetRangeUser(-10, x_max * 1.1);
+  quadratic_fit->SetLineColor(kRed);
+  quadratic_fit->SetLineStyle(1);
 
-  TFitResultPtr fit_result = calibration_curve->Fit(calibration_fit, "LRE");
-  calibration_fit->Draw("SAME");
-  PlottingUtils::SaveFigure(canvas, "calibration.png", kFALSE);
+  linear_fit->GetXaxis()->SetRangeUser(-10, x_max * 1.1);
+  linear_fit->SetLineColor(kBlue);
+  linear_fit->SetLineStyle(1);
 
+  calibration_curve->GetListOfFunctions()->Clear();
+
+  calibration_curve->Draw("APE"); // points only now, establishes axes
+  quadratic_fit->Draw("SAME");
+  linear_fit->Draw("SAME");
+  calibration_curve->Draw("PE SAME"); // points on top
+
+  TLegend *leg = new TLegend(0.2, 0.65, 0.6, 0.84);
+  leg->SetMargin(0.2);
+  leg->AddEntry(calibration_curve, "Calibration points", "pe");
+  leg->AddEntry(quadratic_fit, "Quadratic fit", "l");
+  leg->AddEntry(linear_fit, "Linear fit (high energy)", "l");
+  leg->Draw();
+
+  PlottingUtils::SaveFigure(canvas, "calibration.png",
+                            PlotSaveOptions::kLINEAR);
+
+  delete graph_no_am;
   delete canvas;
-  return calibration_fit;
+  return quadratic_fit;
 }
 
 void LongIntegralToLightOutput(const std::vector<TString> &input_names,
@@ -283,7 +270,8 @@ void LongIntegralToLightOutput(const std::vector<TString> &input_names,
     }
 
     PlottingUtils::ConfigureAndDrawHistogram(light_output_hist, color);
-    PlottingUtils::SaveFigure(canvas, input_name + "_light_output.png");
+    PlottingUtils::SaveFigure(canvas, input_name + "_light_output.png",
+                              PlotSaveOptions::kLOG);
 
     features_tree->Write("", TObject::kOverwrite);
     light_output_hist->Write("Light Output", TObject::kOverwrite);
@@ -295,6 +283,7 @@ void LongIntegralToLightOutput(const std::vector<TString> &input_names,
 }
 
 void Calibration() {
+  Bool_t recalibrate = kTRUE;
   InitUtils::SetROOTPreferences();
 
   CalibrationData cal_data = FitCalibrationPeaks();
@@ -303,5 +292,7 @@ void Calibration() {
 
   TF1 *calibration_function = CreateAndSaveCalibration(cal_data);
 
-  std::vector<TString> datasets_to_calibrate = Constants::ALL_OUTPUT_NAMES;
+  if (recalibrate)
+    LongIntegralToLightOutput(Constants::ALL_OUTPUT_NAMES,
+                              calibration_function);
 }

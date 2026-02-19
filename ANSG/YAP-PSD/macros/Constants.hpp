@@ -16,7 +16,7 @@ const Int_t PH_HIST_XMAX = ADC_MAX;
 const Int_t PH_HIST_NBINS = (PH_HIST_XMAX - PH_HIST_XMIN) / PH_BIN_WIDTH;
 
 // Pulse integral histogram (a.u.)
-const Int_t PI_BIN_WIDTH = 200;
+const Int_t PI_BIN_WIDTH = 300;
 const Int_t PI_HIST_XMIN = 0;
 const Int_t PI_HIST_XMAX = 120000;
 const Int_t PI_HIST_NBINS = (PI_HIST_XMAX - PI_HIST_XMIN) / PI_BIN_WIDTH;
@@ -79,17 +79,18 @@ const std::vector<TString> ALL_FORMATTED_LABELS = {
 
 const FileProcessingConfig DEFAULT_PROCESSING_CONFIG = {
     .polarity = -1,
-    .trigger_threshold = 0.3,
-    .num_samples_baseline = 10,
+    .trigger_threshold = 0.2,
+    .num_samples_baseline = 15,
     .pre_samples = 20,
-    .post_samples = 190,
-    .pre_gate = 10,
+    .post_samples = 200,
+    .pre_gate = 5,
     .short_gate = 10,
-    .long_gate = 200,
+    .long_gate = 250,
     .sample_waveforms_to_save = 5,
     .max_events = -1,
     .verbose = kTRUE,
     .store_waveforms = kTRUE,
 };
+
 } // namespace Constants
 #endif
