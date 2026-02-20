@@ -152,23 +152,12 @@ TF1 *CreateAndSaveCalibration(const CalibrationData &cal_data) {
   graph_no_am->Fit(linear_fit, "LRE");
   linear_fit->SetNpx(10000);
 
-  TCanvas *canvas = new TCanvas("c_cal_curve", "Calibration Curve", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas);
+  TCanvas *canvas = PlottingUtils::GetConfiguredCanvas(kFALSE);
 
-  calibration_curve->SetMarkerStyle(20);
-  calibration_curve->SetMarkerSize(1.2);
-  calibration_curve->SetMarkerColor(kBlack);
-  calibration_curve->SetLineColor(kBlack);
-  calibration_curve->SetTitle("");
+  PlottingUtils::ConfigureGraph(calibration_curve, kBlack, "");
   calibration_curve->GetXaxis()->SetTitle("Pulse Integral [a.u.]");
   calibration_curve->GetYaxis()->SetTitle("Deposited Energy [keV]");
-  calibration_curve->GetXaxis()->SetTitleSize(0.06);
-  calibration_curve->GetXaxis()->SetNdivisions(506);
-  calibration_curve->GetYaxis()->SetTitleSize(0.06);
-  calibration_curve->GetXaxis()->SetLabelSize(0.06);
-  calibration_curve->GetYaxis()->SetLabelSize(0.06);
-  calibration_curve->GetXaxis()->SetTitleOffset(1.2);
-  calibration_curve->GetYaxis()->SetTitleOffset(1.2);
+  calibration_curve->Draw();
 
   Double_t x_min, x_max, y_min, y_max;
   calibration_curve->ComputeRange(x_min, y_min, x_max, y_max);
@@ -178,10 +167,12 @@ TF1 *CreateAndSaveCalibration(const CalibrationData &cal_data) {
   quadratic_fit->GetXaxis()->SetRangeUser(-10, x_max * 1.1);
   quadratic_fit->SetLineColor(kRed);
   quadratic_fit->SetLineStyle(1);
+  quadratic_fit->SetLineWidth(PlottingUtils::GetLineWidth());
 
   linear_fit->GetXaxis()->SetRangeUser(-10, x_max * 1.1);
   linear_fit->SetLineColor(kBlue);
   linear_fit->SetLineStyle(1);
+  linear_fit->SetLineWidth(PlottingUtils::GetLineWidth());
 
   calibration_curve->GetListOfFunctions()->Clear();
 
@@ -197,8 +188,7 @@ TF1 *CreateAndSaveCalibration(const CalibrationData &cal_data) {
   leg->AddEntry(linear_fit, "Linear fit (high energy)", "l");
   leg->Draw();
 
-  PlottingUtils::SaveFigure(canvas, "calibration.png",
-                            PlotSaveOptions::kLINEAR);
+  PlottingUtils::SaveFigure(canvas, "calibration", PlotSaveOptions::kLINEAR);
 
   delete graph_no_am;
   delete canvas;
@@ -229,8 +219,7 @@ void LongIntegralToLightOutput(const std::vector<TString> &input_names,
                  Constants::LO_HIST_NBINS, Constants::LO_HIST_XMIN,
                  Constants::LO_HIST_XMAX);
 
-    TCanvas *canvas = new TCanvas("", "", 1200, 800);
-    PlottingUtils::ConfigureCanvas(canvas);
+    TCanvas *canvas = PlottingUtils::GetConfiguredCanvas(kFALSE);
 
     TString output_filepath = "root_files/" + input_name + ".root";
     TFile *output = new TFile(output_filepath, "UPDATE");
@@ -270,7 +259,7 @@ void LongIntegralToLightOutput(const std::vector<TString> &input_names,
     }
 
     PlottingUtils::ConfigureAndDrawHistogram(light_output_hist, color);
-    PlottingUtils::SaveFigure(canvas, input_name + "_light_output.png",
+    PlottingUtils::SaveFigure(canvas, input_name + "_light_output",
                               PlotSaveOptions::kLOG);
 
     features_tree->Write("", TObject::kOverwrite);
@@ -284,7 +273,7 @@ void LongIntegralToLightOutput(const std::vector<TString> &input_names,
 
 void Calibration() {
   Bool_t recalibrate = kTRUE;
-  InitUtils::SetROOTPreferences();
+  InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT);
 
   CalibrationData cal_data = FitCalibrationPeaks();
 

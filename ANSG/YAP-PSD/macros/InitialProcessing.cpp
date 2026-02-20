@@ -20,9 +20,7 @@ void InitialPlots(
     Float_t long_integral;
     features_tree->SetBranchAddress("long_integral", &long_integral);
 
-    TCanvas *canvas =
-        new TCanvas(PlottingUtils::GetRandomName(), "", 1200, 800);
-    PlottingUtils::ConfigureCanvas(canvas, kFALSE);
+    TCanvas *canvas = PlottingUtils::GetConfiguredCanvas(kFALSE);
 
     TH1F *long_integral_hist =
         new TH1F("",
@@ -40,7 +38,7 @@ void InitialPlots(
 
     Int_t color = colors.at(i);
     PlottingUtils::ConfigureAndDrawHistogram(long_integral_hist, color);
-    PlottingUtils::SaveFigure(canvas, output_name + "_long_integral.png",
+    PlottingUtils::SaveFigure(canvas, output_name + "_long_integral",
                               PlotSaveOptions::kLOG);
 
     output->cd();
@@ -52,7 +50,7 @@ void InitialPlots(
 }
 
 void InitialProcessing() {
-  InitUtils::SetROOTPreferences();
+  InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT);
 
   Int_t max_threads = 16;
   Bool_t reprocess = kTRUE;

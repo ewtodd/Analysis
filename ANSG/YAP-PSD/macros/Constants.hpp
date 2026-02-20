@@ -1,10 +1,13 @@
 #ifndef CONSTANTS_HPP
 #define CONSTANTS_HPP
+#include "PlottingUtils.hpp"
 #include "WaveformProcessingUtils.hpp"
 #include <TROOT.h>
 #include <vector>
 
 namespace Constants {
+
+const PlotSaveFormat SAVE_FORMAT = PlotSaveFormat::kPNG;
 
 // 14 bit digitizer
 const Int_t ADC_MAX = 16384;
@@ -91,6 +94,9 @@ const FileProcessingConfig DEFAULT_PROCESSING_CONFIG = {
     .verbose = kTRUE,
     .store_waveforms = kTRUE,
 };
+
+const Int_t OPTIMAL_SHORT_GATE = 17;
+const Int_t OPTIMAL_LONG_GATE = 150;
 
 } // namespace Constants
 #endif

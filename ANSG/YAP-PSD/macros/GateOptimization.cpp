@@ -361,9 +361,7 @@ void PlotPSDWithFOM(TH1F *hist_alpha, TH1F *hist_gamma,
     return;
   }
 
-  TCanvas *c =
-      new TCanvas("c_psd_fom", "PSD with FOM - " + psd_type, 1200, 800);
-  PlottingUtils::ConfigureCanvas(c, kTRUE);
+  TCanvas *canvas = PlottingUtils::GetConfiguredCanvas(kFALSE);
 
   PlottingUtils::ConfigureHistogram(hist_alpha, kRed + 1, "");
   PlottingUtils::ConfigureHistogram(hist_gamma, kGreen + 2, "");
@@ -403,7 +401,7 @@ void PlotPSDWithFOM(TH1F *hist_alpha, TH1F *hist_gamma,
   fit_gamma->SetLineStyle(1);
   fit_gamma->Draw("SAME");
 
-  TLegend *leg = new TLegend(0.2, 0.55, 0.35, 0.83);
+  TLegend *leg = PlottingUtils::AddLegend(0.2, 0.45, 0.55, 0.83);
   leg->AddEntry(hist_alpha, Form("%s (#alpha)", alpha_label.Data()), "f");
   leg->AddEntry(hist_gamma, Form("%s (#gamma)", gamma_label.Data()), "f");
   leg->AddEntry(fit_alpha, "#alpha fit", "l");
@@ -414,15 +412,16 @@ void PlotPSDWithFOM(TH1F *hist_alpha, TH1F *hist_gamma,
   leg->AddEntry((TObject *)0, fom_text, "");
   leg->Draw();
 
-  PlottingUtils::SaveFigure(c, output_name + ".png", PlotSaveOptions::kLOG);
+  PlottingUtils::SaveFigure(canvas, output_name + "_" + gamma_label + "",
+                            PlotSaveOptions::kLOG);
 
   delete fit_alpha;
   delete fit_gamma;
-  delete c;
+  delete canvas;
 }
 
 void GateOptimization() {
-  InitUtils::SetROOTPreferences();
+  InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT);
   ROOT::EnableThreadSafety();
 
   TString alpha_output = Constants::AM241;
