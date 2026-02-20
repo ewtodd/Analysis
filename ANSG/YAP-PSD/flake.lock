@@ -111,8 +111,8 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1771530774,
-        "narHash": "sha256-Ij5hTgtTaSf0wDZMEt7/4lOVq2zoC7jyOYqhOdA/XBo=",
+        "lastModified": 1771619928,
+        "narHash": "sha256-ua/TgqXEOguW9ioe9ajQQZwcRrGwMzxSRN5b+302Ce4=",
         "path": "/home/e-work/Software/Analysis-Utilities",
         "type": "path"
       },

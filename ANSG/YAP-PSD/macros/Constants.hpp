@@ -30,6 +30,18 @@ const Float_t LO_HIST_XMIN = 0;
 const Float_t LO_HIST_XMAX = 2000;
 const Int_t LO_HIST_NBINS = (LO_HIST_XMAX - LO_HIST_XMIN) / LO_BIN_WIDTH;
 
+// Charge comparison histogram (a.u.)
+const Int_t CC_HIST_NBINS = 250;
+const Float_t CC_HIST_XMIN = 0.0;
+const Float_t CC_HIST_XMAX = 1.0;
+
+// Shape indicator histogram (a.u.)
+const Int_t SI_HIST_NBINS = 1000;
+const Float_t RAW_SI_HIST_XMIN = -0.75;
+const Float_t RAW_SI_HIST_XMAX = 0.75;
+const Float_t CLEAN_SI_HIST_XMIN = -3;
+const Float_t CLEAN_SI_HIST_XMAX = 2;
+
 const Float_t E_AM241_59KEV = 59.5409;
 const Float_t E_CS137_662KEV = 661.7;
 const Float_t E_NA22_511KEV = 511.0;
@@ -46,6 +58,8 @@ const TString AM241_AND_CO60 = "Am241Co60";
 
 const std::vector<TString> ALL_OUTPUT_NAMES = {
     AM241, CS137, NA22, CO60, AM241_AND_CS137, AM241_AND_NA22, AM241_AND_CO60};
+
+const std::vector<TString> SINGLE_OUTPUT_NAMES = {AM241, CS137, NA22, CO60};
 
 const TString AM241_FILEPATH =
     "../input_files/DataR_CH0@DT5730B_680_YAP_Am241.root";
@@ -67,6 +81,9 @@ const std::vector<TString> ALL_FILEPATHS = {
     CO60_FILEPATH,          AM241_AND_CS137_FILEPATH, AM241_AND_NA22_FILEPATH,
     AM241_AND_CO60_FILEPATH};
 
+const std::vector<TString> SINGLE_FILEPATHS = {AM241_FILEPATH, CS137_FILEPATH,
+                                               NA22_FILEPATH, CO60_FILEPATH};
+
 const TString AM241_LABEL = "Am-241";
 const TString CS137_LABEL = "Cs-137";
 const TString NA22_LABEL = "Na-22";
@@ -79,6 +96,9 @@ const std::vector<TString> ALL_FORMATTED_LABELS = {
     AM241_LABEL,         CS137_LABEL,           NA22_LABEL,
     CO60_LABEL,          AM241_AND_CS137_LABEL, AM241_AND_NA22_LABEL,
     AM241_AND_CO60_LABEL};
+
+const std::vector<TString> SINGLE_FORMATTED_LABELS = {AM241_LABEL, CS137_LABEL,
+                                                      NA22_LABEL, CO60_LABEL};
 
 const FileProcessingConfig DEFAULT_PROCESSING_CONFIG = {
     .polarity = -1,

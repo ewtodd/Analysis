@@ -15,11 +15,9 @@ void CalculateChargeComparison(const std::vector<TString> output_names) {
     TTree *tree = static_cast<TTree *>(file->Get("features"));
 
     TArrayF *samples = nullptr;
-    Float_t light_output_keVee;
     Int_t trigger_position;
 
     tree->SetBranchAddress("Samples", &samples);
-    tree->SetBranchAddress("light_output", &light_output_keVee);
     tree->SetBranchAddress("trigger_position", &trigger_position);
 
     Float_t charge_comparison;
@@ -67,7 +65,58 @@ void CalculateChargeComparison(const std::vector<TString> output_names) {
   }
 }
 
+void PlotChargeComparison(const std::vector<TString> output_names) {
+  Int_t n_files = output_names.size();
+
+  for (Int_t entry = 0; entry < n_files; entry++) {
+    TString output_name = output_names.at(entry);
+    TString filepath = "root_files/" + output_name + ".root";
+    TFile *file = new TFile(filepath, "UPDATE");
+    TTree *tree = static_cast<TTree *>(file->Get("features"));
+
+    Float_t charge_comparison;
+    Float_t light_output;
+    tree->SetBranchAddress("charge_comparison", &charge_comparison);
+    tree->SetBranchAddress("light_output", &light_output);
+
+    Int_t n_entries = tree->GetEntries();
+
+    tree->LoadBaskets();
+
+    TH2F *charge_comparison_vs_LO =
+        new TH2F(PlottingUtils::GetRandomName(), "", Constants::LO_HIST_NBINS,
+                 Constants::LO_HIST_XMIN, Constants::LO_HIST_XMAX,
+                 Constants::CC_HIST_NBINS, Constants::CC_HIST_XMIN,
+                 Constants::CC_HIST_XMAX);
+
+    for (Int_t i = 0; i < n_entries; i++) {
+      tree->GetEntry(i);
+      charge_comparison_vs_LO->Fill(light_output, charge_comparison);
+    }
+
+    TCanvas *canvas = PlottingUtils::GetConfiguredCanvas();
+    PlottingUtils::ConfigureAndDraw2DHistogram(
+        charge_comparison_vs_LO, canvas, ";Light Output [keVee]; PSP_{CC}");
+    PlottingUtils::SaveFigure(canvas, "cc_vs_lo_" + output_name,
+                              PlotSaveOptions::kLINEAR);
+
+    charge_comparison_vs_LO->Write("charge_comparison_vs_LO",
+                                   TObject::kOverwrite);
+
+    delete canvas;
+    file->Close();
+    delete file;
+    std::cout << "Plotted charge comparison for " << output_name << std::endl;
+  }
+}
+
 void ChargeComparison() {
+  Bool_t recalculate_cc = kTRUE;
+
   InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT);
-  CalculateChargeComparison(Constants::ALL_OUTPUT_NAMES);
+
+  if (recalculate_cc)
+    CalculateChargeComparison(Constants::ALL_OUTPUT_NAMES);
+
+  PlotChargeComparison(Constants::ALL_OUTPUT_NAMES);
 }

@@ -135,8 +135,9 @@ std::vector<Float_t> ComputeCCValues(const std::vector<Event> &events,
 }
 
 TH1F *BuildHistogram(const std::vector<Float_t> &cc_values) {
-  TH1F *hist =
-      new TH1F(PlottingUtils::GetRandomName(), ";CC PSD;Counts", 250, 0, 1);
+  TH1F *hist = new TH1F(PlottingUtils::GetRandomName(), ";CC PSD;Counts",
+                        Constants::CC_HIST_NBINS, Constants::CC_HIST_XMIN,
+                        Constants::CC_HIST_XMAX);
   hist->SetDirectory(0);
 
   for (size_t i = 0; i < cc_values.size(); i++) {
