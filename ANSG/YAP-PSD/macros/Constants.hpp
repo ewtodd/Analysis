@@ -39,8 +39,8 @@ const Float_t CC_HIST_XMAX = 1.0;
 const Int_t SI_HIST_NBINS = 1000;
 const Float_t RAW_SI_HIST_XMIN = -0.75;
 const Float_t RAW_SI_HIST_XMAX = 0.75;
-const Float_t CLEAN_SI_HIST_XMIN = -3;
-const Float_t CLEAN_SI_HIST_XMAX = 2;
+const Float_t CLEAN_SI_HIST_XMIN = -0.5;
+const Float_t CLEAN_SI_HIST_XMAX = 0.5;
 
 const Float_t E_AM241_59KEV = 59.5409;
 const Float_t E_CS137_662KEV = 661.7;

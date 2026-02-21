@@ -102,7 +102,7 @@ void CalculateAverageWaveforms(const std::vector<TString> output_names,
     g->SetName("average_waveform");
     PlottingUtils::ConfigureGraph(g,
                                   PlottingUtils::GetDefaultColors().at(entry),
-                                  ";Sample;Amplitude [a.u.]");
+                                  ";Sample [2 ns];Amplitude [a.u.]");
 
     wf_file->cd();
     g->Write("average_waveform", TObject::kOverwrite);
@@ -135,14 +135,9 @@ void CalculateRawWeightingFunction(const TString alpha_output_name,
     wf_y[i] = (alpha_y[i] - gamma_y[i]) / (alpha_y[i] + gamma_y[i]);
   }
 
-  Double_t peak = *std::max_element(wf_y, wf_y + wavelength);
-  if (peak > 0) {
-    for (Int_t i = 0; i < wavelength; i++)
-      wf_y[i] /= peak;
-  }
-
   TCanvas *canvas = PlottingUtils::GetConfiguredCanvas();
-  PlottingUtils::ConfigureAndDrawGraph(wf, kAzure, ";Sample;Amplitude [a.u.]");
+  PlottingUtils::ConfigureAndDrawGraph(wf, kAzure,
+                                       ";Sample [2 ns];Amplitude [a.u.]");
   PlottingUtils::SaveFigure(canvas, "raw_weighting_function",
                             PlotSaveOptions::kLINEAR);
 
@@ -205,7 +200,7 @@ void CalculateCleanWeightingFunction(const TString alpha_output_name,
 
   TCanvas *canvas = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureAndDrawGraph(wf, kGray + 2,
-                                       ";Sample;Amplitude [a.u.]");
+                                       ";Sample [2 ns];Amplitude [a.u.]");
   PlottingUtils::SaveFigure(canvas, "clean_weighting_function",
                             PlotSaveOptions::kLINEAR);
 
@@ -242,11 +237,27 @@ void CalculateShapeIndicator(const std::vector<TString> output_names) {
     tree->SetBranchAddress("trigger_position", &trigger_position);
 
     Float_t raw_shape_indicator;
-    tree->Branch("raw_shape_indicator", &raw_shape_indicator,
-                 "raw_shape_indicator/F");
     Float_t clean_shape_indicator;
-    tree->Branch("clean_shape_indicator", &clean_shape_indicator,
-                 "clean_shape_indicator/F");
+
+    TBranch *raw_branch = tree->GetBranch("raw_shape_indicator");
+    TBranch *clean_branch = tree->GetBranch("clean_shape_indicator");
+
+    if (raw_branch) {
+      tree->SetBranchAddress("raw_shape_indicator", &raw_shape_indicator);
+      raw_branch->Reset();
+    } else {
+      raw_branch = tree->Branch("raw_shape_indicator", &raw_shape_indicator,
+                                "raw_shape_indicator/F");
+    }
+
+    if (clean_branch) {
+      tree->SetBranchAddress("clean_shape_indicator", &clean_shape_indicator);
+      clean_branch->Reset();
+    } else {
+      clean_branch =
+          tree->Branch("clean_shape_indicator", &clean_shape_indicator,
+                       "clean_shape_indicator/F");
+    }
 
     Int_t n_entries = tree->GetEntries();
 
@@ -289,8 +300,8 @@ void CalculateShapeIndicator(const std::vector<TString> output_names) {
         clean_shape_indicator = -1;
       }
 
-      tree->GetBranch("raw_shape_indicator")->Fill();
-      tree->GetBranch("clean_shape_indicator")->Fill();
+      raw_branch->Fill();
+      clean_branch->Fill();
     }
 
     tree->Write("features", TObject::kOverwrite);
@@ -365,8 +376,8 @@ void PlotShapeIndicator(const std::vector<TString> output_names) {
 }
 
 void ShapeIndicator() {
-  Bool_t recalculate_average = kFALSE;
-  Bool_t recalculate_si = kFALSE;
+  Bool_t recalculate_average = kTRUE;
+  Bool_t recalculate_si = kTRUE;
   InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT);
 
   if (recalculate_average)
@@ -376,8 +387,8 @@ void ShapeIndicator() {
   CalculateCleanWeightingFunction(Constants::AM241, Constants::NA22);
 
   if (recalculate_si) {
-    CalculateShapeIndicator(Constants::SINGLE_OUTPUT_NAMES);
+    CalculateShapeIndicator(Constants::ALL_OUTPUT_NAMES);
   }
 
-  PlotShapeIndicator(Constants::SINGLE_OUTPUT_NAMES);
+  PlotShapeIndicator(Constants::ALL_OUTPUT_NAMES);
 }

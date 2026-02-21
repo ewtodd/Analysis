@@ -246,15 +246,22 @@ void LongIntegralToLightOutput(const std::vector<TString> &input_names,
 
     Float_t long_integral, light_output_keVee;
     features_tree->SetBranchAddress("long_integral", &long_integral);
-    features_tree->Branch("light_output", &light_output_keVee,
-                          "light_output/F");
+
+    TBranch *lo_branch = features_tree->GetBranch("light_output");
+    if (lo_branch) {
+      features_tree->SetBranchAddress("light_output", &light_output_keVee);
+      lo_branch->Reset();
+    } else {
+      lo_branch = features_tree->Branch("light_output", &light_output_keVee,
+                                        "light_output/F");
+    }
 
     Int_t num_entries = features_tree->GetEntries();
 
     for (Int_t j = 0; j < num_entries; j++) {
       features_tree->GetEntry(j);
       light_output_keVee = calibration_function->Eval(long_integral);
-      features_tree->GetBranch("light_output")->Fill();
+      lo_branch->Fill();
       light_output_hist->Fill(light_output_keVee);
     }
 

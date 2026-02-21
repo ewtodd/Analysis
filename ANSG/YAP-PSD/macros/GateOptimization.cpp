@@ -426,9 +426,9 @@ void GateOptimization() {
   ROOT::EnableThreadSafety();
 
   TString alpha_output = Constants::AM241;
-  TString gamma_output = Constants::CO60;
+  TString gamma_output = Constants::NA22;
   TString alpha_label = Constants::AM241_LABEL;
-  TString gamma_label = Constants::CO60_LABEL;
+  TString gamma_label = Constants::NA22_LABEL;
 
   std::vector<Event> alpha_events = LoadEvents(alpha_output);
   std::vector<Event> gamma_events = LoadEvents(gamma_output);

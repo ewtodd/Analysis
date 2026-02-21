@@ -21,8 +21,15 @@ void CalculateChargeComparison(const std::vector<TString> output_names) {
     tree->SetBranchAddress("trigger_position", &trigger_position);
 
     Float_t charge_comparison;
-    tree->Branch("charge_comparison", &charge_comparison,
-                 "charge_comparison/F");
+
+    TBranch *cc_branch = tree->GetBranch("charge_comparison");
+    if (cc_branch) {
+      tree->SetBranchAddress("charge_comparison", &charge_comparison);
+      cc_branch->Reset();
+    } else {
+      cc_branch = tree->Branch("charge_comparison", &charge_comparison,
+                               "charge_comparison/F");
+    }
 
     Int_t n_entries = tree->GetEntries();
 
@@ -54,7 +61,7 @@ void CalculateChargeComparison(const std::vector<TString> output_names) {
         charge_comparison = -1;
       }
 
-      tree->GetBranch("charge_comparison")->Fill();
+      cc_branch->Fill();
     }
 
     tree->Write("features", TObject::kOverwrite);

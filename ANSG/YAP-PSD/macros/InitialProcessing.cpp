@@ -53,7 +53,7 @@ void InitialProcessing() {
   InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT);
 
   Int_t max_threads = 16;
-  Bool_t reprocess = kFALSE;
+  Bool_t reprocess = kTRUE;
 
   if (reprocess) {
     WaveformProcessingUtils::ProcessFilesParallel(
