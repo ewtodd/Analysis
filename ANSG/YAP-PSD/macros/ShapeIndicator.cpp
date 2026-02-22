@@ -44,8 +44,8 @@ void CalculateAverageWaveforms(const std::vector<TString> output_names,
     std::vector<std::vector<Float_t>> waveforms;
     Int_t event_counts = 0;
 
-    Float_t min_light_output = CUTS.min_light_output;
-    Float_t max_light_output = CUTS.max_light_output;
+    Float_t min_light_output = output_name == Constants::AM241 ? 1000 : 500;
+    Float_t max_light_output = 1600;
     Int_t max_events_per_source = CUTS.max_events_per_source;
 
     Long64_t n_entries = tree->GetEntries();
@@ -333,19 +333,12 @@ void PlotShapeIndicator(const std::vector<TString> output_names) {
     TH2F *clean_shape_indicator_vs_LO =
         new TH2F(PlottingUtils::GetRandomName(), "", Constants::LO_HIST_NBINS,
                  Constants::LO_HIST_XMIN, Constants::LO_HIST_XMAX,
-                 Constants::SI_HIST_NBINS, Constants::CLEAN_SI_HIST_XMIN,
-                 Constants::CLEAN_SI_HIST_XMAX);
-
-    TH2F *raw_shape_indicator_vs_LO =
-        new TH2F(PlottingUtils::GetRandomName(), "", Constants::LO_HIST_NBINS,
-                 Constants::LO_HIST_XMIN, Constants::LO_HIST_XMAX,
-                 Constants::SI_HIST_NBINS, Constants::RAW_SI_HIST_XMIN,
-                 Constants::RAW_SI_HIST_XMAX);
+                 Constants::SI_HIST_NBINS, Constants::SI_HIST_XMIN,
+                 Constants::SI_HIST_XMAX);
 
     for (Int_t i = 0; i < n_entries; i++) {
       tree->GetEntry(i);
       clean_shape_indicator_vs_LO->Fill(light_output, clean_shape_indicator);
-      raw_shape_indicator_vs_LO->Fill(light_output, raw_shape_indicator);
     }
 
     TCanvas *clean_canvas = PlottingUtils::GetConfiguredCanvas();
@@ -358,17 +351,7 @@ void PlotShapeIndicator(const std::vector<TString> output_names) {
     clean_shape_indicator_vs_LO->Write("clean_shape_indicator_vs_LO",
                                        TObject::kOverwrite);
 
-    TCanvas *raw_canvas = PlottingUtils::GetConfiguredCanvas();
-    PlottingUtils::ConfigureAndDraw2DHistogram(
-        raw_shape_indicator_vs_LO, raw_canvas,
-        ";Light Output [keVee]; PSP_{SI}");
-    PlottingUtils::SaveFigure(raw_canvas, "raw_si_vs_lo_" + output_name,
-                              PlotSaveOptions::kLINEAR);
-    raw_shape_indicator_vs_LO->Write("raw_shape_indicator_vs_LO",
-                                     TObject::kOverwrite);
-
     delete clean_canvas;
-    delete raw_canvas;
     file->Close();
     delete file;
     std::cout << "Plotted shape indicator for " << output_name << std::endl;
@@ -383,7 +366,6 @@ void ShapeIndicator() {
   if (recalculate_average)
     CalculateAverageWaveforms(Constants::SINGLE_OUTPUT_NAMES);
 
-  CalculateRawWeightingFunction(Constants::AM241, Constants::NA22);
   CalculateCleanWeightingFunction(Constants::AM241, Constants::NA22);
 
   if (recalculate_si) {

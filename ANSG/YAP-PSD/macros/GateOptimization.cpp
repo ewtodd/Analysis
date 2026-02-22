@@ -20,7 +20,7 @@ struct OptimizationParameters {
   const Int_t min_short_gate = 5;
   const Int_t max_short_gate = 40;
   const Int_t short_gate_step = 1;
-  const Int_t min_long_gate = 75;
+  const Int_t min_long_gate = 45;
   const Int_t max_long_gate = 220;
   const Int_t long_gate_step = 5;
 };
