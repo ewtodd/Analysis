@@ -36,6 +36,8 @@
                 pandas
                 scikit-learn
                 xgboost
+                shap
+                packaging
                 analysis-utils-py
               ]
             ))

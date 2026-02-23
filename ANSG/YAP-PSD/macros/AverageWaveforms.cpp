@@ -200,7 +200,9 @@ void ComputeAndPlot(const TString output_name, const TString label,
     gamma_template->Draw("L SAME");
   }
 
-  TText *plot_label = PlottingUtils::AddSubplotLabel(label, 0.82, 0.82);
+  TString final_label =
+      label == Constants::AM241_LABEL ? "(a) " + label : "(b) " + label;
+  TText *plot_label = PlottingUtils::AddSubplotLabel(final_label, 0.82, 0.82);
   plot_label->SetTextSize(35);
   plot_label->Draw();
   legend_pad->cd();

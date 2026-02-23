@@ -1,9 +1,11 @@
 #include "Constants.hpp"
 #include "InitUtils.hpp"
 #include "PlottingUtils.hpp"
+#include <TF1.h>
 #include <TROOT.h>
 #include <TSystem.h>
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 struct SpectralCuts {
@@ -199,8 +201,21 @@ void CalculateCleanWeightingFunction(const TString alpha_output_name,
   }
 
   TCanvas *canvas = PlottingUtils::GetConfiguredCanvas();
-  PlottingUtils::ConfigureAndDrawGraph(wf, kGray + 2,
+  PlottingUtils::ConfigureAndDrawGraph(alpha_average, kRed + 2,
                                        ";Sample [2 ns];Amplitude [a.u.]");
+  PlottingUtils::ConfigureGraph(gamma_average, kBlue + 2,
+                                ";Sample [2 ns];Amplitude [a.u.]");
+  gamma_average->Draw("SAME");
+  PlottingUtils::ConfigureGraph(wf, kGreen + 1,
+                                ";Sample [2 ns];Amplitude [a.u.]");
+  wf->Draw("SAME");
+  alpha_average->GetYaxis()->SetRangeUser(-1.1, 1.1);
+
+  TLegend *leg = PlottingUtils::AddLegend(0.5, 0.85, 0.65, 0.85);
+  leg->AddEntry(alpha_average, "f_{#alpha}(t) (Am-241)", "l");
+  leg->AddEntry(gamma_average, "f_{#gamma}(t) (Na-22)", "l");
+  leg->AddEntry(wf, "Weighting function p(t)", "l");
+
   PlottingUtils::SaveFigure(canvas, "clean_weighting_function",
                             PlotSaveOptions::kLINEAR);
 
@@ -358,9 +373,173 @@ void PlotShapeIndicator(const std::vector<TString> output_names) {
   }
 }
 
+std::vector<Float_t> LoadSIValues(const TString &output_name,
+                                  const SpectralCuts &cuts) {
+  TString filepath = "root_files/" + output_name + ".root";
+  TFile *file = new TFile(filepath, "READ");
+  TTree *tree = static_cast<TTree *>(file->Get("features"));
+
+  Float_t clean_shape_indicator, light_output;
+  tree->SetBranchAddress("clean_shape_indicator", &clean_shape_indicator);
+  tree->SetBranchAddress("light_output", &light_output);
+  tree->LoadBaskets();
+
+  std::vector<Float_t> values;
+  Int_t n_entries = tree->GetEntries();
+  for (Int_t i = 0; i < n_entries; i++) {
+    tree->GetEntry(i);
+    if (light_output >= cuts.min_light_output &&
+        light_output <= cuts.max_light_output) {
+      values.push_back(clean_shape_indicator);
+    }
+  }
+
+  file->Close();
+  delete file;
+  return values;
+}
+
+TF1 *FitSIGaussian(TH1F *hist) {
+  if (!hist || hist->GetEntries() == 0)
+    return nullptr;
+
+  Int_t first_bin = hist->FindFirstBinAbove(hist->GetMaximum() * 0.01);
+  Int_t last_bin = hist->FindLastBinAbove(hist->GetMaximum() * 0.01);
+  Double_t fit_min = hist->GetBinCenter(first_bin);
+  Double_t fit_max = hist->GetBinCenter(last_bin);
+
+  TF1 *fit = new TF1(PlottingUtils::GetRandomName(), "gaus", fit_min, fit_max);
+  fit->SetParameters(hist->GetMaximum(), hist->GetMean(), hist->GetRMS());
+  fit->SetParLimits(0, hist->GetMaximum() * 0.1, hist->GetMaximum() * 2.0);
+  fit->SetParLimits(1, Constants::SI_HIST_XMIN, Constants::SI_HIST_XMAX);
+  fit->SetParLimits(2, 0, 1);
+
+  Int_t status = hist->Fit(fit, "LRQSN");
+  if (status != 0) {
+    delete fit;
+    return nullptr;
+  }
+  return fit;
+}
+
+void PlotBestSIFOM(const SpectralCuts &cuts = CUTS) {
+  TString alpha_output = Constants::AM241;
+  TString gamma_output = Constants::NA22;
+  TString alpha_label = Constants::AM241_LABEL;
+  TString gamma_label = Constants::NA22_LABEL;
+
+  std::vector<Float_t> alpha_si = LoadSIValues(alpha_output, cuts);
+  std::vector<Float_t> gamma_si = LoadSIValues(gamma_output, cuts);
+
+  std::cout << "SI FOM plot: " << alpha_si.size() << " alpha events, "
+            << gamma_si.size() << " gamma events in " << cuts.min_light_output
+            << "-" << cuts.max_light_output << " keVee" << std::endl;
+
+  TH1F *hist_alpha =
+      new TH1F(PlottingUtils::GetRandomName(), "", Constants::SI_HIST_NBINS,
+               Constants::SI_HIST_XMIN, 0.3);
+  TH1F *hist_gamma =
+      new TH1F(PlottingUtils::GetRandomName(), "", Constants::SI_HIST_NBINS,
+               Constants::SI_HIST_XMIN, 0.3);
+  hist_alpha->SetDirectory(0);
+  hist_gamma->SetDirectory(0);
+
+  for (size_t i = 0; i < alpha_si.size(); i++)
+    hist_alpha->Fill(alpha_si[i]);
+  for (size_t i = 0; i < gamma_si.size(); i++)
+    hist_gamma->Fill(gamma_si[i]);
+
+  TF1 *fit_alpha = FitSIGaussian(hist_alpha);
+  TF1 *fit_gamma = FitSIGaussian(hist_gamma);
+
+  if (!fit_alpha || !fit_gamma) {
+    std::cout << "Error: Gaussian fit failed for SI FOM plot" << std::endl;
+    delete hist_alpha;
+    delete hist_gamma;
+    delete fit_alpha;
+    delete fit_gamma;
+    return;
+  }
+
+  Double_t mean_alpha = fit_alpha->GetParameter(1);
+  Double_t sigma_alpha = std::abs(fit_alpha->GetParameter(2));
+  Double_t mean_gamma = fit_gamma->GetParameter(1);
+  Double_t sigma_gamma = std::abs(fit_gamma->GetParameter(2));
+
+  Double_t fwhm_alpha = 2.355 * sigma_alpha;
+  Double_t fwhm_gamma = 2.355 * sigma_gamma;
+  Double_t separation = std::abs(mean_alpha - mean_gamma);
+  Double_t fom = separation / (fwhm_alpha + fwhm_gamma);
+
+  std::cout << "SI FOM = " << fom << std::endl;
+
+  TCanvas *canvas = PlottingUtils::GetConfiguredCanvas(kFALSE);
+
+  PlottingUtils::ConfigureHistogram(hist_alpha, kRed + 2, "");
+  PlottingUtils::ConfigureHistogram(hist_gamma, kBlue + 2, "");
+
+  hist_alpha->SetFillColorAlpha(kRed + 2, 0.3);
+  hist_gamma->SetFillColorAlpha(kBlue + 2, 0.3);
+
+  hist_alpha->GetXaxis()->SetTitle("PSP_{SI}");
+  hist_alpha->GetYaxis()->SetTitle("Counts");
+
+  Double_t y_max =
+      std::max(hist_alpha->GetMaximum(), hist_gamma->GetMaximum()) * 1.2;
+  hist_alpha->SetMaximum(y_max);
+  hist_alpha->Draw("HIST");
+  hist_gamma->Draw("HIST SAME");
+
+  Double_t draw_min_alpha = mean_alpha - 3.0 * sigma_alpha;
+  Double_t draw_max_alpha = mean_alpha + 3.0 * sigma_alpha;
+  TF1 *draw_fit_alpha = new TF1(PlottingUtils::GetRandomName(), "gaus",
+                                draw_min_alpha, draw_max_alpha);
+  draw_fit_alpha->SetParameters(fit_alpha->GetParameter(0), mean_alpha,
+                                sigma_alpha);
+  draw_fit_alpha->SetLineColor(kRed);
+  draw_fit_alpha->SetLineWidth(2);
+  draw_fit_alpha->SetLineStyle(1);
+  draw_fit_alpha->Draw("SAME");
+
+  Double_t draw_min_gamma = mean_gamma - 3.0 * sigma_gamma;
+  Double_t draw_max_gamma = mean_gamma + 3.0 * sigma_gamma;
+  TF1 *draw_fit_gamma = new TF1(PlottingUtils::GetRandomName(), "gaus",
+                                draw_min_gamma, draw_max_gamma);
+  draw_fit_gamma->SetParameters(fit_gamma->GetParameter(0), mean_gamma,
+                                sigma_gamma);
+  draw_fit_gamma->SetLineColor(kBlue);
+  draw_fit_gamma->SetLineWidth(2);
+  draw_fit_gamma->SetLineStyle(1);
+  draw_fit_gamma->Draw("SAME");
+
+  TLegend *leg = PlottingUtils::AddLegend(0.55, 0.75, 0.55, 0.83);
+  leg->AddEntry(hist_alpha, Form("%s (#alpha)", alpha_label.Data()), "f");
+  leg->AddEntry(hist_gamma, Form("%s (#gamma)", gamma_label.Data()), "f");
+  leg->AddEntry(draw_fit_alpha, "#alpha fit", "l");
+  leg->AddEntry(draw_fit_gamma, "#gamma fit", "l");
+
+  char fom_text[100];
+  sprintf(fom_text, "FOM: %.3f", fom);
+  leg->AddEntry((TObject *)0, fom_text, "");
+  leg->Draw();
+
+  PlottingUtils::SaveFigure(canvas, "best_si_fom_" + gamma_label,
+                            PlotSaveOptions::kLOG);
+
+  delete fit_alpha;
+  delete fit_gamma;
+  delete draw_fit_alpha;
+  delete draw_fit_gamma;
+  delete canvas;
+  delete hist_alpha;
+  delete hist_gamma;
+}
+
 void ShapeIndicator() {
-  Bool_t recalculate_average = kTRUE;
-  Bool_t recalculate_si = kTRUE;
+  Bool_t recalculate_average = kFALSE;
+  Bool_t recalculate_si = kFALSE;
+  Bool_t replot_si = kFALSE;
+
   InitUtils::SetROOTPreferences(Constants::SAVE_FORMAT);
 
   if (recalculate_average)
@@ -368,9 +547,11 @@ void ShapeIndicator() {
 
   CalculateCleanWeightingFunction(Constants::AM241, Constants::NA22);
 
-  if (recalculate_si) {
+  if (recalculate_si)
     CalculateShapeIndicator(Constants::ALL_OUTPUT_NAMES);
-  }
 
-  PlotShapeIndicator(Constants::ALL_OUTPUT_NAMES);
+  if (replot_si)
+    PlotShapeIndicator(Constants::ALL_OUTPUT_NAMES);
+
+  PlotBestSIFOM();
 }

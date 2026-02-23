@@ -364,11 +364,11 @@ void PlotPSDWithFOM(TH1F *hist_alpha, TH1F *hist_gamma,
 
   TCanvas *canvas = PlottingUtils::GetConfiguredCanvas(kFALSE);
 
-  PlottingUtils::ConfigureHistogram(hist_alpha, kRed + 1, "");
-  PlottingUtils::ConfigureHistogram(hist_gamma, kGreen + 2, "");
+  PlottingUtils::ConfigureHistogram(hist_alpha, kRed + 2, "");
+  PlottingUtils::ConfigureHistogram(hist_gamma, kBlue + 2, "");
 
-  hist_alpha->SetFillColorAlpha(kRed + 1, 0.3);
-  hist_gamma->SetFillColorAlpha(kGreen + 2, 0.3);
+  hist_alpha->SetFillColorAlpha(kRed + 2, 0.3);
+  hist_gamma->SetFillColorAlpha(kBlue + 2, 0.3);
 
   hist_alpha->GetXaxis()->SetTitle(psd_type);
   hist_alpha->GetYaxis()->SetTitle("Counts");
@@ -387,7 +387,7 @@ void PlotPSDWithFOM(TH1F *hist_alpha, TH1F *hist_gamma,
   TF1 *fit_alpha = new TF1(PlottingUtils::GetRandomName(), "gaus",
                            draw_min_alpha, draw_max_alpha);
   fit_alpha->SetParameters(opt.amp_alpha, opt.mean_alpha, opt.sigma_alpha);
-  fit_alpha->SetLineColor(kRed + 2);
+  fit_alpha->SetLineColor(kRed);
   fit_alpha->SetLineWidth(2);
   fit_alpha->SetLineStyle(1);
   fit_alpha->Draw("SAME");
@@ -397,7 +397,7 @@ void PlotPSDWithFOM(TH1F *hist_alpha, TH1F *hist_gamma,
   TF1 *fit_gamma = new TF1(PlottingUtils::GetRandomName(), "gaus",
                            draw_min_gamma, draw_max_gamma);
   fit_gamma->SetParameters(opt.amp_gamma, opt.mean_gamma, opt.sigma_gamma);
-  fit_gamma->SetLineColor(kGreen + 3);
+  fit_gamma->SetLineColor(kBlue);
   fit_gamma->SetLineWidth(2);
   fit_gamma->SetLineStyle(1);
   fit_gamma->Draw("SAME");

@@ -17,45 +17,45 @@ def get_default_regressors(random_state=42):
             "Random Forest",
             "model":
             RandomForestRegressor(
-                n_estimators=100,
-                max_depth=10,
+                n_estimators=183,
+                max_depth=14,
                 random_state=random_state,
-                max_samples=0.632,
+                max_samples=0.2388,
                 max_features="sqrt",
                 n_jobs=-1,
                 verbose=1,
             ),
             "file":
-            "rf_regressor.pkl",
+            "analysis_cache/rf_regressor.pkl",
         },
         {
             "name":
             "Gradient Boosting",
             "model":
             GradientBoostingRegressor(
-                n_estimators=300,
-                max_depth=3,
-                learning_rate=0.1,
+                n_estimators=200,
+                max_depth=5,
+                learning_rate=0.12256,
                 random_state=random_state,
                 verbose=1,
             ),
             "file":
-            "gb_regressor.pkl",
+            "analysis_cache/gb_regressor.pkl",
         },
         {
             "name":
             "XGBoost",
             "model":
             XGBRegressor(
-                n_estimators=100,
+                n_estimators=200,
                 max_depth=5,
-                learning_rate=0.1,
+                learning_rate=0.12256,
                 random_state=random_state,
                 n_jobs=-1,
                 verbosity=1,
             ),
             "file":
-            "xgb_regressor.pkl",
+            "analysis_cache/xgb_regressor.pkl",
         },
         {
             "name":
@@ -68,6 +68,6 @@ def get_default_regressors(random_state=42):
                 verbose=True,
             ),
             "file":
-            "mlp_regressor.pkl",
+            "analysis_cache/mlp_regressor.pkl",
         },
     ]

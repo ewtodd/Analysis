@@ -1,5 +1,6 @@
 ANSG-Archival
-ANSG/YAP-PSD/Python/
+*.npz
+*.npy
 *.C
 *.h5
 *.pkl

@@ -207,6 +207,8 @@ void LongIntegralToLightOutput(const std::vector<TString> &input_names,
   delete calibration_file;
 
   std::vector<Int_t> colors = PlottingUtils::GetDefaultColors();
+  std::vector<TString> subplot_labels = {
+      "(a) Am-241", "(a) Cs-137", "(b) Na-22", "(b) Co-60", "", "", ""};
 
   for (size_t i = 0; i < input_names.size(); i++) {
     TString input_name = input_names[i];
@@ -214,7 +216,7 @@ void LongIntegralToLightOutput(const std::vector<TString> &input_names,
 
     TH1F *light_output_hist =
         new TH1F("",
-                 Form("; Light Output [keVee]; Counts / %.1d keV",
+                 Form("; Light Output [keVee]; Counts / %.1d keVee",
                       Constants::LO_BIN_WIDTH),
                  Constants::LO_HIST_NBINS, Constants::LO_HIST_XMIN,
                  Constants::LO_HIST_XMAX);
@@ -266,6 +268,11 @@ void LongIntegralToLightOutput(const std::vector<TString> &input_names,
     }
 
     PlottingUtils::ConfigureAndDrawHistogram(light_output_hist, color);
+
+    TText *label =
+        PlottingUtils::AddSubplotLabel(subplot_labels[i], 0.82, 0.82);
+    label->SetTextSize(35);
+
     PlottingUtils::SaveFigure(canvas, input_name + "_light_output",
                               PlotSaveOptions::kLOG);
 

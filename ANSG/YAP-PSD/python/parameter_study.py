@@ -2,7 +2,13 @@ import os
 import pickle
 import numpy as np
 import ROOT
-from sklearn.ensemble import RandomForestRegressor
+import shap
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.neural_network import MLPRegressor
+from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
+from sklearn.metrics import make_scorer, roc_auc_score
+from scipy.stats import randint, uniform, loguniform
+from joblib import parallel_backend
 from xgboost import XGBRegressor
 from analysis_utils.io import load_tree_data
 from psd_utils import process_waveforms, bootstrap_auc
@@ -25,15 +31,18 @@ SCALAR_BRANCHES = [
     "clean_shape_indicator",
 ]
 
-N_SEEDS = 5
-SEEDS = [42, 123, 256, 789, 1024][:N_SEEDS]
-DEFAULT_TRAIN_PER_CLASS = 5000
+N_SEEDS = 3
+SEEDS = [42, 123, 256][:N_SEEDS]
+DEFAULT_TRAIN_PER_CLASS = 10000
+
+RANDOM_SEARCH_N_ITER = 50
+RANDOM_SEARCH_CV_FOLDS = 3
 
 RF_CONFIG = dict(
     name="Random Forest",
     prefix="rf",
     model_class=RandomForestRegressor,
-    color=ROOT.kBlue + 1,
+    color=ROOT.kRed + 2,
     default_params=dict(
         n_estimators=100,
         max_depth=None,
@@ -50,7 +59,7 @@ RF_CONFIG = dict(
         ),
         dict(
             sweep_name="n_training_samples",
-            values=[500, 1000, 5000, 10000, 25000, 50000, 100000],
+            values=[500, 1000, 10000, 25000, 50000, 100000],
             x_title="Training Samples per Class",
             param_key=None,  # special handling
         ),
@@ -69,11 +78,37 @@ RF_CONFIG = dict(
     ],
 )
 
+GB_CONFIG = dict(
+    name="Gradient Boosting",
+    prefix="gb",
+    model_class=GradientBoostingRegressor,
+    color=ROOT.kBlue + 2,
+    default_params=dict(
+        n_estimators=200,
+        max_depth=5,
+        learning_rate=0.12256,
+        verbose=1,
+    ),
+    sweeps=[],
+)
+
+MLP_CONFIG = dict(
+    name="MLP",
+    prefix="mlp",
+    model_class=MLPRegressor,
+    color=ROOT.kOrange + 2,
+    default_params=dict(
+        hidden_layer_sizes=(128, 64),
+        max_iter=500,
+    ),
+    sweeps=[],
+)
+
 XGB_CONFIG = dict(
     name="XGBoost",
     prefix="xgb",
     model_class=XGBRegressor,
-    color=ROOT.kRed + 1,
+    color=ROOT.kGreen + 2,
     default_params=dict(
         n_estimators=100,
         max_depth=6,
@@ -90,7 +125,7 @@ XGB_CONFIG = dict(
         ),
         dict(
             sweep_name="n_training_samples",
-            values=[500, 1000, 5000, 10000, 25000, 50000, 100000],
+            values=[500, 1000, 10000, 25000, 50000, 100000],
             x_title="Training Samples per Class",
             param_key=None,
         ),
@@ -173,7 +208,8 @@ def prepare_data(alpha_waveforms,
     return x_train, y_train, x_test, y_test
 
 
-def plot_sweep(x_values, y_values, y_errors, x_title, output_name, color):
+def plot_sweep(x_values, y_values, y_errors, x_title, prefix, output_name,
+               color):
     """Plot a single sweep with colored line + black markers/error bars."""
     canvas = ROOT.PlottingUtils.GetConfiguredCanvas()
 
@@ -212,6 +248,11 @@ def plot_sweep(x_values, y_values, y_errors, x_title, output_name, color):
 
     graph_line.Draw("AL")
     graph_err.Draw("P SAME")
+
+    if (prefix == "rf"):
+        text = ROOT.PlottingUtils.AddSubplotLabel("Random Forest", 0.85, 0.25)
+    else:
+        text = ROOT.PlottingUtils.AddSubplotLabel("XGBoost", 0.85, 0.25)
 
     ROOT.PlottingUtils.SaveFigure(canvas, output_name,
                                   ROOT.PlotSaveOptions.kLINEAR)
@@ -357,13 +398,227 @@ def plot_feature_importance(model_class, default_params, prefix, color, name,
     graph_importance.SetFillColorAlpha(color, 0.2)
     graph_importance.Draw("L3 SAME")
 
-    leg = ROOT.PlottingUtils.AddLegend(0.42, 0.88, 0.6, 0.85)
+    if (name == "Random Forest" or name == "Gradient Boosting"):
+        leg = ROOT.PlottingUtils.AddLegend(0.42, 0.88, 0.6, 0.85)
+    else:
+        leg = ROOT.PlottingUtils.AddLegend(0.5, 0.85, 0.6, 0.85)
     leg.AddEntry(graph_waveform, "Average #alpha Waveform", "l")
     leg.AddEntry(graph_importance, f"{name} Feature Importance", "lf")
     leg.SetMargin(0.1)
     leg.Draw()
 
     output_file = f"feature_importance_{prefix}"
+    ROOT.PlottingUtils.SaveFigure(canvas, output_file,
+                                  ROOT.PlotSaveOptions.kLINEAR)
+    canvas.Close()
+    print(f"Saved {output_file}")
+
+
+def plot_tree_shap_importance(model_class, default_params, prefix, color, name,
+                              x_train, y_train, avg_waveform):
+    """Train or load N_SEEDS tree models and plot SHAP-based feature importance.
+
+    Uses shap.TreeExplainer for exact, fast Shapley values on tree-based models
+    (XGBoost, Random Forest, etc.) instead of the built-in feature_importances_.
+    """
+    n_per_class = len(x_train) // 2
+    if n_per_class > DEFAULT_TRAIN_PER_CLASS:
+        rng = np.random.RandomState(0)
+        alpha_sel = rng.choice(n_per_class,
+                               size=DEFAULT_TRAIN_PER_CLASS,
+                               replace=False)
+        gamma_sel = rng.choice(n_per_class,
+                               size=DEFAULT_TRAIN_PER_CLASS,
+                               replace=False) + n_per_class
+        idx = np.concatenate([alpha_sel, gamma_sel])
+        x_train = x_train[idx]
+        y_train = y_train[idx]
+
+    all_mean_abs_shap = []
+    for seed in SEEDS:
+        shap_cache = os.path.join(CACHE_DIR,
+                                  f"{prefix}_shap_values_seed{seed}.npy")
+
+        if os.path.exists(shap_cache):
+            print(f"  Loading cached SHAP values: {shap_cache}")
+            mean_abs_shap = np.load(shap_cache)
+        else:
+            model_file = os.path.join(CACHE_DIR,
+                                      f"{prefix}_importance_seed{seed}.pkl")
+            if os.path.exists(model_file):
+                print(f"  Loading cached model: {model_file}")
+                with open(model_file, "rb") as fh:
+                    model = pickle.load(fh)
+            else:
+                print(f"  Training {name} seed {seed}...")
+                params = dict(default_params, random_state=seed)
+                model = model_class(**params)
+                model.fit(x_train, y_train)
+                with open(model_file, "wb") as fh:
+                    pickle.dump(model, fh)
+
+            print(f"  Computing TreeSHAP values for seed {seed}...")
+            explainer = shap.TreeExplainer(model)
+            # Use a subsample for SHAP to keep runtime reasonable
+            rng = np.random.RandomState(seed)
+            explain_idx = rng.choice(len(x_train),
+                                     size=min(1000, len(x_train)),
+                                     replace=False)
+            shap_vals = explainer.shap_values(x_train[explain_idx])
+            mean_abs_shap = np.mean(np.abs(shap_vals), axis=0)
+            np.save(shap_cache, mean_abs_shap)
+
+        all_mean_abs_shap.append(mean_abs_shap)
+
+    importances = np.array(all_mean_abs_shap)
+    mean_imp = np.mean(importances, axis=0)
+    std_imp = np.std(importances, axis=0)
+
+    wf_max = np.max(avg_waveform)
+    avg_wf_norm = avg_waveform / wf_max if wf_max > 0 else avg_waveform
+
+    imp_max = np.max(mean_imp)
+    mean_imp_norm = mean_imp / imp_max if imp_max > 0 else mean_imp
+    std_imp_norm = std_imp / imp_max if imp_max > 0 else std_imp
+
+    n_points = len(avg_waveform)
+    x_values = np.arange(n_points, dtype=np.float64) * 2
+
+    canvas = ROOT.PlottingUtils.GetConfiguredCanvas()
+
+    graph_waveform = ROOT.TGraph(n_points, x_values,
+                                 avg_wf_norm.astype(np.float64))
+    graph_waveform.SetLineColor(ROOT.kGray + 2)
+    graph_waveform.SetLineWidth(ROOT.PlottingUtils.GetLineWidth())
+    graph_waveform.SetTitle("")
+    graph_waveform.GetXaxis().SetTitle("Time [ns]")
+    graph_waveform.GetYaxis().SetTitle("Normalized Amplitude [a.u.]")
+    graph_waveform.GetXaxis().SetRangeUser(0, x_values[-1])
+    graph_waveform.GetYaxis().SetRangeUser(-0.1, 1.1)
+    graph_waveform.Draw("AL")
+
+    ex = np.zeros(n_points, dtype=np.float64)
+    graph_importance = ROOT.TGraphErrors(n_points, x_values,
+                                         mean_imp_norm.astype(np.float64), ex,
+                                         std_imp_norm.astype(np.float64))
+    graph_importance.SetLineColor(color)
+    graph_importance.SetLineWidth(ROOT.PlottingUtils.GetLineWidth())
+    graph_importance.SetFillColorAlpha(color, 0.2)
+    graph_importance.Draw("L3 SAME")
+
+    if (name == "Random Forest" or name == "Gradient Boosting"):
+        leg = ROOT.PlottingUtils.AddLegend(0.45, 0.88, 0.6, 0.85)
+    else:
+        leg = ROOT.PlottingUtils.AddLegend(0.52, 0.85, 0.6, 0.85)
+    leg.AddEntry(graph_waveform, "Average #alpha Waveform", "l")
+    leg.AddEntry(graph_importance, f"{name} SHAP Importance", "lf")
+    leg.SetMargin(0.1)
+    leg.Draw()
+
+    output_file = f"feature_importance_{prefix}_shap"
+    ROOT.PlottingUtils.SaveFigure(canvas, output_file,
+                                  ROOT.PlotSaveOptions.kLINEAR)
+    canvas.Close()
+    print(f"Saved {output_file}")
+
+
+def plot_kernel_shap_importance(model_class, default_params, prefix, color,
+                                name, x_train, y_train, avg_waveform):
+    """Train or load N_SEEDS models and plot KernelSHAP-based feature importance.
+
+    Uses shap.KernelExplainer for non-tree models (e.g. MLP) where
+    TreeExplainer is not available.
+    """
+    n_per_class = len(x_train) // 2
+    if n_per_class > DEFAULT_TRAIN_PER_CLASS:
+        rng = np.random.RandomState(0)
+        alpha_sel = rng.choice(n_per_class,
+                               size=DEFAULT_TRAIN_PER_CLASS,
+                               replace=False)
+        gamma_sel = rng.choice(n_per_class,
+                               size=DEFAULT_TRAIN_PER_CLASS,
+                               replace=False) + n_per_class
+        idx = np.concatenate([alpha_sel, gamma_sel])
+        x_train = x_train[idx]
+        y_train = y_train[idx]
+
+    all_mean_abs_shap = []
+    for seed in SEEDS:
+        shap_cache = os.path.join(CACHE_DIR,
+                                  f"{prefix}_shap_values_seed{seed}.npy")
+
+        if os.path.exists(shap_cache):
+            print(f"  Loading cached SHAP values: {shap_cache}")
+            mean_abs_shap = np.load(shap_cache)
+        else:
+            model_file = os.path.join(CACHE_DIR,
+                                      f"{prefix}_shap_seed{seed}.pkl")
+            if os.path.exists(model_file):
+                print(f"  Loading cached model: {model_file}")
+                with open(model_file, "rb") as fh:
+                    model = pickle.load(fh)
+            else:
+                print(f"  Training {name} seed {seed}...")
+                params = dict(default_params, random_state=seed)
+                model = model_class(**params)
+                model.fit(x_train, y_train)
+                with open(model_file, "wb") as fh:
+                    pickle.dump(model, fh)
+
+            print(f"  Computing SHAP values for seed {seed}...")
+            rng = np.random.RandomState(seed)
+            bg_idx = rng.choice(len(x_train), size=100, replace=False)
+            explain_idx = rng.choice(len(x_train), size=500, replace=False)
+            explainer = shap.KernelExplainer(model.predict, x_train[bg_idx])
+            shap_vals = explainer.shap_values(x_train[explain_idx])
+            mean_abs_shap = np.mean(np.abs(shap_vals), axis=0)
+            np.save(shap_cache, mean_abs_shap)
+
+        all_mean_abs_shap.append(mean_abs_shap)
+
+    importances = np.array(all_mean_abs_shap)
+    mean_imp = np.mean(importances, axis=0)
+    std_imp = np.std(importances, axis=0)
+
+    wf_max = np.max(avg_waveform)
+    avg_wf_norm = avg_waveform / wf_max if wf_max > 0 else avg_waveform
+
+    imp_max = np.max(mean_imp)
+    mean_imp_norm = mean_imp / imp_max if imp_max > 0 else mean_imp
+    std_imp_norm = std_imp / imp_max if imp_max > 0 else std_imp
+
+    n_points = len(avg_waveform)
+    x_values = np.arange(n_points, dtype=np.float64) * 2
+
+    canvas = ROOT.PlottingUtils.GetConfiguredCanvas()
+
+    graph_waveform = ROOT.TGraph(n_points, x_values,
+                                 avg_wf_norm.astype(np.float64))
+    graph_waveform.SetLineColor(ROOT.kGray + 2)
+    graph_waveform.SetLineWidth(ROOT.PlottingUtils.GetLineWidth())
+    graph_waveform.SetTitle("")
+    graph_waveform.GetXaxis().SetTitle("Time [ns]")
+    graph_waveform.GetYaxis().SetTitle("Normalized Amplitude [a.u.]")
+    graph_waveform.GetXaxis().SetRangeUser(0, x_values[-1])
+    graph_waveform.GetYaxis().SetRangeUser(-0.1, 1.1)
+    graph_waveform.Draw("AL")
+
+    ex = np.zeros(n_points, dtype=np.float64)
+    graph_importance = ROOT.TGraphErrors(n_points, x_values,
+                                         mean_imp_norm.astype(np.float64), ex,
+                                         std_imp_norm.astype(np.float64))
+    graph_importance.SetLineColor(color)
+    graph_importance.SetLineWidth(ROOT.PlottingUtils.GetLineWidth())
+    graph_importance.SetFillColorAlpha(color, 0.2)
+    graph_importance.Draw("L3 SAME")
+
+    leg = ROOT.PlottingUtils.AddLegend(0.54, 0.84, 0.6, 0.85)
+    leg.AddEntry(graph_waveform, "Average #alpha Waveform", "l")
+    leg.AddEntry(graph_importance, f"{name} SHAP Importance", "lf")
+    leg.SetMargin(0.1)
+    leg.Draw()
+
+    output_file = f"feature_importance_{prefix}_shap"
     ROOT.PlottingUtils.SaveFigure(canvas, output_file,
                                   ROOT.PlotSaveOptions.kLINEAR)
     canvas.Close()
@@ -447,70 +702,281 @@ def run_all_sweeps(config, x_train, y_train, x_test, y_test):
         if sweep_name == "max_depth" and None in values:
             plot_x = [d if d is not None else 50 for d in values]
 
-        plot_sweep(plot_x, means, stds, x_title, output_name, color)
+        plot_sweep(plot_x, means, stds, x_title, config['prefix'], output_name,
+                   color)
 
     return recommended
+
+
+def build_search_space(config, recommended):
+    """Build RandomizedSearchCV parameter distributions around recommended values.
+
+    For each tunable parameter, creates a distribution centered on the
+    recommended value from the OAT sweeps, covering a reasonable neighborhood
+    to explore interactions.
+    """
+    distributions = {}
+
+    for sweep in config["sweeps"]:
+        param_key = sweep["param_key"]
+        if param_key is None:  # skip n_training_samples
+            continue
+
+        rec_val = recommended.get(param_key)
+        if rec_val is None and param_key == "max_depth":
+            # RF recommended unlimited depth; include None + some large values
+            distributions[param_key] = [20, 30, 40, 50, None]
+            continue
+        if rec_val is None:
+            continue
+
+        values = [v for v in sweep["values"] if v is not None]
+
+        if param_key == "n_estimators":
+            low = max(10, int(rec_val * 0.5))
+            high = int(rec_val * 2.0)
+            distributions[param_key] = randint(low, high + 1)
+
+        elif param_key == "max_depth":
+            low = max(1, rec_val - 3)
+            high = rec_val + 5
+            distributions[param_key] = randint(low, high + 1)
+
+        elif param_key == "learning_rate":
+            low = max(1e-4, rec_val / 5.0)
+            high = min(1.0, rec_val * 5.0)
+            distributions[param_key] = loguniform(low, high)
+
+        elif param_key == "max_samples":
+            low = max(0.05, rec_val - 0.2)
+            high = min(1.0, rec_val + 0.2)
+            distributions[param_key] = uniform(low, high - low)
+
+        elif param_key == "max_features":
+            low = max(0.1, rec_val - 0.3)
+            high = min(1.0, rec_val + 0.3)
+            distributions[param_key] = uniform(low, high - low)
+
+    return distributions
+
+
+def run_randomized_search(config, recommended, x_train, y_train, x_test,
+                          y_test):
+    """Run RandomizedSearchCV around the OAT-recommended values.
+
+    Uses the training set for cross-validated search, then evaluates
+    the best parameters on the held-out test set with bootstrap AUC
+    for a direct comparison against the OAT results.
+    """
+    prefix = config["prefix"]
+    model_class = config["model_class"]
+    default_params = config["default_params"]
+
+    cache_file = os.path.join(CACHE_DIR, f"{prefix}_randomized_search.pkl")
+    if os.path.exists(cache_file):
+        print(f"  Loading cached RandomizedSearchCV: {cache_file}")
+        with open(cache_file, "rb") as fh:
+            search = pickle.load(fh)
+        print(f"  Best CV score (ROC AUC): {search.best_score_:.4f}")
+        print(f"  Best params: {search.best_params_}")
+
+        # Evaluate on test set
+        scores = search.best_estimator_.predict(x_test)
+        auc_mean, auc_std = bootstrap_auc(y_test, scores)
+        print(f"  Test AUC: {auc_mean:.4f} +/- {auc_std:.4f}")
+        return search.best_params_, search.best_score_
+
+    # Subsample training data to DEFAULT_TRAIN_PER_CLASS per class
+    n_per_class = len(x_train) // 2
+    if n_per_class > DEFAULT_TRAIN_PER_CLASS:
+        rng = np.random.RandomState(42)
+        alpha_sel = rng.choice(n_per_class,
+                               size=DEFAULT_TRAIN_PER_CLASS,
+                               replace=False)
+        gamma_sel = rng.choice(n_per_class,
+                               size=DEFAULT_TRAIN_PER_CLASS,
+                               replace=False) + n_per_class
+        idx = np.concatenate([alpha_sel, gamma_sel])
+        x_train_search = x_train[idx]
+        y_train_search = y_train[idx]
+        print(f"  Subsampled to {len(x_train_search)} training samples "
+              f"({DEFAULT_TRAIN_PER_CLASS} per class)")
+    else:
+        x_train_search = x_train
+        y_train_search = y_train
+
+    # Build search space around recommended values
+    distributions = build_search_space(config, recommended)
+    print(f"  Search distributions:")
+    for k, v in distributions.items():
+        print(f"    {k}: {v}")
+
+    # Fixed params that aren't being searched
+    fixed_params = {
+        k: v
+        for k, v in default_params.items()
+        if k not in distributions and k != "random_state"
+    }
+
+    # Scorer: use regression predictions directly for ROC AUC
+    auc_scorer = make_scorer(roc_auc_score)
+
+    base_model = model_class(random_state=42, **fixed_params)
+
+    cv_strategy = StratifiedKFold(n_splits=RANDOM_SEARCH_CV_FOLDS,
+                                  shuffle=True,
+                                  random_state=42)
+
+    search = RandomizedSearchCV(
+        base_model,
+        param_distributions=distributions,
+        n_iter=RANDOM_SEARCH_N_ITER,
+        scoring=auc_scorer,
+        cv=cv_strategy,
+        random_state=42,
+        n_jobs=-1,
+        verbose=1,
+        refit=True,
+    )
+
+    print(f"  Running RandomizedSearchCV ({RANDOM_SEARCH_N_ITER} iterations, "
+          f"{RANDOM_SEARCH_CV_FOLDS}-fold CV)...")
+    with parallel_backend("threading"):
+        search.fit(x_train_search, y_train_search)
+
+    with open(cache_file, "wb") as fh:
+        pickle.dump(search, fh)
+
+    print(f"  Best CV score (ROC AUC): {search.best_score_:.4f}")
+    print(f"  Best params: {search.best_params_}")
+
+    # Compare: OAT recommended params on test set
+    oat_params = dict(default_params, **recommended, random_state=42)
+    oat_model = model_class(**oat_params)
+    oat_model.fit(x_train_search, y_train_search)
+    oat_scores = oat_model.predict(x_test)
+    oat_auc_mean, oat_auc_std = bootstrap_auc(y_test, oat_scores)
+    print(
+        f"  OAT-recommended test AUC: {oat_auc_mean:.4f} +/- {oat_auc_std:.4f}"
+    )
+
+    # Best from randomized search on test set
+    best_scores = search.best_estimator_.predict(x_test)
+    best_auc_mean, best_auc_std = bootstrap_auc(y_test, best_scores)
+    print(
+        f"  RandomizedSearchCV test AUC: {best_auc_mean:.4f} +/- {best_auc_std:.4f}"
+    )
+
+    delta = best_auc_mean - oat_auc_mean
+    print(f"  Delta: {delta:+.4f}")
+
+    return search.best_params_, search.best_score_
 
 
 def main():
     os.makedirs("plots", exist_ok=True)
     os.makedirs(CACHE_DIR, exist_ok=True)
 
-    print("Loading alpha data (Am-241)...")
-    alpha_features, alpha_waveforms = load_tree_data(
-        ROOT_FILES_DIR + "Am241.root",
-        scalar_branches=SCALAR_BRANCHES,
-        array_branch="Samples",
-    )
-    print(
-        f"Alpha events: {len(alpha_features)}, waveform shape: {alpha_waveforms.shape}"
-    )
+    data_cache = os.path.join(CACHE_DIR, "prepared_data.npz")
+    wf_cache = os.path.join(CACHE_DIR, "avg_waveform.npy")
 
-    print("Loading gamma data (Na-22)...")
-    gamma_features, gamma_waveforms = load_tree_data(
-        ROOT_FILES_DIR + "Na22.root",
-        scalar_branches=SCALAR_BRANCHES,
-        array_branch="Samples",
-    )
-    print(
-        f"Gamma events: {len(gamma_features)}, waveform shape: {gamma_waveforms.shape}"
-    )
+    if os.path.exists(data_cache) and os.path.exists(wf_cache):
+        print("Loading cached prepared data...")
+        data = np.load(data_cache)
+        x_train, y_train = data["x_train"], data["y_train"]
+        x_test, y_test = data["x_test"], data["y_test"]
+        avg_waveform = np.load(wf_cache)
+        print(f"  Train: {len(x_train)}, Test: {len(x_test)}")
+    else:
+        print("Loading alpha data (Am-241)...")
+        alpha_features, alpha_waveforms = load_tree_data(
+            ROOT_FILES_DIR + "Am241.root",
+            scalar_branches=SCALAR_BRANCHES,
+            array_branch="Samples",
+        )
+        print(
+            f"Alpha events: {len(alpha_features)}, waveform shape: {alpha_waveforms.shape}"
+        )
 
-    # Find the max n_training_samples across all configs so prepare_data
-    # allocates enough training data for the full sweep.
-    max_train = DEFAULT_TRAIN_PER_CLASS
+        print("Loading gamma data (Na-22)...")
+        gamma_features, gamma_waveforms = load_tree_data(
+            ROOT_FILES_DIR + "Na22.root",
+            scalar_branches=SCALAR_BRANCHES,
+            array_branch="Samples",
+        )
+        print(
+            f"Gamma events: {len(gamma_features)}, waveform shape: {gamma_waveforms.shape}"
+        )
+
+        # Find the max n_training_samples across all configs so prepare_data
+        # allocates enough training data for the full sweep.
+        max_train = DEFAULT_TRAIN_PER_CLASS
+        for config in [RF_CONFIG, XGB_CONFIG]:
+            for sweep in config["sweeps"]:
+                if sweep["sweep_name"] == "n_training_samples":
+                    max_train = max(max_train, max(sweep["values"]))
+
+        print("Preparing train/test data")
+        x_train, y_train, x_test, y_test = prepare_data(
+            alpha_waveforms,
+            gamma_waveforms,
+            alpha_features,
+            gamma_features,
+            n_train_per_class=max_train)
+
+        f = ROOT.TFile.Open(ROOT_FILES_DIR + "Am241.root")
+        avg_wf_graph = f.Get("average_waveform")
+        avg_waveform = np.array(
+            [avg_wf_graph.GetPointY(i) for i in range(avg_wf_graph.GetN())])
+        f.Close()
+
+        np.savez(data_cache,
+                 x_train=x_train,
+                 y_train=y_train,
+                 x_test=x_test,
+                 y_test=y_test)
+        np.save(wf_cache, avg_waveform)
+        print(f"Prepared data cached to {CACHE_DIR}/")
+
     for config in [RF_CONFIG, XGB_CONFIG]:
-        for sweep in config["sweeps"]:
-            if sweep["sweep_name"] == "n_training_samples":
-                max_train = max(max_train, max(sweep["values"]))
-
-    print("Preparing train/test data")
-    x_train, y_train, x_test, y_test = prepare_data(
-        alpha_waveforms,
-        gamma_waveforms,
-        alpha_features,
-        gamma_features,
-        n_train_per_class=max_train)
-
-    f = ROOT.TFile.Open(ROOT_FILES_DIR + "Am241.root")
-    avg_wf_graph = f.Get("average_waveform")
-    avg_waveform = np.array(
-        [avg_wf_graph.GetPointY(i) for i in range(avg_wf_graph.GetN())])
-    f.Close()
-
-    for config in [RF_CONFIG, XGB_CONFIG]:
-        print(f"  {config['name']} Hyperparameter Study")
-
+        print(f"{config['name']} Hyperparameter Study")
+        print(f"One-at-a-time sweeps")
         recommended = run_all_sweeps(config, x_train, y_train, x_test, y_test)
-
         optimized_params = dict(config["default_params"])
         optimized_params.update(recommended)
-        print(f"{config['name']}: Optimized params: {recommended}")
-
-        print(f"{config['name']}: Feature importance (averaged over seeds)")
-        plot_feature_importance(config["model_class"], optimized_params,
+        print(f"{config['name']}: OAT recommended params: {recommended}")
+        print(f"RandomizedSearchCV around recommended values")
+        best_params, best_cv_score = run_randomized_search(
+            config, recommended, x_train, y_train, x_test, y_test)
+        # Use the better params (from randomized search) for feature importance
+        final_params = dict(config["default_params"])
+        final_params.update(best_params)
+        print(f"Feature importance (averaged over seeds)")
+        plot_tree_shap_importance(config["model_class"], final_params,
+                                  config["prefix"], config["color"],
+                                  config["name"], x_train, y_train,
+                                  avg_waveform)
+        plot_feature_importance(config["model_class"], final_params,
                                 config["prefix"], config["color"],
                                 config["name"], x_train, y_train, avg_waveform)
+
+    for config in [GB_CONFIG]:
+        print(f"{config['name']} Feature Importance")
+        plot_tree_shap_importance(config["model_class"],
+                                  config["default_params"], config["prefix"],
+                                  config["color"], config["name"], x_train,
+                                  y_train, avg_waveform)
+        plot_feature_importance(config["model_class"],
+                                config["default_params"], config["prefix"],
+                                config["color"], config["name"], x_train,
+                                y_train, avg_waveform)
+
+    for config in [MLP_CONFIG]:
+        print(f"{config['name']} SHAP Feature Importance")
+        plot_kernel_shap_importance(config["model_class"],
+                                    config["default_params"], config["prefix"],
+                                    config["color"], config["name"], x_train,
+                                    y_train, avg_waveform)
 
     print("Done. All plots saved.")
 
