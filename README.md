@@ -1,9 +1,26 @@
 # Public Analysis Repository for Physics Work
-ANSG = Applied Nuclear Science Group
-
-MUSIC = MUSIC experiment at Argonne National Lab
-
+<!---->
+## Projects
+<!---->
+### ANSG (Applied Nuclear Science Group)
+<!---->
+- **73mGe** — Precision gamma-ray measurements of 73mGe using a state-of-the-art position sensitive CZT detector.
+- **78mBr** — Half-life measurement of 78mBr by self-coincidence analysis in a LaBr3 detector.
+- **YAP-PSD** — Machine learning-based pulse shape discrimination in YAP:Ce, comparing Random Forest, Gradient Boosting, XGBoost, and MLP models.
+<!---->
+### MUSIC (Multi-Sampling Ionization Chamber at Argonne National Lab)
+<!---->
+- **ProductionMode_37Cl** — Event building and timing analysis for the MUSIC detector array, including binary data conversion, multi-board timing synchronization, and event reconstruction.
+- **SiCalibration_37Cl** — Silicon diode energy loss measurement used for validating the stopping power tables for 37Cl in helium gas.
+<!---->
+## Dependencies
+<!---->
+All projects depend on [Analysis-Utilities](https://github.com/ewtodd/Analysis-Utilities), a shared library providing common ROOT-based analysis tools.
+<!---->
+## Reproducibility
+<!---->
 This project uses [Nix](https://nixos.org/) to manage dependencies.
 Install it by following the instructions [here](https://nixos.org/download/).
 Ensure [flakes are enabled](https://nixos.wiki/wiki/Flakes#Enable_flakes_permanently) in your Nix configuration.
-All directories contain their own nix flake, which can be used to re-run code with the exact same environment as I did. Contact me for access to data.
+All directories contain their own Nix flake, which can be used to re-run code with the exact same environment as I did.
+Contact me for access to data.

@@ -3,7 +3,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     flake-utils.url = "github:numtide/flake-utils";
-    utils.url = "/home/e-work/Software/Analysis-Utilities";
+    utils.url = "github:ewtodd/Analysis-Utilities";
   };
   outputs =
     {
