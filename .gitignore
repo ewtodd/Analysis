@@ -1,6 +1,7 @@
 ANSG-Archival
 *.npz
 *.npy
+*.txt
 *.C
 *.h5
 *.pkl
