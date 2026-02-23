@@ -625,6 +625,88 @@ def plot_kernel_shap_importance(model_class, default_params, prefix, color,
     print(f"Saved {output_file}")
 
 
+def plot_combined_shap_importance(configs, avg_waveform):
+    """Plot SHAP-based feature importance for all models on a single plot.
+
+    Parameters
+    ----------
+    configs : list of (prefix, color, name) tuples
+        One entry per model to include.
+    avg_waveform : numpy.ndarray
+        Average alpha waveform to overlay.
+    """
+    n_points = len(avg_waveform)
+    x_values = np.arange(n_points, dtype=np.float64) * 2
+
+    wf_max = np.max(avg_waveform)
+    avg_wf_norm = avg_waveform / wf_max if wf_max > 0 else avg_waveform
+
+    canvas = ROOT.TCanvas("combined_shap", "", 1200, 600)
+
+    pad_plot = ROOT.TPad("pad_plot", "", 0.0, 0.0, 0.72, 1.0)
+    pad_plot.SetRightMargin(0.02)
+    pad_plot.Draw()
+
+    pad_leg = ROOT.TPad("pad_leg", "", 0.72, 0.0, 1.0, 1.0)
+    pad_leg.SetLeftMargin(0.0)
+    pad_leg.SetRightMargin(0.05)
+    pad_leg.Draw()
+
+    pad_plot.cd()
+
+    graph_waveform = ROOT.TGraph(n_points, x_values,
+                                 avg_wf_norm.astype(np.float64))
+    graph_waveform.SetLineColor(ROOT.kGray + 2)
+    graph_waveform.SetLineWidth(ROOT.PlottingUtils.GetLineWidth())
+    graph_waveform.SetTitle("")
+    graph_waveform.GetXaxis().SetTitle("Time [ns]")
+    graph_waveform.GetYaxis().SetTitle("Normalized Amplitude [a.u.]")
+    graph_waveform.GetXaxis().SetRangeUser(0, x_values[-1])
+    graph_waveform.GetYaxis().SetRangeUser(-0.1, 1.1)
+    graph_waveform.Draw("AL")
+
+    graphs = []
+    for prefix, color, name in configs:
+        all_mean_abs_shap = []
+        for seed in SEEDS:
+            shap_cache = os.path.join(CACHE_DIR,
+                                      f"{prefix}_shap_values_seed{seed}.npy")
+            if os.path.exists(shap_cache):
+                all_mean_abs_shap.append(np.load(shap_cache))
+            else:
+                print(f"  WARNING: Missing SHAP cache {shap_cache}, "
+                      f"skipping {name}")
+
+        if not all_mean_abs_shap:
+            continue
+
+        importances = np.array(all_mean_abs_shap)
+        mean_imp = np.mean(importances, axis=0)
+
+        imp_max = np.max(mean_imp)
+        mean_imp_norm = mean_imp / imp_max if imp_max > 0 else mean_imp
+
+        graph = ROOT.TGraph(n_points, x_values,
+                            mean_imp_norm.astype(np.float64))
+        graph.SetLineColor(color)
+        graph.SetLineWidth(ROOT.PlottingUtils.GetLineWidth())
+        graph.Draw("L SAME")
+        graphs.append((graph, name))
+
+    pad_leg.cd()
+    leg = ROOT.PlottingUtils.AddLegend(0.0, 0.95, 0.2, 0.85)
+    leg.SetMargin(0.15)
+    leg.AddEntry(graph_waveform, "Average #alpha Waveform", "l")
+    for graph, name in graphs:
+        leg.AddEntry(graph, f"{name} SHAP", "l")
+    leg.Draw()
+
+    ROOT.PlottingUtils.SaveFigure(canvas, "feature_importance_combined_shap",
+                                  ROOT.PlotSaveOptions.kLINEAR)
+    canvas.Close()
+    print("Saved feature_importance_combined_shap")
+
+
 def recommend_value(values, means, default_value=None):
     """Find the recommended parameter value from a sweep.
 
@@ -977,6 +1059,16 @@ def main():
                                     config["default_params"], config["prefix"],
                                     config["color"], config["name"], x_train,
                                     y_train, avg_waveform)
+
+    # Combined SHAP plot with all models on one canvas
+    print("Combined SHAP Feature Importance")
+    shap_configs = [
+        (RF_CONFIG["prefix"], RF_CONFIG["color"], RF_CONFIG["name"]),
+        (GB_CONFIG["prefix"], GB_CONFIG["color"], GB_CONFIG["name"]),
+        (XGB_CONFIG["prefix"], XGB_CONFIG["color"], XGB_CONFIG["name"]),
+        (MLP_CONFIG["prefix"], MLP_CONFIG["color"], MLP_CONFIG["name"]),
+    ]
+    plot_combined_shap_importance(shap_configs, avg_waveform)
 
     print("Done. All plots saved.")
 
