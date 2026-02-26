@@ -27,7 +27,7 @@ SCALAR_BRANCHES = [
 SWEEP_CACHE_DIR = "sweep_cache"
 
 
-def load_peak_sample():
+def _load_peak_sample():
     """Find the peak sample index from the average alpha waveform."""
     wf_cache = os.path.join(SWEEP_CACHE_DIR, "avg_waveform.npy")
     if os.path.exists(wf_cache):
@@ -43,7 +43,7 @@ def load_peak_sample():
     return peak
 
 
-def make_edge_processors(peak_sample):
+def _make_edge_processors(peak_sample):
     """Return rising/falling edge processing functions for a given peak sample."""
 
     def process_rising_edge(waveforms):
@@ -59,7 +59,7 @@ def make_edge_processors(peak_sample):
     return process_rising_edge, process_falling_edge
 
 
-def get_regressors_for_variant(variant_name):
+def _get_regressors_for_variant(variant_name):
     """Return regressor configs with cache paths specific to a variant."""
     regressors = get_default_regressors()
     cache_dir = os.path.join(EDGE_STUDY_CACHE_DIR, variant_name)
@@ -72,8 +72,8 @@ def get_regressors_for_variant(variant_name):
 def main():
     os.makedirs("plots", exist_ok=True)
 
-    peak_sample = load_peak_sample()
-    process_rising_edge, process_falling_edge = make_edge_processors(
+    peak_sample = _load_peak_sample()
+    process_rising_edge, process_falling_edge = _make_edge_processors(
         peak_sample)
 
     variants = {
@@ -111,14 +111,13 @@ def main():
         print(f"Gamma events: {len(gamma_features)}, "
               f"waveform shape: {gamma_waveforms.shape}")
 
-    results = {}
     for name, process_func in variants.items():
         print(f"  Running variant: {name}")
 
         cache_dir = os.path.join(EDGE_STUDY_CACHE_DIR, name)
-        regressors = get_regressors_for_variant(name)
+        regressors = _get_regressors_for_variant(name)
 
-        results[name] = regress_waveforms(
+        regress_waveforms(
             (alpha_waveforms, gamma_waveforms),
             (alpha_features, gamma_features),
             regressors=regressors,

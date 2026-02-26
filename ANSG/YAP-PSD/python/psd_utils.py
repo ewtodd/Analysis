@@ -17,7 +17,7 @@ N_BOOTSTRAP = 250
 ANALYSIS_CACHE_DIR = "analysis_cache"
 
 
-def bootstrap_chunk(y_true, scores, indices):
+def _bootstrap_chunk(y_true, scores, indices):
     """Compute AUC for a chunk of bootstrap resamples."""
     aucs = []
     for idx in indices:
@@ -47,7 +47,7 @@ def bootstrap_auc(y_true,
     all_idx = rng.randint(0, n, size=(n_bootstrap, n))
     chunks = np.array_split(all_idx, n_jobs)
     with parallel_backend('threading', n_jobs=n_jobs):
-        results = Parallel()(delayed(bootstrap_chunk)(y_true, scores, chunk)
+        results = Parallel()(delayed(_bootstrap_chunk)(y_true, scores, chunk)
                              for chunk in chunks)
     aucs = np.array([a for chunk_aucs in results for a in chunk_aucs])
     return float(np.mean(aucs)), float(np.std(aucs))
@@ -78,7 +78,7 @@ def column_name(regressor_name):
     return regressor_name.replace(" ", "_") + "_Output"
 
 
-def train_or_load(regressor_cfg, x_train, y_train):
+def _train_or_load(regressor_cfg, x_train, y_train):
     """Train a regressor or load from cache. Returns (model, train_time_s or None)."""
     model_file = regressor_cfg["file"]
     name = regressor_cfg["name"]
@@ -98,7 +98,7 @@ def train_or_load(regressor_cfg, x_train, y_train):
     return model, train_time
 
 
-def get_training_indices(alpha_features, gamma_features, random_state=42):
+def _get_training_indices(alpha_features, gamma_features, random_state=42):
     """Reconstruct which event indices were selected for training.
 
     Mirrors the selection logic in regress_waveforms so that downstream code
@@ -131,7 +131,7 @@ def get_training_indices(alpha_features, gamma_features, random_state=42):
     return alpha_mask_idx[alpha_sel], gamma_mask_idx[gamma_sel]
 
 
-def save_timing_table(timing_records, n_cores, cache_dir=None):
+def _save_timing_table(timing_records, n_cores, cache_dir=None):
     """Save training and inference timing data to a LaTeX table."""
     if cache_dir is None:
         cache_dir = ANALYSIS_CACHE_DIR
@@ -171,7 +171,7 @@ def save_timing_table(timing_records, n_cores, cache_dir=None):
     print(table_str)
 
 
-def run_plots(test_alpha_features,
+def _run_plots(test_alpha_features,
               test_gamma_features,
               test_alpha_wf,
               test_gamma_wf,
@@ -195,7 +195,7 @@ def run_plots(test_alpha_features,
         for name in regressor_names:
             col = column_name(name)
             safe_name = name.replace(" ", "_").lower()
-            plot_score_histogram(
+            _plot_score_histogram(
                 test_alpha_features_filtered[col].values,
                 test_gamma_features_filtered[col].values,
                 f"Test Set Scores ({name})",
@@ -219,7 +219,7 @@ def run_plots(test_alpha_features,
         for name in regressor_names:
             col = column_name(name)
             safe_name = name.replace(" ", "_").lower()
-            plot_score_histogram(
+            _plot_score_histogram(
                 test_alpha_features_900_1200[col].values,
                 test_gamma_features_900_1200[col].values,
                 f"Test Set Scores ({name})",
@@ -227,13 +227,13 @@ def run_plots(test_alpha_features,
                 regressor_name=name,
             )
 
-    analyze_all_methods(test_alpha_features_filtered,
+    _analyze_all_methods(test_alpha_features_filtered,
                         test_gamma_features_filtered,
                         regressor_names,
                         plot_prefix=plot_prefix)
 
     if (plot_prefix == "" or plot_prefix == "full"):
-        plot_auc_vs_light_output(test_alpha_features,
+        _plot_auc_vs_light_output(test_alpha_features,
                                  test_gamma_features,
                                  regressor_names,
                                  plot_prefix=plot_prefix)
@@ -290,7 +290,7 @@ def regress_waveforms(waveforms,
         print(f"  Loaded {len(regressor_names)} regressors: "
               f"{', '.join(regressor_names)}")
         # Skip to plotting
-        return run_plots(test_alpha_features,
+        return _run_plots(test_alpha_features,
                          test_gamma_features,
                          test_alpha_wf,
                          test_gamma_wf,
@@ -305,7 +305,7 @@ def regress_waveforms(waveforms,
     alpha_features, gamma_features = features
 
     alpha_train_original_indices, gamma_train_original_indices = \
-        get_training_indices(alpha_features, gamma_features, random_state)
+        _get_training_indices(alpha_features, gamma_features, random_state)
 
     train_alpha_wf = alpha_waveforms[alpha_train_original_indices]
     train_gamma_wf = gamma_waveforms[gamma_train_original_indices]
@@ -319,7 +319,7 @@ def regress_waveforms(waveforms,
             delayed(process_func)(group)
             for group in [train_alpha_wf, train_gamma_wf])
 
-    plot_sample_waveforms(train_results,
+    _plot_sample_waveforms(train_results,
                           n_samples=5,
                           random_state=random_state,
                           plot_prefix=plot_prefix)
@@ -333,7 +333,7 @@ def regress_waveforms(waveforms,
     trained_models = {}
     timing_records = []
     for cfg in regressors:
-        model, train_time = train_or_load(cfg, x_train, y_train)
+        model, train_time = _train_or_load(cfg, x_train, y_train)
         trained_models[cfg["name"]] = model
         if train_time is not None:
             print(f"  Training time: {train_time:.3f} s "
@@ -408,7 +408,7 @@ def regress_waveforms(waveforms,
     # Only save timing table if we actually trained (otherwise we'd overwrite
     # the table with missing training times)
     if any(r.get("train_time") is not None for r in timing_records):
-        save_timing_table(timing_records, n_cores, cache_dir=cache_dir)
+        _save_timing_table(timing_records, n_cores, cache_dir=cache_dir)
 
     # Save analysis cache
     test_alpha_features.to_pickle(cache_files["alpha_feat"])
@@ -420,7 +420,7 @@ def regress_waveforms(waveforms,
         pickle.dump(regressor_names, f)
     print(f"Analysis cache saved to {cache_dir}/")
 
-    return run_plots(test_alpha_features,
+    return _run_plots(test_alpha_features,
                      test_gamma_features,
                      test_alpha_wf,
                      test_gamma_wf,
@@ -430,7 +430,7 @@ def regress_waveforms(waveforms,
                      plot_prefix=plot_prefix)
 
 
-def analyze_all_methods(test_alpha_features,
+def _analyze_all_methods(test_alpha_features,
                         test_gamma_features,
                         regressor_names,
                         plot_prefix=""):
@@ -448,11 +448,11 @@ def analyze_all_methods(test_alpha_features,
     all_methods += ["charge_comparison", "clean_shape_indicator"]
     all_method_names += ["Charge Comparison", "Shape Indicator"]
 
-    plot_roc_curves(test_features, y_true, all_methods, all_method_names,
+    _plot_roc_curves(test_features, y_true, all_methods, all_method_names,
                     f"{plot_prefix}roc_curves")
 
 
-def plot_auc_vs_light_output(test_alpha_features,
+def _plot_auc_vs_light_output(test_alpha_features,
                              test_gamma_features,
                              regressor_names,
                              plot_prefix=""):
@@ -589,7 +589,7 @@ def plot_auc_vs_light_output(test_alpha_features,
         f"AUC vs light output plot saved to {plot_prefix}auc_vs_light_output")
 
 
-def plot_score_histogram(alpha_scores,
+def _plot_score_histogram(alpha_scores,
                          gamma_scores,
                          title,
                          output_path,
@@ -638,7 +638,7 @@ def plot_score_histogram(alpha_scores,
     h_gamma.Delete()
 
 
-def plot_roc_curves(test_features, y_true, methods, method_names, output_name):
+def _plot_roc_curves(test_features, y_true, methods, method_names, output_name):
     """Plot ROC curves for all methods using ROOT"""
     colors = list(ROOT.PlottingUtils.GetDefaultColors())
 
@@ -711,7 +711,7 @@ def plot_roc_curves(test_features, y_true, methods, method_names, output_name):
     )
 
 
-def plot_sample_waveforms(waveforms_tuple,
+def _plot_sample_waveforms(waveforms_tuple,
                           n_samples=5,
                           random_state=42,
                           plot_prefix=""):

@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from analysis_utils.io import load_tree_data
 from psd_utils import regress_waveforms, ANALYSIS_CACHE_DIR
@@ -5,7 +6,6 @@ from regressors import get_default_regressors
 import os
 
 ROOT_FILES_DIR = "../macros/root_files/"
-
 SCALAR_BRANCHES = [
     "pulse_height",
     "trigger_position",
@@ -32,15 +32,18 @@ def main():
         alpha_waveforms = gamma_waveforms = None
         alpha_features = gamma_features = None
     else:
+        t0 = time.time()
         print("Loading alpha data (Am-241)...")
         alpha_features, alpha_waveforms = load_tree_data(
             ROOT_FILES_DIR + "Am241.root",
             scalar_branches=SCALAR_BRANCHES,
             array_branch="Samples",
         )
+        t1 = time.time()
         print(
             f"Alpha events: {len(alpha_features)}, waveform shape: {alpha_waveforms.shape}"
         )
+        print(f"Alpha loading took {t1 - t0:.2f}s")
 
         print("Loading gamma data (Na-22)...")
         gamma_features, gamma_waveforms = load_tree_data(
@@ -48,20 +51,22 @@ def main():
             scalar_branches=SCALAR_BRANCHES,
             array_branch="Samples",
         )
+        t2 = time.time()
         print(
             f"Gamma events: {len(gamma_features)}, waveform shape: {gamma_waveforms.shape}"
         )
+        print(f"Gamma loading took {t2 - t1:.2f}s")
 
     regressors = get_default_regressors()
 
-    (
-        (test_alpha_waveforms, test_gamma_waveforms),
-        (test_alpha_features, test_gamma_features),
-    ) = regress_waveforms(
+    t3 = time.time()
+    regress_waveforms(
         (alpha_waveforms, gamma_waveforms),
         (alpha_features, gamma_features),
         regressors=regressors,
     )
+    t4 = time.time()
+    print(f"Regression took {t4 - t3:.2f}s")
 
 
 if __name__ == "__main__":

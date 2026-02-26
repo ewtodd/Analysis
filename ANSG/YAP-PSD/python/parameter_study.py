@@ -145,7 +145,7 @@ XGB_CONFIG = dict(
 )
 
 
-def prepare_data(alpha_waveforms,
+def _prepare_data(alpha_waveforms,
                  gamma_waveforms,
                  alpha_features,
                  gamma_features,
@@ -208,7 +208,7 @@ def prepare_data(alpha_waveforms,
     return x_train, y_train, x_test, y_test
 
 
-def plot_sweep(x_values, y_values, y_errors, x_title, prefix, output_name,
+def _plot_sweep(x_values, y_values, y_errors, x_title, prefix, output_name,
                color):
     """Plot a single sweep with colored line + black markers/error bars."""
     canvas = ROOT.PlottingUtils.GetConfiguredCanvas()
@@ -250,9 +250,9 @@ def plot_sweep(x_values, y_values, y_errors, x_title, prefix, output_name,
     graph_err.Draw("P SAME")
 
     if (prefix == "rf"):
-        text = ROOT.PlottingUtils.AddSubplotLabel("Random Forest", 0.85, 0.25)
+        _ = ROOT.PlottingUtils.AddSubplotLabel("Random Forest", 0.85, 0.25)
     else:
-        text = ROOT.PlottingUtils.AddSubplotLabel("XGBoost", 0.85, 0.25)
+        _ = ROOT.PlottingUtils.AddSubplotLabel("XGBoost", 0.85, 0.25)
 
     ROOT.PlottingUtils.SaveFigure(canvas, output_name,
                                   ROOT.PlotSaveOptions.kLINEAR)
@@ -260,7 +260,7 @@ def plot_sweep(x_values, y_values, y_errors, x_title, prefix, output_name,
     print(f"Saved {output_name}")
 
 
-def run_sweep(config, sweep_name, values, param_key, x_train, y_train, x_test,
+def _run_sweep(config, sweep_name, values, param_key, x_train, y_train, x_test,
               y_test):
     """Run a parameter sweep, caching results to disk."""
     prefix = config["prefix"]
@@ -328,7 +328,7 @@ def run_sweep(config, sweep_name, values, param_key, x_train, y_train, x_test,
     return means, stds
 
 
-def plot_feature_importance(model_class, default_params, prefix, color, name,
+def _plot_feature_importance(model_class, default_params, prefix, color, name,
                             x_train, y_train, avg_waveform):
     """Train or load N_SEEDS models and plot averaged feature importance."""
     # Subsample to DEFAULT_TRAIN_PER_CLASS if pool is larger
@@ -414,7 +414,7 @@ def plot_feature_importance(model_class, default_params, prefix, color, name,
     print(f"Saved {output_file}")
 
 
-def plot_tree_shap_importance(model_class, default_params, prefix, color, name,
+def _plot_tree_shap_importance(model_class, default_params, prefix, color, name,
                               x_train, y_train, avg_waveform):
     """Train or load N_SEEDS tree models and plot SHAP-based feature importance.
 
@@ -522,7 +522,7 @@ def plot_tree_shap_importance(model_class, default_params, prefix, color, name,
     print(f"Saved {output_file}")
 
 
-def plot_kernel_shap_importance(model_class, default_params, prefix, color,
+def _plot_kernel_shap_importance(model_class, default_params, prefix, color,
                                 name, x_train, y_train, avg_waveform):
     """Train or load N_SEEDS models and plot KernelSHAP-based feature importance.
 
@@ -625,7 +625,7 @@ def plot_kernel_shap_importance(model_class, default_params, prefix, color,
     print(f"Saved {output_file}")
 
 
-def plot_combined_shap_importance(configs, avg_waveform):
+def _plot_combined_shap_importance(configs, avg_waveform):
     """Plot SHAP-based feature importance for all models on a single plot.
 
     Parameters
@@ -707,7 +707,7 @@ def plot_combined_shap_importance(configs, avg_waveform):
     print("Saved feature_importance_combined_shap")
 
 
-def recommend_value(values, means, default_value=None):
+def _recommend_value(values, means, default_value=None):
     """Find the recommended parameter value from a sweep.
 
     If the AUC curve has a clear peak, return the peak value.
@@ -746,7 +746,7 @@ def recommend_value(values, means, default_value=None):
     return rec_val, rec_auc
 
 
-def run_all_sweeps(config, x_train, y_train, x_test, y_test):
+def _run_all_sweeps(config, x_train, y_train, x_test, y_test):
     """Run all sweeps for a given model configuration.
 
     Returns a dict of recommended parameter values (param_key -> value),
@@ -768,12 +768,12 @@ def run_all_sweeps(config, x_train, y_train, x_test, y_test):
 
         print(f"{config['name']}: AUC vs {sweep_name}")
 
-        means, stds = run_sweep(config, sweep_name, values, param_key, x_train,
+        means, stds = _run_sweep(config, sweep_name, values, param_key, x_train,
                                 y_train, x_test, y_test)
 
         default_value = config["default_params"].get(
             param_key) if param_key else None
-        rec_val, rec_auc = recommend_value(values, means, default_value)
+        rec_val, rec_auc = _recommend_value(values, means, default_value)
         print(
             f"  >> Recommended {sweep_name} = {rec_val} (AUC = {rec_auc:.4f})")
 
@@ -784,13 +784,13 @@ def run_all_sweeps(config, x_train, y_train, x_test, y_test):
         if sweep_name == "max_depth" and None in values:
             plot_x = [d if d is not None else 50 for d in values]
 
-        plot_sweep(plot_x, means, stds, x_title, config['prefix'], output_name,
+        _plot_sweep(plot_x, means, stds, x_title, config['prefix'], output_name,
                    color)
 
     return recommended
 
 
-def build_search_space(config, recommended):
+def _build_search_space(config, recommended):
     """Build RandomizedSearchCV parameter distributions around recommended values.
 
     For each tunable parameter, creates a distribution centered on the
@@ -842,7 +842,7 @@ def build_search_space(config, recommended):
     return distributions
 
 
-def run_randomized_search(config, recommended, x_train, y_train, x_test,
+def _run_randomized_search(config, recommended, x_train, y_train, x_test,
                           y_test):
     """Run RandomizedSearchCV around the OAT-recommended values.
 
@@ -888,7 +888,7 @@ def run_randomized_search(config, recommended, x_train, y_train, x_test,
         y_train_search = y_train
 
     # Build search space around recommended values
-    distributions = build_search_space(config, recommended)
+    distributions = _build_search_space(config, recommended)
     print(f"  Search distributions:")
     for k, v in distributions.items():
         print(f"    {k}: {v}")
@@ -990,7 +990,7 @@ def main():
             f"Gamma events: {len(gamma_features)}, waveform shape: {gamma_waveforms.shape}"
         )
 
-        # Find the max n_training_samples across all configs so prepare_data
+        # Find the max n_training_samples across all configs so _prepare_data
         # allocates enough training data for the full sweep.
         max_train = DEFAULT_TRAIN_PER_CLASS
         for config in [RF_CONFIG, XGB_CONFIG]:
@@ -999,7 +999,7 @@ def main():
                     max_train = max(max_train, max(sweep["values"]))
 
         print("Preparing train/test data")
-        x_train, y_train, x_test, y_test = prepare_data(
+        x_train, y_train, x_test, y_test = _prepare_data(
             alpha_waveforms,
             gamma_waveforms,
             alpha_features,
@@ -1023,39 +1023,39 @@ def main():
     for config in [RF_CONFIG, XGB_CONFIG]:
         print(f"{config['name']} Hyperparameter Study")
         print(f"One-at-a-time sweeps")
-        recommended = run_all_sweeps(config, x_train, y_train, x_test, y_test)
+        recommended = _run_all_sweeps(config, x_train, y_train, x_test, y_test)
         optimized_params = dict(config["default_params"])
         optimized_params.update(recommended)
         print(f"{config['name']}: OAT recommended params: {recommended}")
         print(f"RandomizedSearchCV around recommended values")
-        best_params, best_cv_score = run_randomized_search(
+        best_params, _ = _run_randomized_search(
             config, recommended, x_train, y_train, x_test, y_test)
         # Use the better params (from randomized search) for feature importance
         final_params = dict(config["default_params"])
         final_params.update(best_params)
         print(f"Feature importance (averaged over seeds)")
-        plot_tree_shap_importance(config["model_class"], final_params,
+        _plot_tree_shap_importance(config["model_class"], final_params,
                                   config["prefix"], config["color"],
                                   config["name"], x_train, y_train,
                                   avg_waveform)
-        plot_feature_importance(config["model_class"], final_params,
+        _plot_feature_importance(config["model_class"], final_params,
                                 config["prefix"], config["color"],
                                 config["name"], x_train, y_train, avg_waveform)
 
     for config in [GB_CONFIG]:
         print(f"{config['name']} Feature Importance")
-        plot_tree_shap_importance(config["model_class"],
+        _plot_tree_shap_importance(config["model_class"],
                                   config["default_params"], config["prefix"],
                                   config["color"], config["name"], x_train,
                                   y_train, avg_waveform)
-        plot_feature_importance(config["model_class"],
+        _plot_feature_importance(config["model_class"],
                                 config["default_params"], config["prefix"],
                                 config["color"], config["name"], x_train,
                                 y_train, avg_waveform)
 
     for config in [MLP_CONFIG]:
         print(f"{config['name']} SHAP Feature Importance")
-        plot_kernel_shap_importance(config["model_class"],
+        _plot_kernel_shap_importance(config["model_class"],
                                     config["default_params"], config["prefix"],
                                     config["color"], config["name"], x_train,
                                     y_train, avg_waveform)
@@ -1068,7 +1068,7 @@ def main():
         (XGB_CONFIG["prefix"], XGB_CONFIG["color"], XGB_CONFIG["name"]),
         (MLP_CONFIG["prefix"], MLP_CONFIG["color"], MLP_CONFIG["name"]),
     ]
-    plot_combined_shap_importance(shap_configs, avg_waveform)
+    _plot_combined_shap_importance(shap_configs, avg_waveform)
 
     print("Done. All plots saved.")
 

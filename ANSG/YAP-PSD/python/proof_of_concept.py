@@ -34,18 +34,18 @@ SOURCE_MAP = {
 TRUE_POSITIVE_RATE = 99
 
 
-def clean_name(source_name):
+def _clean_name(source_name):
     return source_name.replace(" ", "_").replace("&", "and").replace("-", "_")
 
 
-def determine_thresholds(alpha_scores, gamma_scores, tpr):
+def _determine_thresholds(alpha_scores, gamma_scores, tpr):
     """Find thresholds from pure-source test data at a given true positive rate.
 
     Lower scores are alpha-like, higher scores are gamma-like (matches
     regressor convention alpha=0, gamma=1).
 
     At high TPR the thresholds may overlap; events in the overlap zone are
-    excluded by classify_events.
+    excluded by _classify_events.
 
     Returns (alpha_upper, gamma_lower).
     """
@@ -54,7 +54,7 @@ def determine_thresholds(alpha_scores, gamma_scores, tpr):
     return alpha_upper, gamma_lower
 
 
-def classify_events(scores, alpha_threshold, gamma_threshold):
+def _classify_events(scores, alpha_threshold, gamma_threshold):
     """Return (alpha_mask, gamma_mask) boolean arrays.
 
     When thresholds overlap, events in the overlap zone satisfy both
@@ -66,7 +66,7 @@ def classify_events(scores, alpha_threshold, gamma_threshold):
     return alpha_like & ~both, gamma_like & ~both
 
 
-def plot_classified_spectra(features, source_name, method_name, alpha_mask,
+def _plot_classified_spectra(features, source_name, method_name, alpha_mask,
                             gamma_mask, alpha_thresh, gamma_thresh):
     """Plot light-output spectra classified by thresholds."""
     all_lo = features["light_output"].values
@@ -124,7 +124,7 @@ def plot_classified_spectra(features, source_name, method_name, alpha_mask,
     h_all.Draw("HIST")
     h_alpha.Draw("HIST SAME")
     h_gamma.Draw("HIST SAME")
-    text = ROOT.PlottingUtils.AddSubplotLabel(method_name, 0.92, 0.84)
+    _ = ROOT.PlottingUtils.AddSubplotLabel(method_name, 0.92, 0.84)
 
     pad_leg.cd()
     leg = ROOT.PlottingUtils.AddLegend(0.05, 0.95, 0.25, 0.77)
@@ -139,7 +139,7 @@ def plot_classified_spectra(features, source_name, method_name, alpha_mask,
     leg.Draw()
 
     safe_reg = method_name.replace(" ", "_").lower()
-    safe_src = clean_name(source_name)
+    safe_src = _clean_name(source_name)
     output_path = f"classified_spectra_{safe_src}_{safe_reg}"
     canvas.cd()
     ROOT.PlottingUtils.SaveFigure(canvas, output_path,
@@ -155,7 +155,7 @@ def plot_classified_spectra(features, source_name, method_name, alpha_mask,
         f"uncertain: {n_uncertain} ({n_uncertain/total*100:.1f}%)")
 
 
-def find_crossover_tpr(am_cal_scores, na_cal_scores):
+def _find_crossover_tpr(am_cal_scores, na_cal_scores):
     """Find the TPR at which the alpha and gamma thresholds cross.
 
     Below this TPR there is a gap between thresholds (dead zone); above it
@@ -163,14 +163,14 @@ def find_crossover_tpr(am_cal_scores, na_cal_scores):
     """
     tpr_scan = np.linspace(50, 999, 5000)
     for tpr in tpr_scan:
-        alpha_upper, gamma_lower = determine_thresholds(
+        alpha_upper, gamma_lower = _determine_thresholds(
             am_cal_scores, na_cal_scores, tpr)
         if alpha_upper >= gamma_lower:
             return tpr
     return tpr_scan[-1]
 
 
-def plot_efficiency_vs_strictness(method_names, source_scores, am_cal_feat,
+def _plot_efficiency_vs_strictness(method_names, source_scores, am_cal_feat,
                                   na_cal_feat):
     """Plot classification efficiency vs threshold strictness for each method.
 
@@ -198,7 +198,7 @@ def plot_efficiency_vs_strictness(method_names, source_scores, am_cal_feat,
         col = method_columns[name]
         am_scores = am_cal_feat[col].values
         na_scores = na_cal_feat[col].values
-        crossovers[name] = find_crossover_tpr(am_scores, na_scores)
+        crossovers[name] = _find_crossover_tpr(am_scores, na_scores)
         print(f"  {name}: crossover TPR = {crossovers[name]:.2f}%")
 
     for source_name, method_scores in source_scores.items():
@@ -234,10 +234,10 @@ def plot_efficiency_vs_strictness(method_names, source_scores, am_cal_feat,
 
             eff = []
             for tpr in tpr_values:
-                alpha_thresh, gamma_thresh = determine_thresholds(
+                alpha_thresh, gamma_thresh = _determine_thresholds(
                     alpha_cal, gamma_cal, tpr)
                 scores = method_scores[name]
-                alpha_mask, gamma_mask = classify_events(
+                alpha_mask, gamma_mask = _classify_events(
                     scores, alpha_thresh, gamma_thresh)
                 n_classified = np.sum(alpha_mask) + np.sum(gamma_mask)
                 eff.append(n_classified / len(scores) * 100)
@@ -269,7 +269,7 @@ def plot_efficiency_vs_strictness(method_names, source_scores, am_cal_feat,
             leg.AddEntry(graph, name, "l")
         leg.Draw()
 
-        safe_src = clean_name(source_name)
+        safe_src = _clean_name(source_name)
         output_name = f"efficiency_vs_strictness_{safe_src}"
         ROOT.PlottingUtils.SaveFigure(canvas, output_name,
                                       ROOT.PlotSaveOptions.kLINEAR)
@@ -278,7 +278,7 @@ def plot_efficiency_vs_strictness(method_names, source_scores, am_cal_feat,
         print(f"Efficiency vs strictness plot saved for {source_name}")
 
 
-def save_efficiency_table(records, method_names, source_names, tpr):
+def _save_efficiency_table(records, method_names, source_names, tpr):
     """Save classification efficiency at maximum strictness to a LaTeX table."""
     eff_by = {(r["source"], r["method"]): r["efficiency"] for r in records}
 
@@ -316,6 +316,7 @@ def save_efficiency_table(records, method_names, source_names, tpr):
 def main():
     os.makedirs("plots/", exist_ok=True)
 
+    regressor_cfgs = get_default_regressors()
     models = {}
     print("Loading trained models...")
     for cfg in regressor_cfgs:
@@ -362,7 +363,7 @@ def main():
         col = column_name(name)
         am_scores = am_cal_feat[col].values
         na_scores = na_cal_feat[col].values
-        alpha_thresh, gamma_thresh = determine_thresholds(
+        alpha_thresh, gamma_thresh = _determine_thresholds(
             am_scores, na_scores, TRUE_POSITIVE_RATE)
         thresholds[name] = (alpha_thresh, gamma_thresh)
         print(f"  {name}: alpha <= {alpha_thresh:.4f}, "
@@ -397,7 +398,7 @@ def main():
         source_scores[source_name] = scores
         source_features[source_name] = features
 
-    plot_efficiency_vs_strictness(method_names, source_scores, am_cal_feat,
+    _plot_efficiency_vs_strictness(method_names, source_scores, am_cal_feat,
                                   na_cal_feat)
 
     efficiency_records = []
@@ -407,7 +408,7 @@ def main():
         for name in method_names:
             scores = source_scores[source_name][name]
             alpha_thresh, gamma_thresh = thresholds[name]
-            alpha_mask, gamma_mask = classify_events(scores, alpha_thresh,
+            alpha_mask, gamma_mask = _classify_events(scores, alpha_thresh,
                                                      gamma_thresh)
             n_classified = np.sum(alpha_mask) + np.sum(gamma_mask)
             efficiency = n_classified / len(scores) * 100
@@ -417,10 +418,10 @@ def main():
                 "method": name,
                 "efficiency": efficiency,
             })
-            plot_classified_spectra(features, source_name, name, alpha_mask,
+            _plot_classified_spectra(features, source_name, name, alpha_mask,
                                     gamma_mask, alpha_thresh, gamma_thresh)
 
-    save_efficiency_table(efficiency_records, method_names,
+    _save_efficiency_table(efficiency_records, method_names,
                           list(source_scores.keys()), TRUE_POSITIVE_RATE)
 
     print(f"\nComplete. Analyzed {len(source_scores)} sources "
