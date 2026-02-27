@@ -250,9 +250,9 @@ def _plot_sweep(x_values, y_values, y_errors, x_title, prefix, output_name,
     graph_err.Draw("P SAME")
 
     if (prefix == "rf"):
-        _ = ROOT.PlottingUtils.AddSubplotLabel("Random Forest", 0.85, 0.25)
+        _ = ROOT.PlottingUtils.AddText("Random Forest", 0.85, 0.25)
     else:
-        _ = ROOT.PlottingUtils.AddSubplotLabel("XGBoost", 0.85, 0.25)
+        _ = ROOT.PlottingUtils.AddText("XGBoost", 0.85, 0.25)
 
     ROOT.PlottingUtils.SaveFigure(canvas, output_name,
                                   ROOT.PlotSaveOptions.kLINEAR)

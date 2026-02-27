@@ -771,7 +771,7 @@ def _plot_sample_waveforms(waveforms_tuple,
         graphs_alpha.append(graph)
         leg_alpha.AddEntry(graph, f"Am-241 Waveform {i+1}", "l")
 
-    text = ROOT.PlottingUtils.AddSubplotLabel("(a) Am-241", 0.78, 0.78)
+    text = ROOT.PlottingUtils.AddText("(a) Am-241", 0.78, 0.78)
     text.SetTextSize(35)
 
     ROOT.PlottingUtils.SaveFigure(canvas_alpha,
@@ -803,7 +803,7 @@ def _plot_sample_waveforms(waveforms_tuple,
         graphs_gamma.append(graph)
         leg_gamma.AddEntry(graph, f"Na-22 Waveform {i+1}", "l")
 
-    text = ROOT.PlottingUtils.AddSubplotLabel("(b) Na-22", 0.78, 0.78)
+    text = ROOT.PlottingUtils.AddText("(b) Na-22", 0.78, 0.78)
     text.SetTextSize(35)
 
     ROOT.PlottingUtils.SaveFigure(canvas_gamma,

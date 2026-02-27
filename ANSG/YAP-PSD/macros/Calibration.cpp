@@ -270,7 +270,7 @@ void LongIntegralToLightOutput(const std::vector<TString> &input_names,
     PlottingUtils::ConfigureAndDrawHistogram(light_output_hist, color);
 
     TText *label =
-        PlottingUtils::AddSubplotLabel(subplot_labels[i], 0.82, 0.82);
+        PlottingUtils::AddText(subplot_labels[i], 0.82, 0.82);
     label->SetTextSize(35);
 
     PlottingUtils::SaveFigure(canvas, input_name + "_light_output",

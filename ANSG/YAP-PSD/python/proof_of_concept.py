@@ -124,7 +124,7 @@ def _plot_classified_spectra(features, source_name, method_name, alpha_mask,
     h_all.Draw("HIST")
     h_alpha.Draw("HIST SAME")
     h_gamma.Draw("HIST SAME")
-    _ = ROOT.PlottingUtils.AddSubplotLabel(method_name, 0.92, 0.84)
+    _ = ROOT.PlottingUtils.AddText(method_name, 0.92, 0.84)
 
     pad_leg.cd()
     leg = ROOT.PlottingUtils.AddLegend(0.05, 0.95, 0.25, 0.77)
