@@ -120,7 +120,8 @@ void Filter(std::vector<TString> filenames) {
       box->Draw();
     }
 
-    PlottingUtils::SaveFigure(canvasXY, filename + "_YvsX.png", kFALSE);
+    PlottingUtils::SaveFigure(canvasXY, filename + "_YvsX",
+                              PlotSaveOptions::kLINEAR);
 
     TCanvas *canvasEZ = new TCanvas("", "", 1200, 800);
     canvasEZ->SetRightMargin(0.2);
@@ -137,10 +138,10 @@ void Filter(std::vector<TString> filenames) {
     box->SetFillColorAlpha(kBlack, 0.5);
     box->Draw();
 
-    PlottingUtils::SaveFigure(canvasEZ, filename + "_ZvsE.png", kFALSE);
+    PlottingUtils::SaveFigure(canvasEZ, filename + "_ZvsE",
+                              PlotSaveOptions::kLINEAR);
 
-    TCanvas *canvasRegions = new TCanvas("", "", 1200, 800);
-    PlottingUtils::ConfigureCanvas(canvasRegions, kFALSE);
+    TCanvas *canvasRegions = PlottingUtils::GetConfiguredCanvas(kFALSE);
 
     Double_t maxY = TMath::Max(includedSpectrum->GetMaximum(),
                                excludedSpectrum->GetMaximum());
@@ -157,20 +158,26 @@ void Filter(std::vector<TString> filenames) {
     excludedSpectrum->SetLineWidth(2);
     excludedSpectrum->Draw("HIST SAME");
 
-    TLine *lineRegional = new TLine(68.75, 0, 68.75, maxY * 1.1);
-    lineRegional->SetLineColor(kRed);
-    lineRegional->SetLineWidth(2);
-    lineRegional->SetLineStyle(2);
-    lineRegional->Draw();
+    if (filename == Constants::CDSHIELDSIGNAL_10PERCENT_20260113) {
+      TLine *line68 = new TLine(68.752, 0, 68.752, maxY * 1.1);
+      line68->SetLineColor(kViolet);
+      line68->SetLineWidth(2);
+      line68->SetLineStyle(2);
+      line68->Draw();
 
-    TLegend *leg = new TLegend(0.78, 0.75, 0.9, 0.88);
+      TLatex *label68 = PlottingUtils::AddText(
+          "^{73m}Ge 7/2^{+} #rightarrow 9/2^{+} #gamma ray", 0.47, 0.75);
+      label68->SetTextColor(kViolet);
+    }
+
+    TLegend *leg = PlottingUtils::AddLegend(0.72, 0.9, 0.75, 0.88);
     leg->AddEntry(includedSpectrum, "Accepted", "l");
     leg->AddEntry(excludedSpectrum, "Rejected", "l");
     leg->Draw();
 
     canvasRegions->SetLeftMargin(0.2);
-    PlottingUtils::SaveFigure(canvasRegions, filename + "_FilterSpectra.png",
-                              kFALSE);
+    PlottingUtils::SaveFigure(canvasRegions, filename + "_FilterSpectra",
+                              PlotSaveOptions::kLINEAR);
     std::cout << "Wrote histograms for " << filename << std::endl;
 
     XY->Write("XY", TObject::kOverwrite);
@@ -193,9 +200,9 @@ void TestFilter() {
   //
   //  filenames.push_back(Constants::ACTIVEBACKGROUND_TEST_5PERCENT_20260113);
   //  filenames.push_back(Constants::ACTIVEBACKGROUND_TEST_90PERCENT_20260113);
-  //  filenames.push_back(Constants::CDSHIELDSIGNAL_10PERCENT_20260113);
+  filenames.push_back(Constants::CDSHIELDSIGNAL_10PERCENT_20260113);
   //  filenames.push_back(Constants::CDSHIELDBACKGROUND_10PERCENT_20260113);
-  filenames.push_back(Constants::CDSHIELDSIGNAL_25PERCENT_20260113);
+  // filenames.push_back(Constants::CDSHIELDSIGNAL_25PERCENT_20260113);
   //  filenames.push_back(Constants::CDSHIELDBACKGROUND_25PERCENT_20260113);
   //  filenames.push_back(Constants::CUSHIELDSIGNAL_10PERCENT_20260113);
   //  filenames.push_back(Constants::CUSHIELDBACKGROUND_10PERCENT_20260113);

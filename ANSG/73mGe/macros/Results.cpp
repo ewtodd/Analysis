@@ -10,10 +10,9 @@
 #include <iomanip>
 #include <vector>
 
-FitResultDetailed FitSinglePeak(const TString input_name,
-                                const TString peak_name,
-                                const Float_t expected_mu,
-                                const Bool_t use_calibrated = kFALSE) {
+FitResult FitSinglePeak(const TString input_name, const TString peak_name,
+                        const Float_t expected_mu,
+                        const Bool_t use_calibrated = kFALSE) {
 
   TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
   if (!file || file->IsZombie()) {
@@ -30,7 +29,7 @@ FitResultDetailed FitSinglePeak(const TString input_name,
   delete file;
 
   FittingUtils *fitter = nullptr;
-  FitResultDetailed result;
+  FitResult result;
 
   if (peak_name == "Background") {
     if (input_name == Constants::NOSHIELDBACKGROUND_5PERCENT_20260115) {
@@ -44,16 +43,15 @@ FitResultDetailed FitSinglePeak(const TString input_name,
     }
   }
 
-  result = fitter->FitPeakDetailed(input_name, peak_name);
+  result = fitter->FitPeak(input_name, peak_name);
   delete zoomedHist;
   delete fitter;
   return result;
 }
 
-FitResultDoublePeakDetailed
-FitDoublePeak(const TString input_name, const TString peak_name,
-              const Float_t mu1_init, const Float_t mu2_init,
-              const Bool_t use_calibrated = kFALSE) {
+FitResult FitDoublePeak(const TString input_name, const TString peak_name,
+                        const Float_t mu1_init, const Float_t mu2_init,
+                        const Bool_t use_calibrated = kFALSE) {
 
   TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
   if (!file || file->IsZombie()) {
@@ -70,7 +68,7 @@ FitDoublePeak(const TString input_name, const TString peak_name,
   delete file;
 
   FittingUtils *fitter = nullptr;
-  FitResultDoublePeakDetailed result;
+  FitResult result;
 
   if (peak_name == "Pb_KAlpha") {
     if (input_name == Constants::CDSHIELDBACKGROUND_25PERCENT_20260113) {
@@ -87,18 +85,17 @@ FitDoublePeak(const TString input_name, const TString peak_name,
                                 kTRUE);
   }
 
-  result =
-      fitter->FitDoublePeakDetailed(input_name, peak_name, mu1_init, mu2_init);
+  result = fitter->FitDoublePeak(input_name, peak_name, mu1_init, mu2_init);
   delete zoomedHist;
   delete fitter;
   return result;
 }
 
-FitResultDoublePeakDetailed
-FitDoublePeakConstrained(const TString input_name, const TString peak_name,
-                         const FitResultDetailed &constrained_peak,
-                         const Float_t mu2_init,
-                         const Bool_t use_calibrated = kFALSE) {
+FitResult FitDoublePeakConstrained(const TString input_name,
+                                   const TString peak_name,
+                                   const PeakFitResult &constrained_peak,
+                                   const Float_t mu2_init,
+                                   const Bool_t use_calibrated = kFALSE) {
 
   TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
   if (!file || file->IsZombie()) {
@@ -115,7 +112,7 @@ FitDoublePeakConstrained(const TString input_name, const TString peak_name,
   delete file;
 
   FittingUtils *fitter = nullptr;
-  FitResultDoublePeakDetailed result;
+  FitResult result;
 
   if (peak_name == "Ge") {
     if (input_name == Constants::NOSHIELDSIGNAL_5PERCENT_20260115) {
@@ -128,17 +125,17 @@ FitDoublePeakConstrained(const TString input_name, const TString peak_name,
     }
   }
 
-  result = fitter->FitDoublePeakDetailed(input_name, peak_name,
-                                         constrained_peak, mu2_init);
+  result =
+      fitter->FitDoublePeak(input_name, peak_name, constrained_peak, mu2_init);
   delete zoomedHist;
   delete fitter;
   return result;
 }
 
-FitResultTriplePeakDetailed
-FitTriplePeak(const TString input_name, const TString peak_name,
-              const FitResultDoublePeakDetailed &constrained_peaks,
-              const Float_t mu3_init, const Bool_t use_calibrated = kFALSE) {
+FitResult FitTriplePeak(const TString input_name, const TString peak_name,
+                        const FitResult &constrained_peaks,
+                        const Float_t mu3_init,
+                        const Bool_t use_calibrated = kFALSE) {
 
   TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
   if (!file || file->IsZombie()) {
@@ -155,7 +152,7 @@ FitTriplePeak(const TString input_name, const TString peak_name,
   delete file;
 
   FittingUtils *fitter = nullptr;
-  FitResultTriplePeakDetailed result;
+  FitResult result;
 
   if (peak_name == "Ge") {
     if (input_name == Constants::CDSHIELDSIGNAL_25PERCENT_20260113) {
@@ -178,134 +175,125 @@ FitTriplePeak(const TString input_name, const TString peak_name,
                                 kTRUE);
   }
 
-  result = fitter->FitTriplePeakDetailed(input_name, peak_name,
-                                         constrained_peaks, mu3_init);
+  result =
+      fitter->FitTriplePeak(input_name, peak_name, constrained_peaks, mu3_init);
   delete zoomedHist;
   delete fitter;
   return result;
 }
 
 void Results() {
-  InitUtils::SetROOTPreferences();
+  InitUtils::SetROOTPreferences(PlotSaveFormat::kPNG);
   std::vector<Float_t> mu;
   std::vector<Float_t> mu_errors;
   std::vector<Float_t> reduced_chi2;
   std::vector<TString> run_names;
 
-  FitResultDoublePeakDetailed
-      calibrated_cd_shield_background_10_percent_20260113 =
-          FitDoublePeak(Constants::CDSHIELDBACKGROUND_10PERCENT_20260113,
-                        "Pb_KAlpha", 72.8042, 74.9694, kTRUE);
+  FitResult calibrated_cd_shield_background_10_percent_20260113 =
+      FitDoublePeak(Constants::CDSHIELDBACKGROUND_10PERCENT_20260113,
+                    "Pb_KAlpha", 72.8042, 74.9694, kTRUE);
 
-  FitResultDoublePeakDetailed
-      calibrated_cd_shield_background_25_percent_20260113 =
-          FitDoublePeak(Constants::CDSHIELDBACKGROUND_25PERCENT_20260113,
-                        "Pb_KAlpha", 72.8042, 74.9694, kTRUE);
+  FitResult calibrated_cd_shield_background_25_percent_20260113 =
+      FitDoublePeak(Constants::CDSHIELDBACKGROUND_25PERCENT_20260113,
+                    "Pb_KAlpha", 72.8042, 74.9694, kTRUE);
 
-  FitResultDoublePeakDetailed
-      calibrated_cu_shield_background_10_percent_20260113 =
-          FitDoublePeak(Constants::CUSHIELDBACKGROUND_10PERCENT_20260113,
-                        "Pb_KAlpha", 72.8042, 74.9694, kTRUE);
+  FitResult calibrated_cu_shield_background_10_percent_20260113 =
+      FitDoublePeak(Constants::CUSHIELDBACKGROUND_10PERCENT_20260113,
+                    "Pb_KAlpha", 72.8042, 74.9694, kTRUE);
 
-  FitResultDoublePeakDetailed
-      calibrated_cu_shield_background_10_percent_20260114 =
-          FitDoublePeak(Constants::CUSHIELDBACKGROUND_10PERCENT_20260114,
-                        "Pb_KAlpha", 72.8042, 74.9694, kTRUE);
+  FitResult calibrated_cu_shield_background_10_percent_20260114 =
+      FitDoublePeak(Constants::CUSHIELDBACKGROUND_10PERCENT_20260114,
+                    "Pb_KAlpha", 72.8042, 74.9694, kTRUE);
 
-  FitResultTriplePeakDetailed calibrated_cd_shield_signal_10_percent_20260113 =
-      FitTriplePeak(Constants::CDSHIELDSIGNAL_10PERCENT_20260113, "Ge",
-                    calibrated_cd_shield_background_10_percent_20260113, 68.75,
-                    kTRUE);
+  FitResult calibrated_cd_shield_signal_10_percent_20260113 = FitTriplePeak(
+      Constants::CDSHIELDSIGNAL_10PERCENT_20260113, "Ge",
+      calibrated_cd_shield_background_10_percent_20260113, 68.75, kTRUE);
 
-  FitResultTriplePeakDetailed calibrated_cd_shield_signal_25_percent_20260113 =
-      FitTriplePeak(Constants::CDSHIELDSIGNAL_25PERCENT_20260113, "Ge",
-                    calibrated_cd_shield_background_25_percent_20260113, 68.75,
-                    kTRUE);
+  FitResult calibrated_cd_shield_signal_25_percent_20260113 = FitTriplePeak(
+      Constants::CDSHIELDSIGNAL_25PERCENT_20260113, "Ge",
+      calibrated_cd_shield_background_25_percent_20260113, 68.75, kTRUE);
 
-  FitResultTriplePeakDetailed calibrated_cu_shield_signal_10_percent_20260113 =
-      FitTriplePeak(Constants::CUSHIELDSIGNAL_10PERCENT_20260113, "Ge",
-                    calibrated_cu_shield_background_10_percent_20260113, 68.75,
-                    kTRUE);
+  FitResult calibrated_cu_shield_signal_10_percent_20260113 = FitTriplePeak(
+      Constants::CUSHIELDSIGNAL_10PERCENT_20260113, "Ge",
+      calibrated_cu_shield_background_10_percent_20260113, 68.75, kTRUE);
 
-  FitResultTriplePeakDetailed calibrated_cu_shield_signal_10_percent_20260114 =
-      FitTriplePeak(Constants::CUSHIELDSIGNAL_10PERCENT_20260114, "Ge",
-                    calibrated_cu_shield_background_10_percent_20260114, 68.75,
-                    kTRUE);
+  FitResult calibrated_cu_shield_signal_10_percent_20260114 = FitTriplePeak(
+      Constants::CUSHIELDSIGNAL_10PERCENT_20260114, "Ge",
+      calibrated_cu_shield_background_10_percent_20260114, 68.75, kTRUE);
 
-  FitResultTriplePeakDetailed calibrated_cu_shield_signal_90_percent_20260114 =
-      FitTriplePeak(Constants::CUSHIELDSIGNAL_90PERCENT_20260114, "Ge",
-                    calibrated_cu_shield_background_10_percent_20260114, 68.75,
-                    kTRUE);
+  FitResult calibrated_cu_shield_signal_90_percent_20260114 = FitTriplePeak(
+      Constants::CUSHIELDSIGNAL_90PERCENT_20260114, "Ge",
+      calibrated_cu_shield_background_10_percent_20260114, 68.75, kTRUE);
 
-  FitResultDetailed calibrated_no_shield_background_5_percent_20260115 =
-      FitSinglePeak(Constants::NOSHIELDBACKGROUND_5PERCENT_20260115,
-                    "Background", 72, kTRUE);
+  FitResult calibrated_no_shield_background_5_percent_20260115 = FitSinglePeak(
+      Constants::NOSHIELDBACKGROUND_5PERCENT_20260115, "Background", 72, kTRUE);
 
-  FitResultDetailed
+  FitResult
       calibrated_no_shield_graphite_castle_background_10_percent_20260116 =
           FitSinglePeak(
               Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_20260116,
               "Background", 72, kTRUE);
 
-  FitResultDoublePeakDetailed calibrated_no_shield_signal_5_percent_20260115 =
+  FitResult calibrated_no_shield_signal_5_percent_20260115 =
       FitDoublePeakConstrained(
           Constants::NOSHIELDSIGNAL_5PERCENT_20260115, "Ge",
-          calibrated_no_shield_background_5_percent_20260115, 68.75, kTRUE);
+          calibrated_no_shield_background_5_percent_20260115.peaks.at(0), 68.75,
+          kTRUE);
 
-  FitResultDoublePeakDetailed
-      calibrated_no_shield_graphite_castle_signal_10_percent_20260116 =
-          FitDoublePeakConstrained(
-              Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_20260116, "Ge",
-              calibrated_no_shield_graphite_castle_background_10_percent_20260116,
-              68.75, kTRUE);
+  FitResult calibrated_no_shield_graphite_castle_signal_10_percent_20260116 =
+      FitDoublePeakConstrained(
+          Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_20260116, "Ge",
+          calibrated_no_shield_graphite_castle_background_10_percent_20260116
+              .peaks.at(0),
+          68.75, kTRUE);
 
   run_names.push_back("Cd Shield Signal 10% (01/13/2026)");
-  mu.push_back(calibrated_cd_shield_signal_10_percent_20260113.peak3.mu);
+  mu.push_back(calibrated_cd_shield_signal_10_percent_20260113.peaks.at(2).mu);
   mu_errors.push_back(
-      calibrated_cd_shield_signal_10_percent_20260113.peak3.mu_error);
+      calibrated_cd_shield_signal_10_percent_20260113.peaks.at(2).mu_error);
   reduced_chi2.push_back(
       calibrated_cd_shield_signal_10_percent_20260113.reduced_chi2);
 
   run_names.push_back("Cd Shield Signal 25% (01/13/2026)");
-  mu.push_back(calibrated_cd_shield_signal_25_percent_20260113.peak3.mu);
+  mu.push_back(calibrated_cd_shield_signal_25_percent_20260113.peaks.at(2).mu);
   mu_errors.push_back(
-      calibrated_cd_shield_signal_25_percent_20260113.peak3.mu_error);
+      calibrated_cd_shield_signal_25_percent_20260113.peaks.at(2).mu_error);
   reduced_chi2.push_back(
       calibrated_cd_shield_signal_25_percent_20260113.reduced_chi2);
 
   run_names.push_back("Cu Shield Signal 10% (01/13/2026)");
-  mu.push_back(calibrated_cu_shield_signal_10_percent_20260113.peak3.mu);
+  mu.push_back(calibrated_cu_shield_signal_10_percent_20260113.peaks.at(2).mu);
   mu_errors.push_back(
-      calibrated_cu_shield_signal_10_percent_20260113.peak3.mu_error);
+      calibrated_cu_shield_signal_10_percent_20260113.peaks.at(2).mu_error);
   reduced_chi2.push_back(
       calibrated_cu_shield_signal_10_percent_20260113.reduced_chi2);
 
   run_names.push_back("Cu Shield Signal 10% (01/14/2026)");
-  mu.push_back(calibrated_cu_shield_signal_10_percent_20260114.peak3.mu);
+  mu.push_back(calibrated_cu_shield_signal_10_percent_20260114.peaks.at(2).mu);
   mu_errors.push_back(
-      calibrated_cu_shield_signal_10_percent_20260114.peak3.mu_error);
+      calibrated_cu_shield_signal_10_percent_20260114.peaks.at(2).mu_error);
   reduced_chi2.push_back(
       calibrated_cu_shield_signal_10_percent_20260114.reduced_chi2);
 
   //  run_names.push_back("Cu Shield Signal 90% (01/14/2026)");
-  //  mu.push_back(calibrated_cu_shield_signal_90_percent_20260114.peak3.mu);
+  //  mu.push_back(calibrated_cu_shield_signal_90_percent_20260114.peaks.at(2).mu);
   //  mu_errors.push_back(
-  //      calibrated_cu_shield_signal_90_percent_20260114.peak3.mu_error);
+  //      calibrated_cu_shield_signal_90_percent_20260114.peaks.at(2).mu_error);
   //  reduced_chi2.push_back(
   //      calibrated_cu_shield_signal_90_percent_20260114.reduced_chi2);
   //
   //  run_names.push_back("No Shield Signal 5% (01/15/2026)");
-  //  mu.push_back(calibrated_no_shield_signal_5_percent_20260115.peak2.mu);
+  //  mu.push_back(calibrated_no_shield_signal_5_percent_20260115.peaks.at(1).mu);
   //  mu_errors.push_back(
-  //      calibrated_no_shield_signal_5_percent_20260115.peak2.mu_error);
+  //      calibrated_no_shield_signal_5_percent_20260115.peaks.at(1).mu_error);
   //  reduced_chi2.push_back(
   //      calibrated_no_shield_signal_5_percent_20260115.reduced_chi2);
   //
   //  run_names.push_back("No Shield Graphite Castle Signal 10% (01/16/2026)");
   //  mu.push_back(
-  //      calibrated_no_shield_graphite_castle_signal_10_percent_20260116.peak2.mu);
+  //      calibrated_no_shield_graphite_castle_signal_10_percent_20260116.peaks.at(1).mu);
   //  mu_errors.push_back(
-  //      calibrated_no_shield_graphite_castle_signal_10_percent_20260116.peak2
+  //      calibrated_no_shield_graphite_castle_signal_10_percent_20260116.peaks.at(1)
   //          .mu_error);
   //  reduced_chi2.push_back(
   //      calibrated_no_shield_graphite_castle_signal_10_percent_20260116

@@ -37,8 +37,7 @@ void DrawTailFunctions() {
   high_tail->SetParameter(3, tail_slope);
   high_tail->SetNpx(1000);
 
-  TCanvas *c1 = new TCanvas("c1", "Low Tail Test", 800, 600);
-  PlottingUtils::ConfigureCanvas(c1, kFALSE);
+  TCanvas *c1 = PlottingUtils::GetConfiguredCanvas(kFALSE);
   low_tail->SetTitle("Low Tail Function;x;Amplitude");
   low_tail->SetLineColor(kBlue);
   low_tail->SetLineWidth(2);
@@ -50,10 +49,9 @@ void DrawTailFunctions() {
   line1->SetLineWidth(2);
   line1->Draw();
 
-  PlottingUtils::SaveFigure(c1, "low_tail_test.png", kTRUE);
+  PlottingUtils::SaveFigure(c1, "low_tail_test", PlotSaveOptions::kLOG);
 
-  TCanvas *c2 = new TCanvas("c2", "High Tail Test", 800, 600);
-  PlottingUtils::ConfigureCanvas(c2, kFALSE);
+  TCanvas *c2 = PlottingUtils::GetConfiguredCanvas(kFALSE);
   high_tail->SetTitle("High Tail Function;x;Amplitude");
   high_tail->SetLineColor(kRed);
   high_tail->SetLineWidth(2);
@@ -65,7 +63,7 @@ void DrawTailFunctions() {
   line2->SetLineWidth(2);
   line2->Draw();
 
-  PlottingUtils::SaveFigure(c2, "high_tail_test.png", kTRUE);
+  PlottingUtils::SaveFigure(c2, "high_tail_test", PlotSaveOptions::kLOG);
 
   delete low_tail;
   delete high_tail;

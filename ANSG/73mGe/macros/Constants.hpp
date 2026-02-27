@@ -19,7 +19,7 @@ const Int_t ZOOMED_NBINS = (ZOOMED_XMAX - ZOOMED_XMIN) / BIN_WIDTH_KEV;
 const Int_t PEAK_NBINS = (PEAK_XMAX - PEAK_XMIN) / BIN_WIDTH_KEV;
 const Bool_t USE_REAL_TIME = kFALSE;
 const Bool_t NORMALIZE_BY_TIME = kFALSE;
-const Bool_t FILTERED = kTRUE;
+const Bool_t FILTERED = kFALSE;
 const Int_t FILTER_DEPTH_UM = 70;
 const std::vector<Region> FILTER_REGIONS_EXCLUDE_XY_UM = {
     {-215, 215, -215, -210},

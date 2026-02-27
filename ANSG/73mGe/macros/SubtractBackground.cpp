@@ -155,31 +155,29 @@ void SubtractBackground() {
       "Background Subtracted (Peak Region); Energy [keV]; Counts / %d eV%s",
       Constants::BIN_WIDTH_EV, perSecond.Data()));
 
-  TCanvas *canvasFull = new TCanvas("canvasFull", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvasFull);
+  TCanvas *canvasFull = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureHistogram(hist_Combined, kP10Violet);
   hist_Combined->Draw("HIST");
   hist_Combined->SetFillStyle(0);
   hist_Combined->SetLineWidth(2);
-  PlottingUtils::SaveFigure(canvasFull, "background_subtracted.png", kFALSE);
+  PlottingUtils::SaveFigure(canvasFull, "background_subtracted",
+                            PlotSaveOptions::kLINEAR);
 
-  TCanvas *canvasZoomed = new TCanvas("canvasZoomed", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvasZoomed);
+  TCanvas *canvasZoomed = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureHistogram(zoomedHist_Combined, kP10Violet);
   zoomedHist_Combined->Draw("HIST");
   zoomedHist_Combined->SetFillStyle(0);
   zoomedHist_Combined->SetLineWidth(2);
-  PlottingUtils::SaveFigure(canvasZoomed, "background_subtracted_zoomed.png",
-                            kFALSE);
+  PlottingUtils::SaveFigure(canvasZoomed, "background_subtracted_zoomed",
+                            PlotSaveOptions::kLINEAR);
 
-  TCanvas *canvasPeak = new TCanvas("canvasPeak", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvasPeak);
+  TCanvas *canvasPeak = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureHistogram(peakHist_Combined, kP10Violet);
   peakHist_Combined->Draw("HIST");
   peakHist_Combined->SetFillStyle(0);
   peakHist_Combined->SetLineWidth(2);
-  PlottingUtils::SaveFigure(canvasPeak, "background_subtracted_peak.png",
-                            kFALSE);
+  PlottingUtils::SaveFigure(canvasPeak, "background_subtracted_peak",
+                            PlotSaveOptions::kLINEAR);
 
   TString suffix = Constants::FILTERED ? "_Filtered" : "";
   if (Constants::NORMALIZE_BY_TIME) {

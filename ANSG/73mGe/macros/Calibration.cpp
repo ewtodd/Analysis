@@ -239,8 +239,7 @@ TF1 *CreateAndSaveCalibration(std::vector<Float_t> mu,
 
   TGraph *calibration_curve =
       new TGraph(size, mu.data(), calibration_values_keV.data());
-  TCanvas *canvas = new TCanvas("", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas);
+  TCanvas *canvas = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureGraph(
       calibration_curve, kBlue,
       "; Precalibrated Energy [keV]; Deposited Energy [keV]");
@@ -261,8 +260,8 @@ TF1 *CreateAndSaveCalibration(std::vector<Float_t> mu,
 
   calibration_fit->Draw("SAME");
 
-  PlottingUtils::SaveFigure(canvas, "calibration_" + date_label + ".png",
-                            kFALSE);
+  PlottingUtils::SaveFigure(canvas, "calibration_" + date_label,
+                            PlotSaveOptions::kLINEAR);
   return calibration_fit;
 }
 
