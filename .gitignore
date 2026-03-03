@@ -4,6 +4,7 @@ ANSG-Archival
 *.txt
 *.C
 *.h5
+*.hdf5
 *.pkl
 __pycache__
 *.pdf
