@@ -16,7 +16,7 @@ const Int_t ADC_MAX = 4095;
 const TString CS137_RAW =
     "/home/e-work/LabData/ANSG/CeYAG/21-10-2025/Cs137-Long/TR_0_0.dat";
 const TString AM241_RAW =
-    "/home/e-work/LabData/ANSG/CeYAG/31-10-2025/Am241-Weekend-29525/TR_0_0.dat";
+    "/home/e-work/LabData/ANSG/CeYAG/21-10-2025/Am241-Weekend/TR_0_0.dat";
 
 const std::vector<TString> ALL_RAW_FILEPATHS = {CS137_RAW, AM241_RAW};
 
@@ -36,10 +36,10 @@ const std::vector<TString> ALL_FILEPATHS = {CS137_FILEPATH, AM241_FILEPATH};
 
 const FileProcessingConfig DEFAULT_PROCESSING_CONFIG = {
     .polarity = -1,
-    .trigger_threshold = 0.15,
+    .trigger_threshold = 0.3,
     .num_samples_baseline = 50,
     .pre_samples = 100,
-    .post_samples = 850,
+    .post_samples = 800,
     .pre_gate = 20,
     .short_gate = 10,
     .long_gate = 1000,

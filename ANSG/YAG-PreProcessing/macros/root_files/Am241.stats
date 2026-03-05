@@ -1,13 +1,13 @@
 Waveform processing statistics...
-Total processed: 1184129
+Total processed: 82281
 
-Accepted: 40296
+Accepted: 22846
 
 Rejected no trigger: 0
-Rejected clipped ADC: 303
-Rejected insufficient samples: 1137490
+Rejected clipped ADC: 241
+Rejected insufficient samples: 56657
 Rejected negative integral: 0
-Rejected bad baseline: 6040
+Rejected bad baseline: 2537
 
-Acceptance rate: 3.40301%
+Acceptance rate: 27.7658%
 
