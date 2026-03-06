@@ -17,8 +17,6 @@ const Int_t PEAK_XMIN = 60, PEAK_XMAX = 80;
 const Int_t HIST_NBINS = (HIST_XMAX - HIST_XMIN) / BIN_WIDTH_KEV;
 const Int_t ZOOMED_NBINS = (ZOOMED_XMAX - ZOOMED_XMIN) / BIN_WIDTH_KEV;
 const Int_t PEAK_NBINS = (PEAK_XMAX - PEAK_XMIN) / BIN_WIDTH_KEV;
-const Bool_t USE_REAL_TIME = kFALSE;
-const Bool_t NORMALIZE_BY_TIME = kFALSE;
 const Bool_t FILTERED = kFALSE;
 const Int_t FILTER_DEPTH_UM = 70;
 const std::vector<Region> FILTER_REGIONS_EXCLUDE_XY_UM = {
@@ -26,54 +24,49 @@ const std::vector<Region> FILTER_REGIONS_EXCLUDE_XY_UM = {
     {-215, 215, 210, 215},
     {-215, -210, -210, 210},
     {210, 215, -210, 210}};
-const TString suffix = Constants::FILTERED ? "_filtered" : "";
 
-const TString PASSIVEBACKGROUND_20260112 =
-    "PassiveBackground_20260112" + suffix;
-const TString CALIBRATION_20260112 = "Calibration_20260112" + suffix;
+const TString PASSIVEBACKGROUND_20260112 = "PassiveBackground_20260112";
+const TString CALIBRATION_20260112 = "Calibration_20260112";
 const TString ACTIVEBACKGROUND_TEST_5PERCENT_20260113 =
-    "ActiveBackground_Test_5Percent_20260113" + suffix;
+    "ActiveBackground_Test_5Percent_20260113";
 const TString ACTIVEBACKGROUND_TEST_90PERCENT_20260113 =
-    "ActiveBackground_Test_90Percent_20260113" + suffix;
+    "ActiveBackground_Test_90Percent_20260113";
 const TString CDSHIELDSIGNAL_10PERCENT_20260113 =
-    "CdShieldSignal_10Percent_20260113" + suffix;
+    "CdShieldSignal_10Percent_20260113";
 const TString CDSHIELDBACKGROUND_10PERCENT_20260113 =
-    "CdShieldBackground_10Percent_20260113" + suffix;
+    "CdShieldBackground_10Percent_20260113";
 const TString CDSHIELDSIGNAL_25PERCENT_20260113 =
-    "CdShieldSignal_25Percent_20260113" + suffix;
+    "CdShieldSignal_25Percent_20260113";
 const TString CDSHIELDBACKGROUND_25PERCENT_20260113 =
-    "CdShieldBackground_25Percent_20260113" + suffix;
+    "CdShieldBackground_25Percent_20260113";
 const TString CUSHIELDSIGNAL_10PERCENT_20260113 =
-    "CuShieldSignal_10Percent_20260113" + suffix;
+    "CuShieldSignal_10Percent_20260113";
 const TString CUSHIELDBACKGROUND_10PERCENT_20260113 =
-    "CuShieldBackground_10Percent_20260113" + suffix;
-const TString POSTREACTOR_AM241_20260113 =
-    "PostReactor_Am241_20260113" + suffix;
+    "CuShieldBackground_10Percent_20260113";
+const TString POSTREACTOR_AM241_20260113 = "PostReactor_Am241_20260113";
 const TString CUSHIELDSIGNAL_10PERCENT_20260114 =
-    "CuShieldSignal_10Percent_20260114" + suffix;
+    "CuShieldSignal_10Percent_20260114";
 const TString CUSHIELDBACKGROUND_10PERCENT_20260114 =
-    "CuShieldBackground_10Percent_20260114" + suffix;
+    "CuShieldBackground_10Percent_20260114";
 const TString CUSHIELDSIGNAL_90PERCENT_20260114 =
-    "CuShieldSignal_90Percent_20260114" + suffix;
+    "CuShieldSignal_90Percent_20260114";
 const TString NOSHIELDSIGNAL_5PERCENT_20260115 =
-    "NoShieldSignal_5Percent_20260115" + suffix;
+    "NoShieldSignal_5Percent_20260115";
 const TString NOSHIELDBACKGROUND_5PERCENT_20260115 =
-    "NoShieldBackground_5Percent_20260115" + suffix;
-const TString POSTREACTOR_AM241_20260115 =
-    "PostReactor_Am241_20260115" + suffix;
-const TString POSTREACTOR_BA133_20260115 =
-    "PostReactor_Ba133_20260115" + suffix;
-const TString SHUTTERCLOSED_20260115 = "ShutterClosed_20260115" + suffix;
+    "NoShieldBackground_5Percent_20260115";
+const TString POSTREACTOR_AM241_20260115 = "PostReactor_Am241_20260115";
+const TString POSTREACTOR_BA133_20260115 = "PostReactor_Ba133_20260115";
+const TString SHUTTERCLOSED_20260115 = "ShutterClosed_20260115";
 const TString NOSHIELD_GEONCZT_0_5PERCENT_20260116 =
-    "NoShield_GeOnCZT_0_5Percent_20260116" + suffix;
+    "NoShield_GeOnCZT_0_5Percent_20260116";
 const TString NOSHIELD_ACTIVEBACKGROUND_0_5PERCENT_20260116 =
-    "NoShield_ActiveBackground_0_5Percent_20260116" + suffix;
+    "NoShield_ActiveBackground_0_5Percent_20260116";
 const TString NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_20260116 =
-    "NoShield_GraphiteCastleSignal_10Percent_20260116" + suffix;
+    "NoShield_GraphiteCastleSignal_10Percent_20260116";
 const TString NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_20260116 =
-    "NoShield_GraphiteCastleBackground_10Percent_20260116" + suffix;
+    "NoShield_GraphiteCastleBackground_10Percent_20260116";
 const TString POSTREACTOR_AM241_BA133_20260116 =
-    "PostReactor_Am241_Ba133_20260116" + suffix;
+    "PostReactor_Am241_Ba133_20260116";
 
 const TString SIM_1E6 = "sim/1E6";
 const TString SIM_5E7 = "sim/5E7";

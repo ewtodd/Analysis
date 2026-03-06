@@ -17,6 +17,7 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         analysis-utils = utils.packages.${system}.default;
+        analysis-utils-py = utils.packages.${system}.pythonPackage;
       in
       {
         devShells.default = pkgs.mkShell {
@@ -28,6 +29,14 @@
           buildInputs = with pkgs; [
             analysis-utils
             root
+            (python3.withPackages (
+              python-pkgs: with python-pkgs; [
+                numpy
+                pandas
+                matplotlib
+                analysis-utils-py
+              ]
+            ))
           ];
           shellHook = ''
             export SHELL="${pkgs.bash}/bin/bash"
@@ -42,7 +51,6 @@
             export ROOT_INCLUDE_PATH="$PWD/include:${analysis-utils}/include''${ROOT_INCLUDE_PATH:+:$ROOT_INCLUDE_PATH}"
             # Local lib first means linker will use it preferentially
             export LD_LIBRARY_PATH="$PWD/lib:${analysis-utils}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-            cd macros
           '';
         };
       }
