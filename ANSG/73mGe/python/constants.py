@@ -29,7 +29,7 @@ FILTER_REGIONS_EXCLUDE_XY_UM = [
      FILTER_REGION_YMAX - FILTER_EDGE_WIDTH),
 ]
 
-ROOT_FILES_DIR = "../macros/root_files/"
+ROOT_FILES_DIR = "../macros/root_files"
 
 PASSIVEBACKGROUND_20260112 = f"PassiveBackground_20260112"
 CALIBRATION_20260112 = f"Calibration_20260112"
