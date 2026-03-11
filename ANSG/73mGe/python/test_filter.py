@@ -1,6 +1,7 @@
 from analysis_utils import load_cpp_library
 from analysis_utils.init import set_root_preferences
 from analysis_utils.io import load_tree_data
+from data import load_filtered
 import numpy as np
 import constants as C
 
@@ -11,9 +12,9 @@ def run_filter(filenames):
     for filename in filenames:
         filepath = f"root_files/{filename}.root"
 
-        df = load_tree_data(
-            f"{C.ROOT_FILES_DIR}/{filename}.root", tree_name="bef_tree"
-        )
+        df = load_tree_data(f"{C.ROOT_FILES_DIR}/{filename}.root",
+                            tree_name="bef_tree",
+                            cache_dir=None)
 
         energy = df["energykeV"].values
         x = df["xum"].values
@@ -21,7 +22,7 @@ def run_filter(filenames):
         z = df["zum"].values
 
         xy = ROOT.TH2F(
-            ROOT.PlottingUtils.GetRandomName(),
+            str(ROOT.PlottingUtils.GetRandomName()),
             "; X Position [um]; Y Position [um]",
             22,
             -215,
@@ -31,7 +32,7 @@ def run_filter(filenames):
             215,
         )
         ez = ROOT.TH2F(
-            ROOT.PlottingUtils.GetRandomName(),
+            str(ROOT.PlottingUtils.GetRandomName()),
             "; Energy [keV]; Interaction Z Position [um]",
             C.ZOOMED_NBINS,
             C.ZOOMED_XMIN,
@@ -42,41 +43,36 @@ def run_filter(filenames):
         )
 
         included = ROOT.TH1F(
-            ROOT.PlottingUtils.GetRandomName(),
+            str(ROOT.PlottingUtils.GetRandomName()),
             f"{filename}; Energy [keV]; Counts / {C.BIN_WIDTH_EV} eV",
             C.ZOOMED_NBINS,
             C.ZOOMED_XMIN,
             C.ZOOMED_XMAX,
         )
         excluded = ROOT.TH1F(
-            ROOT.PlottingUtils.GetRandomName(),
+            str(ROOT.PlottingUtils.GetRandomName()),
             f"{filename}; Energy [keV]; Counts / {C.BIN_WIDTH_EV} eV",
             C.ZOOMED_NBINS,
             C.ZOOMED_XMIN,
             C.ZOOMED_XMAX,
         )
 
-        # Build exclusion mask
         is_excluded = z < C.FILTER_DEPTH_UM
-        if not C.FILTERED:
+        if "nInteractions" in df.columns:
             is_excluded |= df["nInteractions"].values != 1
 
         zoomed = (energy > C.ZOOMED_XMIN) & (energy < C.ZOOMED_XMAX)
 
         for xmin, xmax, ymin, ymax in C.FILTER_REGIONS_EXCLUDE_XY_UM:
-            is_excluded |= (
-                zoomed & (x >= xmin) & (x <= xmax)
-                & (y >= ymin) & (y <= ymax)
-            )
+            is_excluded |= (zoomed & (x >= xmin) & (x <= xmax)
+                            & (y >= ymin) & (y <= ymax))
 
-        # Fill 2D histograms (zoomed region only)
         zx, zy, ze, zz = x[zoomed], y[zoomed], energy[zoomed], z[zoomed]
         for xi, yi in zip(zx, zy):
             xy.Fill(xi, yi)
         for ei, zi in zip(ze, zz):
             ez.Fill(ei, zi)
 
-        # Fill 1D spectra
         inc_mask = zoomed & ~is_excluded
         exc_mask = zoomed & is_excluded
         np.vectorize(included.Fill)(energy[inc_mask])
@@ -84,7 +80,6 @@ def run_filter(filenames):
 
         print(f"Created histograms for {filename}")
 
-        # XY position plot with exclusion boxes
         canvas_xy = ROOT.TCanvas("", "", 1200, 800)
         canvas_xy.SetRightMargin(0.2)
         xy.Draw("COLZ")
@@ -92,6 +87,7 @@ def run_filter(filenames):
         canvas_xy.SetLogz(False)
         canvas_xy.Update()
 
+        boxes = []
         for xmin, xmax, ymin, ymax in C.FILTER_REGIONS_EXCLUDE_XY_UM:
             box = ROOT.TBox(xmin, ymin, xmax, ymax)
             box.SetLineColor(ROOT.kBlack)
@@ -99,11 +95,11 @@ def run_filter(filenames):
             box.SetLineStyle(2)
             box.SetFillColorAlpha(ROOT.kBlack, 0.5)
             box.Draw()
+            boxes.append(box)
 
         ROOT.PlottingUtils.SaveFigure(canvas_xy, f"{filename}_YvsX",
                                       ROOT.PlotSaveOptions.kLINEAR)
 
-        # Energy vs Z depth plot with depth threshold box
         canvas_ez = ROOT.TCanvas("", "", 1200, 800)
         canvas_ez.SetRightMargin(0.2)
         ez.Draw("COLZ")
@@ -121,7 +117,6 @@ def run_filter(filenames):
         ROOT.PlottingUtils.SaveFigure(canvas_ez, f"{filename}_ZvsE",
                                       ROOT.PlotSaveOptions.kLINEAR)
 
-        # Accepted vs rejected spectra overlay
         canvas_spectra = ROOT.PlottingUtils.GetConfiguredCanvas(False)
 
         max_y = max(included.GetMaximum(), excluded.GetMaximum())
@@ -173,12 +168,14 @@ def run_filter(filenames):
 def main():
     set_root_preferences()
 
-    filenames = [
+    run_filter([
         C.CDSHIELDSIGNAL_10PERCENT_20260113,
         C.POSTREACTOR_AM241_BA133_20260116,
-    ]
+    ])
 
-    run_filter(filenames)
+    from concurrent.futures import ProcessPoolExecutor
+    with ProcessPoolExecutor() as pool:
+        pool.map(load_filtered, C.ALL_DATASETS)
 
 
 if __name__ == "__main__":

@@ -81,7 +81,7 @@ FitResult FitSinglePeak(const TString input_name, const TString peak_name,
                                 kTRUE, kTRUE);
     }
   }
-  result = fitter->FitPeak(input_name, peak_name);
+  result = fitter->FitSinglePeak(input_name, peak_name);
   delete zoomedHist;
   delete fitter;
   return result;

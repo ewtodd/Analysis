@@ -111,17 +111,14 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1773254373,
-        "narHash": "sha256-B/mIhmM2yukLCPZSl7cIui2OYD3qPIg6ygLqnvPUEGg=",
-        "owner": "ewtodd",
-        "repo": "Analysis-Utilities",
-        "rev": "4f803e17f31152f8f50691c314c4613b5450b7f8",
-        "type": "github"
+        "lastModified": 1773268005,
+        "narHash": "sha256-ewbuQnDDV9q4CxMxhZ7J74xwmembJwR1JSfrtGiURwg=",
+        "path": "/home/e-work/Software/Analysis-Utilities",
+        "type": "path"
       },
       "original": {
-        "owner": "ewtodd",
-        "repo": "Analysis-Utilities",
-        "type": "github"
+        "path": "/home/e-work/Software/Analysis-Utilities",
+        "type": "path"
       }
     }
   },
