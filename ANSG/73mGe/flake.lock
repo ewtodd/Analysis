@@ -38,32 +38,32 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1772598333,
-        "narHash": "sha256-YaHht/C35INEX3DeJQNWjNaTcPjYmBwwjFJ2jdtr+5U=",
+        "lastModified": 1772963539,
+        "narHash": "sha256-9jVDGZnvCckTGdYT53d/EfznygLskyLQXYwJLKMPsZs=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "fabb8c9deee281e50b1065002c9828f2cf7b2239",
+        "rev": "9dcb002ca1690658be4a04645215baea8b95f31d",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
-        "ref": "nixos-25.11",
+        "ref": "nixos-unstable",
         "repo": "nixpkgs",
         "type": "github"
       }
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1770770419,
-        "narHash": "sha256-iKZMkr6Cm9JzWlRYW/VPoL0A9jVKtZYiU4zSrVeetIs=",
+        "lastModified": 1772963539,
+        "narHash": "sha256-9jVDGZnvCckTGdYT53d/EfznygLskyLQXYwJLKMPsZs=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "6c5e707c6b5339359a9a9e215c5e66d6d802fd7a",
+        "rev": "9dcb002ca1690658be4a04645215baea8b95f31d",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
-        "ref": "nixos-25.11",
+        "ref": "nixos-unstable",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -111,14 +111,17 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1772927701,
-        "narHash": "sha256-fuBKP0OgmBdKs50VGxv4W5/tBj7S3TQPHygakKMWVQE=",
-        "path": "/home/e-work/Software/Analysis-Utilities",
-        "type": "path"
+        "lastModified": 1773254373,
+        "narHash": "sha256-B/mIhmM2yukLCPZSl7cIui2OYD3qPIg6ygLqnvPUEGg=",
+        "owner": "ewtodd",
+        "repo": "Analysis-Utilities",
+        "rev": "4f803e17f31152f8f50691c314c4613b5450b7f8",
+        "type": "github"
       },
       "original": {
-        "path": "/home/e-work/Software/Analysis-Utilities",
-        "type": "path"
+        "owner": "ewtodd",
+        "repo": "Analysis-Utilities",
+        "type": "github"
       }
     }
   },
