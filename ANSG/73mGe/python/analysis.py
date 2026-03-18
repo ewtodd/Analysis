@@ -38,14 +38,14 @@ def test_single_peak_fit(filename):
     df = load_filtered(filename)
     energy = df["energykeV"]
 
-    fit_low = 50
-    fit_up = 70
+    fit_low = 52
+    fit_up = 68
 
     m = fit_single_peak(energy,
                         fit_low,
                         fit_up,
                         E_AM241,
-                        cache_path="df_fit_cache/am241_59keV.pkl")
+                        cache_path="fit_cache/am241_59keV.pkl")
     hist = energy_hist(energy, C.ZOOMED_XMIN, C.ZOOMED_XMAX)
     plot_single_peak_fit(hist, m, fit_low, fit_up, "test", "am241")
 
@@ -62,7 +62,7 @@ def test_double_peak_fit(filename):
                         fit_up,
                         E_PB_KA1,
                         E_PB_KA2,
-                        cache_path="df_fit_cache/pb.pkl")
+                        cache_path="fit_cache/pb.pkl")
     hist = energy_hist(energy, C.ZOOMED_XMIN, C.ZOOMED_XMAX)
     plot_double_peak_fit(hist, m, fit_low, fit_up, "test", "cdshield_bkg")
 
@@ -70,6 +70,7 @@ def test_double_peak_fit(filename):
 def main():
     set_root_preferences()
     test_single_peak_fit(C.POSTREACTOR_AM241_20260115)
+    test_single_peak_fit(C.POSTREACTOR_AM241_20260113)
     test_double_peak_fit(C.CDSHIELDBACKGROUND_10PERCENT_20260113)
 
 
