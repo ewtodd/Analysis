@@ -188,7 +188,7 @@ TF1 *CreateAndSaveCalibration(const CalibrationData &cal_data) {
   leg->AddEntry(linear_fit, "Linear fit (high energy)", "l");
   leg->Draw();
 
-  PlottingUtils::SaveFigure(canvas, "calibration", PlotSaveOptions::kLINEAR);
+  PlottingUtils::SaveFigure(canvas, "calibration", "", PlotSaveOptions::kLINEAR);
 
   delete graph_no_am;
   delete canvas;
@@ -274,7 +274,7 @@ void LongIntegralToLightOutput(const std::vector<TString> &input_names,
     label->SetTextSize(35);
 
     PlottingUtils::SaveFigure(canvas, input_name + "_light_output",
-                              PlotSaveOptions::kLOG);
+                              "", PlotSaveOptions::kLOG);
 
     features_tree->Write("", TObject::kOverwrite);
     light_output_hist->Write("Light Output", TObject::kOverwrite);

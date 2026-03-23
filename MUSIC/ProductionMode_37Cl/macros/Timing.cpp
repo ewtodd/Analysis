@@ -300,8 +300,8 @@ void VisualizeTimeShiftQuality(TGraph *ref_graph, TGraph *shifted_graph,
   diag->Draw();
 
   PlottingUtils::SaveFigure(
-      c, Form("timeshift_quality_board_%d_%s.png", board, output_name.Data()),
-      kFALSE);
+      c, Form("timeshift_quality_board_%d_%s", board, output_name.Data()),
+      "", PlotSaveOptions::kLINEAR);
 
   delete shifted_clone;
   delete shifted_zoom;
@@ -338,7 +338,8 @@ void VisualizeShiftScan(const std::vector<Double_t> &shifts,
   leg->Draw();
 
   PlottingUtils::SaveFigure(
-      c, Form("shift_scan_board_%d_%s.png", board, output_name.Data()), kFALSE);
+      c, Form("shift_scan_board_%d_%s", board, output_name.Data()),
+      "", PlotSaveOptions::kLINEAR);
   delete c;
 }
 

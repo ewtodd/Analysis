@@ -22,8 +22,7 @@ void InitialPlots(
     Float_t pulse_height;
     features_tree->SetBranchAddress("pulse_height", &pulse_height);
 
-    TCanvas *canvas = new TCanvas("", "", 1200, 800);
-    PlottingUtils::ConfigureCanvas(canvas, kFALSE);
+    TCanvas *canvas = PlottingUtils::GetConfiguredCanvas(kFALSE);
 
     TH1F *long_integral_hist =
         new TH1F("",
@@ -49,12 +48,12 @@ void InitialPlots(
     Int_t color = colors.at(i);
 
     PlottingUtils::ConfigureAndDrawHistogram(long_integral_hist, color);
-    PlottingUtils::SaveFigure(canvas, output_name + "_long_integral.png");
+    PlottingUtils::SaveFigure(canvas, output_name + "_long_integral");
 
     PlottingUtils::ConfigureAndDrawHistogram(pulse_height_hist, color);
     canvas->Update();
 
-    PlottingUtils::SaveFigure(canvas, output_name + "_pulse_height.png");
+    PlottingUtils::SaveFigure(canvas, output_name + "_pulse_height");
 
     output->cd();
     long_integral_hist->Write("long_integral", TObject::kOverwrite);

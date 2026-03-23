@@ -10,11 +10,11 @@ from sklearn.metrics import make_scorer, roc_auc_score
 from scipy.stats import randint, uniform, loguniform
 from joblib import parallel_backend
 from xgboost import XGBRegressor
-from analysis_utils.io import load_tree_data
+from analysis_utilities.io import load_tree_data
 from psd_utils import process_waveforms, bootstrap_auc
-import analysis_utils
+import analysis_utilities
 
-analysis_utils.load_cpp_library()
+analysis_utilities.load_cpp_library()
 ROOT.gROOT.SetBatch(True)
 ROOT.PlottingUtils.SetStylePreferences(ROOT.PlotSaveFormat.kPNG)
 
@@ -146,11 +146,11 @@ XGB_CONFIG = dict(
 
 
 def _prepare_data(alpha_waveforms,
-                 gamma_waveforms,
-                 alpha_features,
-                 gamma_features,
-                 n_train_per_class=10000,
-                 random_state=42):
+                  gamma_waveforms,
+                  alpha_features,
+                  gamma_features,
+                  n_train_per_class=10000,
+                  random_state=42):
     """Filter by light output, balance classes, split train/test, and process waveforms."""
     lo_lower = {"alpha": 375, "gamma": 0}
     lo_upper = {"alpha": 1575, "gamma": 1750}
@@ -209,7 +209,7 @@ def _prepare_data(alpha_waveforms,
 
 
 def _plot_sweep(x_values, y_values, y_errors, x_title, prefix, output_name,
-               color):
+                color):
     """Plot a single sweep with colored line + black markers/error bars."""
     canvas = ROOT.PlottingUtils.GetConfiguredCanvas()
 
@@ -254,14 +254,14 @@ def _plot_sweep(x_values, y_values, y_errors, x_title, prefix, output_name,
     else:
         _ = ROOT.PlottingUtils.AddText("XGBoost", 0.85, 0.25)
 
-    ROOT.PlottingUtils.SaveFigure(canvas, output_name,
+    ROOT.PlottingUtils.SaveFigure(canvas, output_name, "",
                                   ROOT.PlotSaveOptions.kLINEAR)
     canvas.Close()
     print(f"Saved {output_name}")
 
 
 def _run_sweep(config, sweep_name, values, param_key, x_train, y_train, x_test,
-              y_test):
+               y_test):
     """Run a parameter sweep, caching results to disk."""
     prefix = config["prefix"]
     model_class = config["model_class"]
@@ -329,7 +329,7 @@ def _run_sweep(config, sweep_name, values, param_key, x_train, y_train, x_test,
 
 
 def _plot_feature_importance(model_class, default_params, prefix, color, name,
-                            x_train, y_train, avg_waveform):
+                             x_train, y_train, avg_waveform):
     """Train or load N_SEEDS models and plot averaged feature importance."""
     # Subsample to DEFAULT_TRAIN_PER_CLASS if pool is larger
     n_per_class = len(x_train) // 2
@@ -408,14 +408,14 @@ def _plot_feature_importance(model_class, default_params, prefix, color, name,
     leg.Draw()
 
     output_file = f"feature_importance_{prefix}"
-    ROOT.PlottingUtils.SaveFigure(canvas, output_file,
+    ROOT.PlottingUtils.SaveFigure(canvas, output_file, "",
                                   ROOT.PlotSaveOptions.kLINEAR)
     canvas.Close()
     print(f"Saved {output_file}")
 
 
-def _plot_tree_shap_importance(model_class, default_params, prefix, color, name,
-                              x_train, y_train, avg_waveform):
+def _plot_tree_shap_importance(model_class, default_params, prefix, color,
+                               name, x_train, y_train, avg_waveform):
     """Train or load N_SEEDS tree models and plot SHAP-based feature importance.
 
     Uses shap.TreeExplainer for exact, fast Shapley values on tree-based models
@@ -516,14 +516,14 @@ def _plot_tree_shap_importance(model_class, default_params, prefix, color, name,
     leg.Draw()
 
     output_file = f"feature_importance_{prefix}_shap"
-    ROOT.PlottingUtils.SaveFigure(canvas, output_file,
+    ROOT.PlottingUtils.SaveFigure(canvas, output_file, "",
                                   ROOT.PlotSaveOptions.kLINEAR)
     canvas.Close()
     print(f"Saved {output_file}")
 
 
 def _plot_kernel_shap_importance(model_class, default_params, prefix, color,
-                                name, x_train, y_train, avg_waveform):
+                                 name, x_train, y_train, avg_waveform):
     """Train or load N_SEEDS models and plot KernelSHAP-based feature importance.
 
     Uses shap.KernelExplainer for non-tree models (e.g. MLP) where
@@ -619,7 +619,7 @@ def _plot_kernel_shap_importance(model_class, default_params, prefix, color,
     leg.Draw()
 
     output_file = f"feature_importance_{prefix}_shap"
-    ROOT.PlottingUtils.SaveFigure(canvas, output_file,
+    ROOT.PlottingUtils.SaveFigure(canvas, output_file, "",
                                   ROOT.PlotSaveOptions.kLINEAR)
     canvas.Close()
     print(f"Saved {output_file}")
@@ -702,9 +702,111 @@ def _plot_combined_shap_importance(configs, avg_waveform):
     leg.Draw()
 
     ROOT.PlottingUtils.SaveFigure(canvas, "feature_importance_combined_shap",
-                                  ROOT.PlotSaveOptions.kLINEAR)
+                                  "", ROOT.PlotSaveOptions.kLINEAR)
     canvas.Close()
     print("Saved feature_importance_combined_shap")
+
+
+def _plot_importance_with_waveforms(
+        prefix,
+        name,
+        avg_alpha_wf,
+        avg_gamma_wf,
+        output_subdir="feature_importance_waveforms"):
+    """Plot SHAP feature importance in gray with avg alpha (red) and gamma (blue) waveforms.
+
+    Produces two plots per model: full range and 0-100 ns zoom.
+    """
+    all_mean_abs_shap = []
+    for seed in SEEDS:
+        shap_cache = os.path.join(CACHE_DIR,
+                                  f"{prefix}_shap_values_seed{seed}.npy")
+        if os.path.exists(shap_cache):
+            all_mean_abs_shap.append(np.load(shap_cache))
+        else:
+            print(
+                f"  WARNING: Missing SHAP cache {shap_cache}, skipping {name}")
+
+    if not all_mean_abs_shap:
+        print(f"  No SHAP data available for {name}, skipping")
+        return
+
+    importances = np.array(all_mean_abs_shap)
+    mean_imp = np.mean(importances, axis=0)
+    std_imp = np.std(importances, axis=0)
+
+    imp_max = np.max(mean_imp)
+    mean_imp_norm = mean_imp / imp_max if imp_max > 0 else mean_imp
+    std_imp_norm = std_imp / imp_max if imp_max > 0 else std_imp
+
+    alpha_max = np.max(avg_alpha_wf)
+    alpha_norm = avg_alpha_wf / alpha_max if alpha_max > 0 else avg_alpha_wf
+
+    gamma_max = np.max(avg_gamma_wf)
+    gamma_norm = avg_gamma_wf / gamma_max if gamma_max > 0 else avg_gamma_wf
+
+    n_points = len(mean_imp_norm)
+    x_values = np.arange(n_points, dtype=np.float64) * 2
+    ex = np.zeros(n_points, dtype=np.float64)
+
+    for zoom, suffix, x_max in [(False, "", x_values[-1]),
+                                (True, "_zoom", 100.0)]:
+        if zoom:
+            canvas = ROOT.TCanvas(str(ROOT.PlottingUtils.GetRandomName()), "",
+                                  1400, 600)
+            pad_plot = ROOT.TPad("pad_plot", "", 0.0, 0.0, 0.6, 1.0)
+            pad_plot.SetRightMargin(0.04)
+            pad_plot.Draw()
+            pad_leg = ROOT.TPad("pad_leg", "", 0.6, 0.0, 1.0, 1.0)
+            pad_leg.SetLeftMargin(0.0)
+            pad_leg.SetRightMargin(0.05)
+            pad_leg.Draw()
+            pad_plot.cd()
+        else:
+            canvas = ROOT.PlottingUtils.GetConfiguredCanvas()
+
+        graph_imp = ROOT.TGraphErrors(n_points, x_values,
+                                      mean_imp_norm.astype(np.float64), ex,
+                                      std_imp_norm.astype(np.float64))
+        graph_imp.SetLineColor(ROOT.kGray + 2)
+        graph_imp.SetLineWidth(ROOT.PlottingUtils.GetLineWidth())
+        graph_imp.SetFillColorAlpha(ROOT.kGray + 2, 0.2)
+        graph_imp.SetTitle("")
+        graph_imp.GetXaxis().SetTitle("Time [ns]")
+        graph_imp.GetYaxis().SetTitle("Normalized Amplitude [a.u.]")
+        graph_imp.GetXaxis().SetRangeUser(0, x_max)
+        graph_imp.GetYaxis().SetRangeUser(-0.1, 1.1)
+        graph_imp.Draw("AL3")
+
+        graph_alpha = ROOT.TGraph(n_points, x_values,
+                                  alpha_norm.astype(np.float64))
+        graph_alpha.SetLineColor(ROOT.kRed + 2)
+        graph_alpha.SetLineWidth(ROOT.PlottingUtils.GetLineWidth())
+        graph_alpha.Draw("L SAME")
+
+        graph_gamma = ROOT.TGraph(n_points, x_values,
+                                  gamma_norm.astype(np.float64))
+        graph_gamma.SetLineColor(ROOT.kBlue + 2)
+        graph_gamma.SetLineWidth(ROOT.PlottingUtils.GetLineWidth())
+        graph_gamma.Draw("L SAME")
+
+        if zoom:
+            pad_leg.cd()
+            leg = ROOT.PlottingUtils.AddLegend(0.0, 0.95, 0.2, 0.85)
+            leg.SetMargin(0.15)
+        else:
+            leg = ROOT.PlottingUtils.AddLegend(0.42, 0.88, 0.6, 0.85)
+            leg.SetMargin(0.1)
+        leg.AddEntry(graph_imp, f"{name} SHAP Importance", "lf")
+        leg.AddEntry(graph_alpha, "Avg. #alpha Waveform (Am-241)", "l")
+        leg.AddEntry(graph_gamma, "Avg. #gamma Waveform (Na-22)", "l")
+        leg.Draw()
+
+        output_file = f"feature_importance_{prefix}_waveforms{suffix}"
+        ROOT.PlottingUtils.SaveFigure(canvas, output_file, output_subdir,
+                                      ROOT.PlotSaveOptions.kLINEAR)
+        canvas.Close()
+        print(f"Saved {output_subdir}/{output_file}")
 
 
 def _recommend_value(values, means, default_value=None):
@@ -768,8 +870,8 @@ def _run_all_sweeps(config, x_train, y_train, x_test, y_test):
 
         print(f"{config['name']}: AUC vs {sweep_name}")
 
-        means, stds = _run_sweep(config, sweep_name, values, param_key, x_train,
-                                y_train, x_test, y_test)
+        means, stds = _run_sweep(config, sweep_name, values, param_key,
+                                 x_train, y_train, x_test, y_test)
 
         default_value = config["default_params"].get(
             param_key) if param_key else None
@@ -784,8 +886,8 @@ def _run_all_sweeps(config, x_train, y_train, x_test, y_test):
         if sweep_name == "max_depth" and None in values:
             plot_x = [d if d is not None else 50 for d in values]
 
-        _plot_sweep(plot_x, means, stds, x_title, config['prefix'], output_name,
-                   color)
+        _plot_sweep(plot_x, means, stds, x_title, config['prefix'],
+                    output_name, color)
 
     return recommended
 
@@ -843,7 +945,7 @@ def _build_search_space(config, recommended):
 
 
 def _run_randomized_search(config, recommended, x_train, y_train, x_test,
-                          y_test):
+                           y_test):
     """Run RandomizedSearchCV around the OAT-recommended values.
 
     Uses the training set for cross-validated search, then evaluates
@@ -961,6 +1063,7 @@ def main():
 
     data_cache = os.path.join(CACHE_DIR, "prepared_data.npz")
     wf_cache = os.path.join(CACHE_DIR, "avg_waveform.npy")
+    gamma_wf_cache = os.path.join(CACHE_DIR, "avg_gamma_waveform.npy")
 
     if os.path.exists(data_cache) and os.path.exists(wf_cache):
         print("Loading cached prepared data...")
@@ -968,11 +1071,21 @@ def main():
         x_train, y_train = data["x_train"], data["y_train"]
         x_test, y_test = data["x_test"], data["y_test"]
         avg_waveform = np.load(wf_cache)
+        if os.path.exists(gamma_wf_cache):
+            avg_gamma_waveform = np.load(gamma_wf_cache)
+        else:
+            f = ROOT.TFile.Open(ROOT_FILES_DIR + "Na22.root")
+            avg_wf_graph = f.Get("average_waveform")
+            avg_gamma_waveform = np.array([
+                avg_wf_graph.GetPointY(i) for i in range(avg_wf_graph.GetN())
+            ])
+            f.Close()
+            np.save(gamma_wf_cache, avg_gamma_waveform)
         print(f"  Train: {len(x_train)}, Test: {len(x_test)}")
     else:
         print("Loading alpha data (Am-241)...")
         alpha_features, alpha_waveforms = load_tree_data(
-            ROOT_FILES_DIR + "Am241.root",
+            ROOT_FILES_DIR + "Na22.root",
             scalar_branches=SCALAR_BRANCHES,
             array_branch="Samples",
         )
@@ -1012,12 +1125,19 @@ def main():
             [avg_wf_graph.GetPointY(i) for i in range(avg_wf_graph.GetN())])
         f.Close()
 
+        f = ROOT.TFile.Open(ROOT_FILES_DIR + "Na22.root")
+        avg_wf_graph = f.Get("average_waveform")
+        avg_gamma_waveform = np.array(
+            [avg_wf_graph.GetPointY(i) for i in range(avg_wf_graph.GetN())])
+        f.Close()
+
         np.savez(data_cache,
                  x_train=x_train,
                  y_train=y_train,
                  x_test=x_test,
                  y_test=y_test)
         np.save(wf_cache, avg_waveform)
+        np.save(gamma_wf_cache, avg_gamma_waveform)
         print(f"Prepared data cached to {CACHE_DIR}/")
 
     for config in [RF_CONFIG, XGB_CONFIG]:
@@ -1028,37 +1148,39 @@ def main():
         optimized_params.update(recommended)
         print(f"{config['name']}: OAT recommended params: {recommended}")
         print(f"RandomizedSearchCV around recommended values")
-        best_params, _ = _run_randomized_search(
-            config, recommended, x_train, y_train, x_test, y_test)
+        best_params, _ = _run_randomized_search(config, recommended, x_train,
+                                                y_train, x_test, y_test)
         # Use the better params (from randomized search) for feature importance
         final_params = dict(config["default_params"])
         final_params.update(best_params)
         print(f"Feature importance (averaged over seeds)")
         _plot_tree_shap_importance(config["model_class"], final_params,
-                                  config["prefix"], config["color"],
-                                  config["name"], x_train, y_train,
-                                  avg_waveform)
+                                   config["prefix"], config["color"],
+                                   config["name"], x_train, y_train,
+                                   avg_waveform)
         _plot_feature_importance(config["model_class"], final_params,
-                                config["prefix"], config["color"],
-                                config["name"], x_train, y_train, avg_waveform)
+                                 config["prefix"], config["color"],
+                                 config["name"], x_train, y_train,
+                                 avg_waveform)
 
     for config in [GB_CONFIG]:
         print(f"{config['name']} Feature Importance")
         _plot_tree_shap_importance(config["model_class"],
-                                  config["default_params"], config["prefix"],
-                                  config["color"], config["name"], x_train,
-                                  y_train, avg_waveform)
+                                   config["default_params"], config["prefix"],
+                                   config["color"], config["name"], x_train,
+                                   y_train, avg_waveform)
         _plot_feature_importance(config["model_class"],
-                                config["default_params"], config["prefix"],
-                                config["color"], config["name"], x_train,
-                                y_train, avg_waveform)
+                                 config["default_params"], config["prefix"],
+                                 config["color"], config["name"], x_train,
+                                 y_train, avg_waveform)
 
     for config in [MLP_CONFIG]:
         print(f"{config['name']} SHAP Feature Importance")
         _plot_kernel_shap_importance(config["model_class"],
-                                    config["default_params"], config["prefix"],
-                                    config["color"], config["name"], x_train,
-                                    y_train, avg_waveform)
+                                     config["default_params"],
+                                     config["prefix"], config["color"],
+                                     config["name"], x_train, y_train,
+                                     avg_waveform)
 
     # Combined SHAP plot with all models on one canvas
     print("Combined SHAP Feature Importance")
@@ -1069,6 +1191,12 @@ def main():
         (MLP_CONFIG["prefix"], MLP_CONFIG["color"], MLP_CONFIG["name"]),
     ]
     _plot_combined_shap_importance(shap_configs, avg_waveform)
+
+    # Feature importance with both alpha and gamma avg waveforms
+    print("Feature importance with alpha/gamma waveforms")
+    for config in [RF_CONFIG, GB_CONFIG, XGB_CONFIG, MLP_CONFIG]:
+        _plot_importance_with_waveforms(config["prefix"], config["name"],
+                                        avg_waveform, avg_gamma_waveform)
 
     print("Done. All plots saved.")
 

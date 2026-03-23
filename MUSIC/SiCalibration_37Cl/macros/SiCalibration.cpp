@@ -78,8 +78,7 @@ void SiCalibration() {
 
   Bool_t logy = kTRUE;
 
-  TCanvas *canvas = new TCanvas("canvas", "Si Calibration", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas, logy);
+  TCanvas *canvas = PlottingUtils::GetConfiguredCanvas(logy);
 
   if (gSystem->AccessPathName("plots")) {
     gSystem->mkdir("plots", kTRUE);
@@ -176,9 +175,7 @@ void SiCalibration() {
   Double_t p2_err = cal_fit->GetParError(2);
 
   // Plot calibration curve
-  TCanvas *cal_canvas =
-      new TCanvas("cal_canvas", "Energy Calibration", 1200, 800);
-  PlottingUtils::ConfigureCanvas(cal_canvas);
+  TCanvas *cal_canvas = PlottingUtils::GetConfiguredCanvas();
 
   cal_graph->Draw("AP");
   cal_graph->GetXaxis()->SetLimits(-1, 16384);
@@ -347,8 +344,7 @@ void SiCalibration() {
   dE_vs_pressure->SetMarkerColor(kBlue);
   dE_vs_pressure->SetLineColor(kBlue);
 
-  TCanvas *dE_canvas = new TCanvas("dE_canvas", "dE vs Pressure", 1200, 800);
-  PlottingUtils::ConfigureCanvas(dE_canvas);
+  TCanvas *dE_canvas = PlottingUtils::GetConfiguredCanvas();
 
   dE_vs_pressure->Draw("AP");
   dE_vs_pressure->GetXaxis()->SetTitleSize(0.05);

@@ -2,14 +2,14 @@ import numpy as np
 import os
 import pickle
 import ROOT
-from analysis_utils.io import load_tree_data
+from analysis_utilities.io import load_tree_data
 import pandas as pd
 from psd_utils import (process_waveforms, column_name, ANALYSIS_CACHE_DIR)
 from regressors import get_default_regressors
 
-import analysis_utils
+import analysis_utilities
 
-analysis_utils.load_cpp_library()
+analysis_utilities.load_cpp_library()
 
 ROOT.gROOT.SetBatch(True)
 ROOT.PlottingUtils.SetStylePreferences(ROOT.PlotSaveFormat.kPNG)
@@ -67,7 +67,7 @@ def _classify_events(scores, alpha_threshold, gamma_threshold):
 
 
 def _plot_classified_spectra(features, source_name, method_name, alpha_mask,
-                            gamma_mask, alpha_thresh, gamma_thresh):
+                             gamma_mask, alpha_thresh, gamma_thresh):
     """Plot light-output spectra classified by thresholds."""
     all_lo = features["light_output"].values
     alpha_like_lo = all_lo[alpha_mask]
@@ -143,7 +143,7 @@ def _plot_classified_spectra(features, source_name, method_name, alpha_mask,
     output_path = f"classified_spectra_{safe_src}_{safe_reg}"
     canvas.cd()
     ROOT.PlottingUtils.SaveFigure(canvas, output_path,
-                                  ROOT.PlotSaveOptions.kLOG)
+                                  "", ROOT.PlotSaveOptions.kLOG)
     canvas.Close()
     h_all.Delete()
     h_alpha.Delete()
@@ -171,7 +171,7 @@ def _find_crossover_tpr(am_cal_scores, na_cal_scores):
 
 
 def _plot_efficiency_vs_strictness(method_names, source_scores, am_cal_feat,
-                                  na_cal_feat):
+                                   na_cal_feat):
     """Plot classification efficiency vs threshold strictness for each method.
 
     For each method the crossover TPR (where the alpha and gamma thresholds
@@ -272,7 +272,7 @@ def _plot_efficiency_vs_strictness(method_names, source_scores, am_cal_feat,
         safe_src = _clean_name(source_name)
         output_name = f"efficiency_vs_strictness_{safe_src}"
         ROOT.PlottingUtils.SaveFigure(canvas, output_name,
-                                      ROOT.PlotSaveOptions.kLINEAR)
+                                      "", ROOT.PlotSaveOptions.kLINEAR)
         canvas.Close()
 
         print(f"Efficiency vs strictness plot saved for {source_name}")
@@ -399,7 +399,7 @@ def main():
         source_features[source_name] = features
 
     _plot_efficiency_vs_strictness(method_names, source_scores, am_cal_feat,
-                                  na_cal_feat)
+                                   na_cal_feat)
 
     efficiency_records = []
     for source_name in source_scores:
@@ -409,7 +409,7 @@ def main():
             scores = source_scores[source_name][name]
             alpha_thresh, gamma_thresh = thresholds[name]
             alpha_mask, gamma_mask = _classify_events(scores, alpha_thresh,
-                                                     gamma_thresh)
+                                                      gamma_thresh)
             n_classified = np.sum(alpha_mask) + np.sum(gamma_mask)
             efficiency = n_classified / len(scores) * 100
             print(f"  [{name}] efficiency: {efficiency:.1f}%")
@@ -419,10 +419,10 @@ def main():
                 "efficiency": efficiency,
             })
             _plot_classified_spectra(features, source_name, name, alpha_mask,
-                                    gamma_mask, alpha_thresh, gamma_thresh)
+                                     gamma_mask, alpha_thresh, gamma_thresh)
 
     _save_efficiency_table(efficiency_records, method_names,
-                          list(source_scores.keys()), TRUE_POSITIVE_RATE)
+                           list(source_scores.keys()), TRUE_POSITIVE_RATE)
 
     print(f"\nComplete. Analyzed {len(source_scores)} sources "
           f"with {len(method_names)} methods.")

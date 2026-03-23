@@ -160,7 +160,7 @@ void SubtractBackground() {
   hist_Combined->Draw("HIST");
   hist_Combined->SetFillStyle(0);
   hist_Combined->SetLineWidth(2);
-  PlottingUtils::SaveFigure(canvasFull, "background_subtracted",
+  PlottingUtils::SaveFigure(canvasFull, "background_subtracted", "",
                             PlotSaveOptions::kLINEAR);
 
   TCanvas *canvasZoomed = PlottingUtils::GetConfiguredCanvas();
@@ -168,7 +168,7 @@ void SubtractBackground() {
   zoomedHist_Combined->Draw("HIST");
   zoomedHist_Combined->SetFillStyle(0);
   zoomedHist_Combined->SetLineWidth(2);
-  PlottingUtils::SaveFigure(canvasZoomed, "background_subtracted_zoomed",
+  PlottingUtils::SaveFigure(canvasZoomed, "background_subtracted_zoomed", "",
                             PlotSaveOptions::kLINEAR);
 
   TCanvas *canvasPeak = PlottingUtils::GetConfiguredCanvas();
@@ -176,7 +176,7 @@ void SubtractBackground() {
   peakHist_Combined->Draw("HIST");
   peakHist_Combined->SetFillStyle(0);
   peakHist_Combined->SetLineWidth(2);
-  PlottingUtils::SaveFigure(canvasPeak, "background_subtracted_peak",
+  PlottingUtils::SaveFigure(canvasPeak, "background_subtracted_peak", "",
                             PlotSaveOptions::kLINEAR);
 
   TString suffix = Constants::FILTERED ? "_Filtered" : "";

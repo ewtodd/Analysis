@@ -3,7 +3,10 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    utils.url = "/home/e-work/Software/Analysis-Utilities";
+    utils = {
+      inputs.nixpkgs.follows = "nixpkgs";
+      url = "/home/e-work/Software/Analysis-Utilities";
+    };
   };
   outputs =
     {

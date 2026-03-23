@@ -84,10 +84,9 @@ void CheckTimeDiff(std::vector<TString> input_filenames,
       }
     }
 
-    TCanvas *canvas = new TCanvas("", "", 1200, 800);
-    PlottingUtils::ConfigureCanvas(canvas, kFALSE);
+    TCanvas *canvas = PlottingUtils::GetConfiguredCanvas(kFALSE);
     PlottingUtils::ConfigureAndDrawHistogram(gridTimediffHist, kRed);
-    PlottingUtils::SaveFigure(canvas, "gridtimediff.png");
+    PlottingUtils::SaveFigure(canvas, "gridtimediff");
 
     output_file->cd();
     output_tree->Write("event", TObject::kOverwrite);

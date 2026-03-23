@@ -357,26 +357,22 @@ void PlotTrueMC(Bool_t reprocess = kFALSE) {
     true_time_diff_hist->Fill(true_time_diff);
   }
 
-  TCanvas *canvas_2d_true = new TCanvas("", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas_2d_true);
+  TCanvas *canvas_2d_true = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureAndDraw2DHistogram(true_LO1vsLO2, canvas_2d_true);
   PlottingUtils::SaveFigure(canvas_2d_true,
-                            "mc_true_peak1_vs_peak2_light_output.png", kFALSE);
+                            "mc_true_peak1_vs_peak2_light_output", "", PlotSaveOptions::kLINEAR);
 
-  TCanvas *canvas_p1_true = new TCanvas("", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas_p1_true);
+  TCanvas *canvas_p1_true = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureAndDrawHistogram(true_peak1_hist, kBlue + 1);
-  PlottingUtils::SaveFigure(canvas_p1_true, "mc_true_peak1_light_output.png");
+  PlottingUtils::SaveFigure(canvas_p1_true, "mc_true_peak1_light_output");
 
-  TCanvas *canvas_p2_true = new TCanvas("", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas_p2_true);
+  TCanvas *canvas_p2_true = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureAndDrawHistogram(true_peak2_hist, kRed + 1);
-  PlottingUtils::SaveFigure(canvas_p2_true, "mc_true_peak2_light_output.png");
+  PlottingUtils::SaveFigure(canvas_p2_true, "mc_true_peak2_light_output");
 
-  TCanvas *canvas_time_true = new TCanvas("", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas_time_true);
+  TCanvas *canvas_time_true = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureAndDrawHistogram(true_time_diff_hist, kGreen + 1);
-  PlottingUtils::SaveFigure(canvas_time_true, "mc_true_time_difference.png");
+  PlottingUtils::SaveFigure(canvas_time_true, "mc_true_time_difference");
 
   mc_input->Close();
 
@@ -409,29 +405,25 @@ void PlotTrueMC(Bool_t reprocess = kFALSE) {
     fitted_time_diff_hist->Fill(time_difference);
   }
 
-  TCanvas *canvas_2d_fitted = new TCanvas("", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas_2d_fitted);
+  TCanvas *canvas_2d_fitted = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureAndDraw2DHistogram(fitted_LO1vsLO2, canvas_2d_fitted);
   PlottingUtils::SaveFigure(
-      canvas_2d_fitted, "mc_fitted_peak1_vs_peak2_light_output.png", kFALSE);
+      canvas_2d_fitted, "mc_fitted_peak1_vs_peak2_light_output", "", PlotSaveOptions::kLINEAR);
 
-  TCanvas *canvas_p1_fitted = new TCanvas("", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas_p1_fitted);
+  TCanvas *canvas_p1_fitted = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureAndDrawHistogram(fitted_peak1_hist, kBlue + 1);
   PlottingUtils::SaveFigure(canvas_p1_fitted,
-                            "mc_fitted_peak1_light_output.png");
+                            "mc_fitted_peak1_light_output");
 
-  TCanvas *canvas_p2_fitted = new TCanvas("", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas_p2_fitted);
+  TCanvas *canvas_p2_fitted = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureAndDrawHistogram(fitted_peak2_hist, kRed + 1);
   PlottingUtils::SaveFigure(canvas_p2_fitted,
-                            "mc_fitted_peak2_light_output.png");
+                            "mc_fitted_peak2_light_output");
 
-  TCanvas *canvas_time_fitted = new TCanvas("", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas_time_fitted);
+  TCanvas *canvas_time_fitted = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureAndDrawHistogram(fitted_time_diff_hist, kGreen + 1);
   PlottingUtils::SaveFigure(canvas_time_fitted,
-                            "mc_fitted_time_difference.png");
+                            "mc_fitted_time_difference");
 
   mc_fitted->Close();
 

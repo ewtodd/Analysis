@@ -220,7 +220,7 @@ void ComputeAndPlot(const TString output_name, const TString label,
   plot_pad->cd();
   plot_pad->SetLogy(kTRUE);
   PlottingUtils::SaveFigure(canvas, "avg_waveforms_" + output_name,
-                            PlotSaveOptions::kLOG);
+                            "", PlotSaveOptions::kLOG);
 
   delete canvas;
   for (Int_t i = 0; i < n_graphs; i++) {

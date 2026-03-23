@@ -414,7 +414,7 @@ void PlotPSDWithFOM(TH1F *hist_alpha, TH1F *hist_gamma,
   leg->Draw();
 
   PlottingUtils::SaveFigure(canvas, output_name + "_" + gamma_label + "",
-                            PlotSaveOptions::kLOG);
+                            "", PlotSaveOptions::kLOG);
 
   delete fit_alpha;
   delete fit_gamma;

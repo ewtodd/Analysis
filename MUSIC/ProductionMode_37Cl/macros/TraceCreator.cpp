@@ -155,15 +155,15 @@ void BuildTraces(std::vector<TString> input_output_filenames,
         c_traces->cd(3);
         TraceTotal->Draw("ALP");
 
-        TString png_filename =
-            Form("%s_Strip%d_Event%lld.png", input_output_filename.Data(),
+        TString trace_filename =
+            Form("%s_Strip%d_Event%lld", input_output_filename.Data(),
                  triggerStrip, j);
-        PlottingUtils::SaveFigure(c_traces, png_filename, kFALSE);
+        PlottingUtils::SaveFigure(c_traces, trace_filename, "", PlotSaveOptions::kLINEAR);
 
         delete c_traces;
 
         std::cout << "Saved event from strip " << triggerStrip << " (entry "
-                  << j << ") as " << png_filename << std::endl;
+                  << j << ") as " << trace_filename << std::endl;
       }
       delete TraceLeft;
       delete TraceRight;
@@ -179,8 +179,8 @@ void BuildTraces(std::vector<TString> input_output_filenames,
     h2_TotalE_vs_StripE->Write("", TObject::kOverwrite);
     TCanvas *histCanvas = new TCanvas("", "", 1600, 800);
     PlottingUtils::ConfigureAndDraw2DHistogram(h2_TotalE_vs_StripE, histCanvas);
-    PlottingUtils::SaveFigure(histCanvas, input_output_filename + "_hist.png",
-                              kFALSE);
+    PlottingUtils::SaveFigure(histCanvas, input_output_filename + "_hist",
+                              "", PlotSaveOptions::kLINEAR);
     delete histCanvas;
     delete h2_TotalE_vs_StripE;
 

@@ -1,11 +1,11 @@
 import numpy as np
 import os
-from analysis_utils.io import load_tree_data
+from analysis_utilities.io import load_tree_data
 from psd_utils import regress_waveforms, process_waveforms
 from regressors import get_default_regressors
-import analysis_utils
+import analysis_utilities
 
-analysis_utils.load_cpp_library()
+analysis_utilities.load_cpp_library()
 import ROOT
 
 ROOT.gROOT.SetBatch(True)

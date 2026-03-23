@@ -54,7 +54,7 @@ void ProcessDrift(TString filename) {
 
   TCanvas *canvasEvent = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureAndDrawGraph(eventPlot, kBlue, "; Sample; Time [s]");
-  PlottingUtils::SaveFigure(canvasEvent, filename + "_Event",
+  PlottingUtils::SaveFigure(canvasEvent, filename + "_Event", "",
                             PlotSaveOptions::kLINEAR);
 
   file->Close();
@@ -122,7 +122,7 @@ void ProcessPeakDrift(TString filename) {
   TCanvas *canvas = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureAndDrawGraph(samplePlot, kRed,
                                        "; Sample; Pb K#alpha_{1} Energy [keV]");
-  PlottingUtils::SaveFigure(canvas, filename + "_PbKa1Drift",
+  PlottingUtils::SaveFigure(canvas, filename + "_PbKa1Drift", "",
                             PlotSaveOptions::kLINEAR);
 
   file->Close();

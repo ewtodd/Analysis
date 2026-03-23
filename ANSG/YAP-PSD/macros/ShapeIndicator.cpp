@@ -141,7 +141,7 @@ void CalculateRawWeightingFunction(const TString alpha_output_name,
   PlottingUtils::ConfigureAndDrawGraph(wf, kAzure,
                                        ";Sample [2 ns];Amplitude [a.u.]");
   PlottingUtils::SaveFigure(canvas, "raw_weighting_function",
-                            PlotSaveOptions::kLINEAR);
+                            "", PlotSaveOptions::kLINEAR);
 
   alpha_file->cd();
   wf->Write("raw_weighting_function", TObject::kOverwrite);
@@ -217,7 +217,7 @@ void CalculateCleanWeightingFunction(const TString alpha_output_name,
   leg->AddEntry(wf, "Weighting function p(t)", "l");
 
   PlottingUtils::SaveFigure(canvas, "clean_weighting_function",
-                            PlotSaveOptions::kLINEAR);
+                            "", PlotSaveOptions::kLINEAR);
 
   alpha_file->cd();
   wf->Write("clean_weighting_function", TObject::kOverwrite);
@@ -361,7 +361,7 @@ void PlotShapeIndicator(const std::vector<TString> output_names) {
         clean_shape_indicator_vs_LO, clean_canvas,
         ";Light Output [keVee]; PSP_{SI}");
     PlottingUtils::SaveFigure(clean_canvas, "clean_si_vs_lo_" + output_name,
-                              PlotSaveOptions::kLINEAR);
+                              "", PlotSaveOptions::kLINEAR);
 
     clean_shape_indicator_vs_LO->Write("clean_shape_indicator_vs_LO",
                                        TObject::kOverwrite);
@@ -524,7 +524,7 @@ void PlotBestSIFOM(const SpectralCuts &cuts = CUTS) {
   leg->Draw();
 
   PlottingUtils::SaveFigure(canvas, "best_si_fom_" + gamma_label,
-                            PlotSaveOptions::kLOG);
+                            "", PlotSaveOptions::kLOG);
 
   delete fit_alpha;
   delete fit_gamma;

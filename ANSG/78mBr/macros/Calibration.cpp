@@ -153,8 +153,7 @@ TF1 *CreateAndSaveCalibration(const CalibrationData &cal_data) {
       size, cal_data.mu.data(), cal_data.calibration_values_keV.data(),
       cal_data.mu_errors.data(), nullptr);
 
-  TCanvas *canvas = new TCanvas("", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas);
+  TCanvas *canvas = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureGraph(calibration_curve, kBlue,
                                 "; Pulse Height [ADC]; Deposited Energy [keV]");
 
@@ -174,7 +173,7 @@ TF1 *CreateAndSaveCalibration(const CalibrationData &cal_data) {
 
   TFitResultPtr fit_result = calibration_curve->Fit(calibration_fit, "LRE");
   calibration_fit->Draw("SAME");
-  PlottingUtils::SaveFigure(canvas, "calibration.png", kFALSE);
+  PlottingUtils::SaveFigure(canvas, "calibration", "", PlotSaveOptions::kLINEAR);
 
   delete canvas;
   return calibration_fit;
@@ -204,8 +203,7 @@ void PulseHeightToLightOutput(const std::vector<TString> &input_names,
                  Constants::LO_HIST_NBINS, Constants::LO_HIST_XMIN,
                  Constants::LO_HIST_XMAX);
 
-    TCanvas *canvas = new TCanvas("", "", 1200, 800);
-    PlottingUtils::ConfigureCanvas(canvas);
+    TCanvas *canvas = PlottingUtils::GetConfiguredCanvas();
 
     TString output_filepath = "root_files/" + input_name + ".root";
     TFile *output = new TFile(output_filepath, "UPDATE");
@@ -245,7 +243,7 @@ void PulseHeightToLightOutput(const std::vector<TString> &input_names,
     }
 
     PlottingUtils::ConfigureAndDrawHistogram(light_output_hist, color);
-    PlottingUtils::SaveFigure(canvas, input_name + "_light_output.png");
+    PlottingUtils::SaveFigure(canvas, input_name + "_light_output");
 
     features_tree->Write("", TObject::kOverwrite);
     light_output_hist->Write("Light Output", TObject::kOverwrite);

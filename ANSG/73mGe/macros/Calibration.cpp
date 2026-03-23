@@ -260,7 +260,7 @@ TF1 *CreateAndSaveCalibration(std::vector<Float_t> mu,
 
   calibration_fit->Draw("SAME");
 
-  PlottingUtils::SaveFigure(canvas, "calibration_" + date_label,
+  PlottingUtils::SaveFigure(canvas, "calibration_" + date_label, "",
                             PlotSaveOptions::kLINEAR);
   return calibration_fit;
 }

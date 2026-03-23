@@ -39,7 +39,7 @@ void InitialPlots(
     Int_t color = colors.at(i);
     PlottingUtils::ConfigureAndDrawHistogram(long_integral_hist, color);
     PlottingUtils::SaveFigure(canvas, output_name + "_long_integral",
-                              PlotSaveOptions::kLOG);
+                              "", PlotSaveOptions::kLOG);
 
     output->cd();
     long_integral_hist->Write("long_integral", TObject::kOverwrite);

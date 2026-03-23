@@ -6,9 +6,9 @@ import pandas as pd
 import pickle
 from sklearn.metrics import roc_curve, auc
 from joblib import Parallel, delayed, parallel_backend
-import analysis_utils
+import analysis_utilities
 
-analysis_utils.load_cpp_library()
+analysis_utilities.load_cpp_library()
 ROOT.gROOT.SetBatch(True)
 ROOT.PlottingUtils.SetStylePreferences(ROOT.PlotSaveFormat.kPNG)
 
@@ -172,13 +172,13 @@ def _save_timing_table(timing_records, n_cores, cache_dir=None):
 
 
 def _run_plots(test_alpha_features,
-              test_gamma_features,
-              test_alpha_wf,
-              test_gamma_wf,
-              regressor_names,
-              lo_lower_dict,
-              lo_upper_dict,
-              plot_prefix=""):
+               test_gamma_features,
+               test_alpha_wf,
+               test_gamma_wf,
+               regressor_names,
+               lo_lower_dict,
+               lo_upper_dict,
+               plot_prefix=""):
     """Run all plotting and analysis on cached/computed test data."""
     alpha_lo_mask = (
         test_alpha_features["light_output"] <= lo_upper_dict["alpha"]) & (
@@ -228,15 +228,15 @@ def _run_plots(test_alpha_features,
             )
 
     _analyze_all_methods(test_alpha_features_filtered,
-                        test_gamma_features_filtered,
-                        regressor_names,
-                        plot_prefix=plot_prefix)
+                         test_gamma_features_filtered,
+                         regressor_names,
+                         plot_prefix=plot_prefix)
 
     if (plot_prefix == "" or plot_prefix == "full"):
         _plot_auc_vs_light_output(test_alpha_features,
-                                 test_gamma_features,
-                                 regressor_names,
-                                 plot_prefix=plot_prefix)
+                                  test_gamma_features,
+                                  regressor_names,
+                                  plot_prefix=plot_prefix)
 
     return (
         (test_alpha_wf, test_gamma_wf),
@@ -291,13 +291,13 @@ def regress_waveforms(waveforms,
               f"{', '.join(regressor_names)}")
         # Skip to plotting
         return _run_plots(test_alpha_features,
-                         test_gamma_features,
-                         test_alpha_wf,
-                         test_gamma_wf,
-                         regressor_names,
-                         lo_lower_dict,
-                         lo_upper_dict,
-                         plot_prefix=plot_prefix)
+                          test_gamma_features,
+                          test_alpha_wf,
+                          test_gamma_wf,
+                          regressor_names,
+                          lo_lower_dict,
+                          lo_upper_dict,
+                          plot_prefix=plot_prefix)
 
     os.makedirs(cache_dir, exist_ok=True)
 
@@ -320,9 +320,9 @@ def regress_waveforms(waveforms,
             for group in [train_alpha_wf, train_gamma_wf])
 
     _plot_sample_waveforms(train_results,
-                          n_samples=5,
-                          random_state=random_state,
-                          plot_prefix=plot_prefix)
+                           n_samples=5,
+                           random_state=random_state,
+                           plot_prefix=plot_prefix)
 
     x_train = np.vstack(train_results)
     y_train = np.array([0] * len(train_results[0]) +
@@ -421,19 +421,19 @@ def regress_waveforms(waveforms,
     print(f"Analysis cache saved to {cache_dir}/")
 
     return _run_plots(test_alpha_features,
-                     test_gamma_features,
-                     test_alpha_wf,
-                     test_gamma_wf,
-                     regressor_names,
-                     lo_lower_dict,
-                     lo_upper_dict,
-                     plot_prefix=plot_prefix)
+                      test_gamma_features,
+                      test_alpha_wf,
+                      test_gamma_wf,
+                      regressor_names,
+                      lo_lower_dict,
+                      lo_upper_dict,
+                      plot_prefix=plot_prefix)
 
 
 def _analyze_all_methods(test_alpha_features,
-                        test_gamma_features,
-                        regressor_names,
-                        plot_prefix=""):
+                         test_gamma_features,
+                         regressor_names,
+                         plot_prefix=""):
     """ROC analysis comparing ML regressors, Charge Comparison, and Shape Indicator PSD."""
 
     test_features = pd.concat([test_alpha_features,
@@ -449,13 +449,13 @@ def _analyze_all_methods(test_alpha_features,
     all_method_names += ["Charge Comparison", "Shape Indicator"]
 
     _plot_roc_curves(test_features, y_true, all_methods, all_method_names,
-                    f"{plot_prefix}roc_curves")
+                     f"{plot_prefix}roc_curves")
 
 
 def _plot_auc_vs_light_output(test_alpha_features,
-                             test_gamma_features,
-                             regressor_names,
-                             plot_prefix=""):
+                              test_gamma_features,
+                              regressor_names,
+                              plot_prefix=""):
     """Plot ROC AUC as a function of light output for all classifiers."""
     # Compute bin edges that equalize the minority-class count per bin
     alpha_lo = test_alpha_features["light_output"].values
@@ -582,7 +582,7 @@ def _plot_auc_vs_light_output(test_alpha_features,
 
     leg.Draw()
     ROOT.PlottingUtils.SaveFigure(canvas, f"{plot_prefix}auc_vs_light_output",
-                                  ROOT.PlotSaveOptions.kLINEAR)
+                                  "", ROOT.PlotSaveOptions.kLINEAR)
     canvas.Close()
 
     print(
@@ -590,10 +590,10 @@ def _plot_auc_vs_light_output(test_alpha_features,
 
 
 def _plot_score_histogram(alpha_scores,
-                         gamma_scores,
-                         title,
-                         output_path,
-                         regressor_name="Regressor"):
+                          gamma_scores,
+                          title,
+                          output_path,
+                          regressor_name="Regressor"):
     """Plot score histogram using ROOT"""
     canvas = ROOT.PlottingUtils.GetConfiguredCanvas(ROOT.kTRUE)
 
@@ -631,6 +631,7 @@ def _plot_score_histogram(alpha_scores,
     ROOT.PlottingUtils.SaveFigure(
         canvas,
         output_path,
+        "",
         ROOT.PlotSaveOptions.kLOG,
     )
     canvas.Close()
@@ -638,7 +639,8 @@ def _plot_score_histogram(alpha_scores,
     h_gamma.Delete()
 
 
-def _plot_roc_curves(test_features, y_true, methods, method_names, output_name):
+def _plot_roc_curves(test_features, y_true, methods, method_names,
+                     output_name):
     """Plot ROC curves for all methods using ROOT"""
     colors = list(ROOT.PlottingUtils.GetDefaultColors())
 
@@ -707,14 +709,15 @@ def _plot_roc_curves(test_features, y_true, methods, method_names, output_name):
     ROOT.PlottingUtils.SaveFigure(
         canvas,
         output_name,
+        "",
         ROOT.PlotSaveOptions.kLINEAR,
     )
 
 
 def _plot_sample_waveforms(waveforms_tuple,
-                          n_samples=5,
-                          random_state=42,
-                          plot_prefix=""):
+                           n_samples=5,
+                           random_state=42,
+                           plot_prefix=""):
     """Plot sample waveforms for alpha and gamma classes after normalization.
 
     Parameters
@@ -776,7 +779,7 @@ def _plot_sample_waveforms(waveforms_tuple,
 
     ROOT.PlottingUtils.SaveFigure(canvas_alpha,
                                   f"{plot_prefix}sample_waveforms_alpha",
-                                  ROOT.PlotSaveOptions.kLINEAR)
+                                  "", ROOT.PlotSaveOptions.kLINEAR)
     canvas_alpha.Close()
 
     canvas_gamma = ROOT.PlottingUtils.GetConfiguredCanvas()
@@ -808,7 +811,7 @@ def _plot_sample_waveforms(waveforms_tuple,
 
     ROOT.PlottingUtils.SaveFigure(canvas_gamma,
                                   f"{plot_prefix}sample_waveforms_gamma",
-                                  ROOT.PlotSaveOptions.kLINEAR)
+                                  "", ROOT.PlotSaveOptions.kLINEAR)
     canvas_gamma.Close()
 
     print(f"Sample waveform plots saved: {plot_prefix}sample_waveforms_alpha, "

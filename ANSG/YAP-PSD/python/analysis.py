@@ -1,6 +1,6 @@
 import time
 import numpy as np
-from analysis_utils.io import load_tree_data
+from analysis_utilities.io import load_tree_data
 from psd_utils import regress_waveforms, ANALYSIS_CACHE_DIR
 from regressors import get_default_regressors
 import os

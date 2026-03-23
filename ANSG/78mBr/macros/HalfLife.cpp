@@ -64,8 +64,7 @@ void PlotPSPvsLO(std::vector<TString> input_names) {
                  Constants::LO_HIST_NBINS, Constants::LO_HIST_XMIN,
                  Constants::LO_HIST_XMAX, psp_nbins, psp_min, psp_max);
 
-    TCanvas *canvas = new TCanvas("", "", 1200, 800);
-    PlottingUtils::ConfigureCanvas(canvas);
+    TCanvas *canvas = PlottingUtils::GetConfiguredCanvas();
 
     TString output_filepath = "root_files/" + input_name + ".root";
     TFile *output = new TFile(output_filepath, "UPDATE");
@@ -81,8 +80,8 @@ void PlotPSPvsLO(std::vector<TString> input_names) {
     }
 
     PlottingUtils::ConfigureAndDraw2DHistogram(PSPvsLO, canvas);
-    PlottingUtils::SaveFigure(canvas, input_name + "_psp_vs_light_output.png",
-                              kFALSE);
+    PlottingUtils::SaveFigure(canvas, input_name + "_psp_vs_light_output", "",
+                              PlotSaveOptions::kLINEAR);
 
     PSPvsLO->Write("PSP vs. Light Output", TObject::kOverwrite);
     output->Close();
@@ -202,14 +201,13 @@ void CreateTemplateWaveforms(Bool_t reprocess = kFALSE) {
   TGraph *template_graph_148keV = new TGraph(nsamples_148keV, x_values.data(),
                                              template_waveform_148keV.data());
   template_graph_148keV->SetName("template_148keV");
-  TCanvas *canvas = new TCanvas("", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas);
+  TCanvas *canvas = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureGraph(
       template_graph_148keV, kRed,
       "122 keV 152Eu Template Waveform;Time [ns];ADC");
   template_graph_148keV->SetLineWidth(2);
   template_graph_148keV->Draw();
-  PlottingUtils::SaveFigure(canvas, "template_148keV.png", kFALSE);
+  PlottingUtils::SaveFigure(canvas, "template_148keV", "", PlotSaveOptions::kLINEAR);
   template_graph_148keV->Write("", TObject::kOverwrite);
 
   TString template_32keV_filepath = "root_files/calibration_Eu152.root";
@@ -258,14 +256,14 @@ void CreateTemplateWaveforms(Bool_t reprocess = kFALSE) {
   TGraph *template_graph_32keV = new TGraph(nsamples_32keV, x_values.data(),
                                             template_waveform_32keV.data());
   template_graph_32keV->SetName("template_32keV");
-  canvas->Clear();
-  PlottingUtils::ConfigureCanvas(canvas);
+  delete canvas;
+  canvas = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureGraph(
       template_graph_32keV, kBlue,
       "33.4 keV La K-alpha Template Waveform;Time [ns];ADC");
   template_graph_32keV->SetLineWidth(2);
   template_graph_32keV->Draw();
-  PlottingUtils::SaveFigure(canvas, "template_32keV.png", kFALSE);
+  PlottingUtils::SaveFigure(canvas, "template_32keV", "", PlotSaveOptions::kLINEAR);
   output->cd();
   template_graph_32keV->Write("", TObject::kOverwrite);
 
@@ -610,7 +608,7 @@ void FitDoubleWaveforms(Bool_t reprocess = kFALSE) {
       TGraph *residual_graph =
           new TGraph(nsamples, x_values.data(), residuals.data());
 
-      TCanvas *canvas = new TCanvas("", "", 1200, 800);
+      TCanvas *canvas = PlottingUtils::GetConfiguredCanvas();
       canvas->Divide(1, 2);
 
       canvas->cd(1);
@@ -672,8 +670,8 @@ void FitDoubleWaveforms(Bool_t reprocess = kFALSE) {
       zero_line->Draw();
 
       PlottingUtils::SaveFigure(
-          canvas, Form("double_waveform_fits/double_waveform_fit_%d.png", i),
-          kFALSE);
+          canvas, Form("double_waveform_fit_%d", i),
+          "double_waveform_fits", PlotSaveOptions::kLINEAR);
 
       delete canvas;
       delete original;
@@ -737,21 +735,18 @@ void PlotDoublePeaks(Bool_t reprocess = kFALSE) {
     peak2_hist->Fill(peak2_light_output);
   }
 
-  TCanvas *canvas2d = new TCanvas("", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas2d);
+  TCanvas *canvas2d = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureAndDraw2DHistogram(LO1vsLO2, canvas2d);
-  PlottingUtils::SaveFigure(canvas2d, "peak1_vs_peak2_light_output.png",
-                            kFALSE);
+  PlottingUtils::SaveFigure(canvas2d, "peak1_vs_peak2_light_output", "",
+                            PlotSaveOptions::kLINEAR);
 
-  TCanvas *canvas1 = new TCanvas("", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas1);
+  TCanvas *canvas1 = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureAndDrawHistogram(peak1_hist, kBlue + 1);
-  PlottingUtils::SaveFigure(canvas1, "peak1_light_output.png");
+  PlottingUtils::SaveFigure(canvas1, "peak1_light_output");
 
-  TCanvas *canvas2 = new TCanvas("", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas2);
+  TCanvas *canvas2 = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureAndDrawHistogram(peak2_hist, kRed + 1);
-  PlottingUtils::SaveFigure(canvas2, "peak2_light_output.png");
+  PlottingUtils::SaveFigure(canvas2, "peak2_light_output");
 
   output->cd();
   LO1vsLO2->Write("Peak1 vs Peak2 Light Output", TObject::kOverwrite);
@@ -842,14 +837,12 @@ void FitAndExtractHalfLife(Bool_t reprocess = kFALSE) {
   std::cout << "Half-life: " << half_life << " +/- " << half_life_error << " ns"
             << std::endl;
 
-  TCanvas *canvas_2d = new TCanvas("", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas_2d);
+  TCanvas *canvas_2d = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureAndDraw2DHistogram(LO1vsLO2, canvas_2d);
   gaussian2d->Draw("CONT3 SAME");
-  PlottingUtils::SaveFigure(canvas_2d, "fitted_2d_gaussian.png", kFALSE);
+  PlottingUtils::SaveFigure(canvas_2d, "fitted_2d_gaussian", "", PlotSaveOptions::kLINEAR);
 
-  TCanvas *canvas_time = new TCanvas("", "", 1200, 800);
-  PlottingUtils::ConfigureCanvas(canvas_time);
+  TCanvas *canvas_time = PlottingUtils::GetConfiguredCanvas();
   PlottingUtils::ConfigureHistogram(time_diff_hist, kBlue + 1);
   time_diff_hist->SetMarkerSize(2);
   time_diff_hist->Draw("E SAME");
@@ -882,7 +875,7 @@ void FitAndExtractHalfLife(Bool_t reprocess = kFALSE) {
   leg->SetMargin(0.1);
   leg->Draw();
 
-  PlottingUtils::SaveFigure(canvas_time, "time_difference_fit.png");
+  PlottingUtils::SaveFigure(canvas_time, "time_difference_fit");
 
   TString output_filepath = "root_files/half_life_results.root";
   TFile *output = new TFile(output_filepath, "RECREATE");
