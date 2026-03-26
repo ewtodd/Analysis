@@ -24,216 +24,128 @@ struct CalibrationData {
   std::vector<Float_t> calibration_values_keV;
   std::vector<Float_t> reduced_chi2;
   std::vector<TString> run_names;
-  std::vector<TString> dataset_names;
-};
-
-struct DriftCorrectionResult {
-  Float_t correction_factor;
-  Float_t correction_factor_error;
-  std::vector<Float_t> individual_factors;
-  std::vector<Float_t> individual_errors;
-  std::vector<TString> peak_names;
 };
 
 void PrintCalibrationSummary(const CalibrationData &cal_data,
                              TString date_label);
 
-FitResult FitSinglePeak(const TString input_name, const TString peak_name,
-                        const Float_t expected_mu,
-                        const Bool_t use_calibrated = kFALSE) {
-
+TH1F *LoadHistogram(const TString input_name,
+                    const Bool_t use_calibrated = kFALSE) {
   TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
   if (!file || file->IsZombie()) {
     std::cerr << "ERROR: Cannot open " << input_name << ".root" << std::endl;
-    return {};
-  } else
-    std::cout << "FOUND " << input_name << ".root" << std::endl;
+    return nullptr;
+  }
+  std::cout << "FOUND " << input_name << ".root" << std::endl;
 
   TString histName = use_calibrated ? "calibrated_zoomedHist" : "zoomedHist";
-  TH1F *zoomedHist = static_cast<TH1F *>(file->Get(histName));
-
-  zoomedHist->SetDirectory(0);
+  TH1F *hist = static_cast<TH1F *>(file->Get(histName));
+  hist->SetDirectory(0);
   file->Close();
   delete file;
+  return hist;
+}
+
+FitResult FitCalibrationPeak(const TString input_name, const TString peak_name,
+                             const Bool_t use_calibrated,
+                             const Bool_t interactive) {
+  TH1F *hist = LoadHistogram(input_name, use_calibrated);
+  if (!hist)
+    return {};
+
+  Bool_t use_flat_background = kTRUE;
+  Bool_t use_step = kFALSE;
+  Bool_t use_low_exp_tail = kTRUE;
+  Bool_t use_low_lin_tail = kTRUE;
+  Bool_t use_high_exp_tail = kTRUE;
 
   FittingUtils *fitter = nullptr;
-  FitResult result;
 
   if (peak_name == "Am_59.5keV") {
-    fitter =
-        new FittingUtils(zoomedHist, 50, 65, kTRUE, kTRUE, kTRUE, kTRUE, kTRUE);
+    if (input_name == Constants::POSTREACTOR_AM241_20260113)
+      fitter = new FittingUtils(hist, 50, 70, use_flat_background, use_step,
+                                use_low_exp_tail, use_low_lin_tail,
+                                use_high_exp_tail);
+    else if (input_name == Constants::POSTREACTOR_AM241_BA133_20260116)
+      fitter = new FittingUtils(hist, 55, 70, use_flat_background, use_step,
+                                use_low_exp_tail, use_low_lin_tail,
+                                use_high_exp_tail);
+    else
+      fitter = new FittingUtils(hist, 51, 71, use_flat_background, use_step,
+                                use_low_exp_tail, use_low_lin_tail,
+                                use_high_exp_tail);
   }
   if (peak_name == "Ba_80.98keV") {
-    if (input_name == Constants::POSTREACTOR_BA133_20260115) {
-      fitter = new FittingUtils(zoomedHist, 72, 87, kTRUE, kTRUE, kTRUE, kTRUE,
-                                kTRUE);
-    } else {
-      fitter = new FittingUtils(zoomedHist, 70, 90, kTRUE, kTRUE, kTRUE, kTRUE,
-                                kTRUE);
-    }
+    fitter =
+        new FittingUtils(hist, 75, 90, use_flat_background, use_step,
+                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
   }
   if (peak_name == "Cd114m_95.9keV") {
-    if (input_name == Constants::NOSHIELDBACKGROUND_5PERCENT_20260115) {
-      fitter = new FittingUtils(zoomedHist, 91, 100, kTRUE, kTRUE, kTRUE, kTRUE,
-                                kTRUE);
-    } else {
-      fitter = new FittingUtils(zoomedHist, 91, 103, kFALSE, kTRUE, kTRUE,
-                                kTRUE, kTRUE);
-    }
+    if (input_name == Constants::NOSHIELDBACKGROUND_5PERCENT_20260115)
+      fitter = new FittingUtils(hist, 91, 100, use_flat_background, use_step,
+                                use_low_exp_tail, use_low_lin_tail,
+                                use_high_exp_tail);
+    else
+      fitter = new FittingUtils(hist, 91, 103, use_flat_background, use_step,
+                                use_low_exp_tail, use_low_lin_tail,
+                                use_high_exp_tail);
   }
-  result = fitter->FitSinglePeak(input_name, peak_name);
-  delete zoomedHist;
+
+  if (interactive)
+    fitter->SetInteractive();
+  FitResult result = fitter->FitSinglePeak(input_name, peak_name);
+  delete hist;
   delete fitter;
   return result;
 }
 
-FitResult FitDoublePeak(const TString input_name, const TString peak_name,
-                        const Float_t mu1_init, const Float_t mu2_init,
-                        const Bool_t use_calibrated = kFALSE) {
-
-  TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
-  if (!file || file->IsZombie()) {
-    std::cerr << "ERROR: Cannot open " << input_name << ".root" << std::endl;
+FitResult FitPbKAlpha(const TString input_name, const Bool_t use_calibrated,
+                      const Bool_t interactive) {
+  TH1F *hist = LoadHistogram(input_name, use_calibrated);
+  if (!hist)
     return {};
-  } else
-    std::cout << "FOUND " << input_name << ".root" << std::endl;
 
-  TString histName = use_calibrated ? "calibrated_zoomedHist" : "zoomedHist";
-  TH1F *zoomedHist = static_cast<TH1F *>(file->Get(histName));
-
-  zoomedHist->SetDirectory(0);
-  file->Close();
-  delete file;
+  Bool_t use_flat_background = kTRUE;
+  Bool_t use_step = kFALSE;
+  Bool_t use_low_exp_tail = kTRUE;
+  Bool_t use_low_lin_tail = kTRUE;
+  Bool_t use_high_exp_tail = kTRUE;
 
   FittingUtils *fitter = nullptr;
-  FitResult result;
 
-  if (peak_name == "Am_59.5_Ba_53.16keV") {
-    fitter = new FittingUtils(zoomedHist, 45, 70, kFALSE, kTRUE, kTRUE, kTRUE,
-                              kTRUE);
-  }
-  if (peak_name == "Pb_KAlpha") {
-    if (input_name == Constants::CDSHIELDBACKGROUND_25PERCENT_20260113) {
-      fitter = new FittingUtils(zoomedHist, 66, 81, kTRUE, kTRUE, kTRUE, kTRUE,
-                                kTRUE);
-    } else if (input_name == Constants::CUSHIELDBACKGROUND_10PERCENT_20260114) {
-      fitter = new FittingUtils(zoomedHist, 66, 82, kTRUE, kTRUE, kTRUE, kTRUE,
-                                kTRUE);
-
-    } else if (input_name == Constants::CUSHIELDBACKGROUND_10PERCENT_20260113) {
-      fitter = new FittingUtils(zoomedHist, 65, 82, kFALSE, kTRUE, kTRUE, kTRUE,
-                                kTRUE);
-    } else
-      fitter = new FittingUtils(zoomedHist, 65, 81, kFALSE, kTRUE, kTRUE, kTRUE,
-                                kTRUE);
-  }
-
-  result = fitter->FitDoublePeak(input_name, peak_name, mu1_init, mu2_init);
-  delete zoomedHist;
-  delete fitter;
-  return result;
-}
-
-FitResult FitTriplePeak(const TString input_name, const TString peak_name,
-                        const FitResult &constrained_peaks,
-                        const Float_t mu3_init,
-                        const Bool_t use_calibrated = kFALSE) {
-
-  TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
-  if (!file || file->IsZombie()) {
-    std::cerr << "ERROR: Cannot open " << input_name << ".root" << std::endl;
-    return {};
-  } else
-    std::cout << "FOUND " << input_name << ".root" << std::endl;
-
-  TString histName = use_calibrated ? "calibrated_zoomedHist" : "zoomedHist";
-  TH1F *zoomedHist = static_cast<TH1F *>(file->Get(histName));
-
-  zoomedHist->SetDirectory(0);
-  file->Close();
-  delete file;
-
-  FittingUtils *fitter = nullptr;
-  FitResult result;
-
-  if (peak_name == "Ge") {
-    if (input_name == Constants::CDSHIELDSIGNAL_25PERCENT_20260113) {
-      fitter = new FittingUtils(zoomedHist, 63, 81, kFALSE, kTRUE, kTRUE, kTRUE,
-                                kTRUE);
-    } else if (input_name == Constants::CUSHIELDSIGNAL_10PERCENT_20260114) {
-      fitter = new FittingUtils(zoomedHist, 60, 80, kFALSE, kTRUE, kTRUE, kTRUE,
-                                kTRUE);
-
-    } else
-      fitter = new FittingUtils(zoomedHist, 65, 81, kFALSE, kTRUE, kTRUE, kTRUE,
-                                kTRUE);
-  }
-
-  result =
-      fitter->FitTriplePeak(input_name, peak_name, constrained_peaks, mu3_init);
-  delete zoomedHist;
-  delete fitter;
-  return result;
-}
-
-// Calculate multiplicative drift correction factor by comparing measured peak
-// positions to reference positions. Returns weighted average of
-// (reference/measured) ratios.
-DriftCorrectionResult
-CalculateDriftCorrection(const std::vector<Float_t> &ref_positions,
-                         const std::vector<Float_t> &ref_errors,
-                         const std::vector<Float_t> &measured_positions,
-                         const std::vector<Float_t> &measured_errors,
-                         const std::vector<TString> &peak_names) {
-
-  DriftCorrectionResult result;
-  result.peak_names = peak_names;
-
-  Float_t weighted_sum = 0;
-  Float_t weight_sum = 0;
-
-  for (size_t i = 0; i < ref_positions.size(); ++i) {
-    if (measured_positions[i] > 0 && ref_positions[i] > 0) {
-      Float_t factor = ref_positions[i] / measured_positions[i];
-      // Error propagation for ratio
-      Float_t rel_err_ref = ref_errors[i] / ref_positions[i];
-      Float_t rel_err_meas = measured_errors[i] / measured_positions[i];
-      Float_t factor_error = factor * std::sqrt(rel_err_ref * rel_err_ref +
-                                                rel_err_meas * rel_err_meas);
-
-      result.individual_factors.push_back(factor);
-      result.individual_errors.push_back(factor_error);
-
-      Float_t weight = 1.0 / (factor_error * factor_error);
-      weighted_sum += factor * weight;
-      weight_sum += weight;
-
-      std::cout << "  " << peak_names[i] << ": factor = " << std::fixed
-                << std::setprecision(6) << factor << " +/- " << factor_error
-                << " (mu = " << measured_positions[i] << " +/- "
-                << measured_errors[i] << " keV)" << std::endl;
-    }
-  }
-
-  if (weight_sum > 0) {
-    result.correction_factor = weighted_sum / weight_sum;
-    result.correction_factor_error = std::sqrt(1.0 / weight_sum);
+  if (input_name == Constants::CDSHIELDBACKGROUND_25PERCENT_20260113)
+    fitter =
+        new FittingUtils(hist, 66, 81, use_flat_background, use_step,
+                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
+  else if (input_name == Constants::CUSHIELDBACKGROUND_10PERCENT_20260114)
+    fitter =
+        new FittingUtils(hist, 66, 82, use_flat_background, use_step,
+                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
+  else if (input_name == Constants::CUSHIELDBACKGROUND_10PERCENT_20260113) {
+    use_flat_background = kFALSE;
+    fitter =
+        new FittingUtils(hist, 65, 82, use_flat_background, use_step,
+                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
   } else {
-    result.correction_factor = 1.0;
-    result.correction_factor_error = 0.0;
+    use_flat_background = kFALSE;
+    fitter =
+        new FittingUtils(hist, 65, 81, use_flat_background, use_step,
+                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
   }
 
-  std::cout << "  Weighted average correction factor: " << std::fixed
-            << std::setprecision(6) << result.correction_factor << " +/- "
-            << result.correction_factor_error << std::endl;
-
+  if (interactive)
+    fitter->SetInteractive();
+  FitResult result =
+      fitter->FitDoublePeak(input_name, "Pb_KAlpha", E_PB_KA1, E_PB_KA2);
+  delete hist;
+  delete fitter;
   return result;
 }
 
-TF1 *CreateAndSaveCalibration(std::vector<Float_t> mu,
-                              std::vector<Float_t> calibration_values_keV,
-                              std::vector<Float_t> mu_errors,
-                              TString date_label) {
+TF1 *CreateAndSaveCalibration(
+    const std::vector<Float_t> &mu,
+    const std::vector<Float_t> &calibration_values_keV,
+    const std::vector<Float_t> &mu_errors, const TString date_label) {
 
   Int_t size = calibration_values_keV.size();
 
@@ -265,393 +177,23 @@ TF1 *CreateAndSaveCalibration(std::vector<Float_t> mu,
   return calibration_fit;
 }
 
-void PulseHeightToDepositedEnergy(std::vector<TString> input_names,
-                                  TF1 *calibration_function,
-                                  TString date_label) {
-  Int_t entries = input_names.size();
-
-  TString calibration_function_filepath =
-      "root_files/calibration_function_" + date_label + ".root";
-  TFile *calibration_file =
-      new TFile(calibration_function_filepath, "RECREATE");
-  calibration_function->Write("calibration", TObject::kOverwrite);
-
-  for (Int_t i = 0; i < entries; i++) {
-    TString input_name = input_names[i];
-
-    TH1F *hist = new TH1F(PlottingUtils::GetRandomName(),
-                          Form("; Deposited Energy [keV]; Counts / %d eV",
-                               Constants::BIN_WIDTH_EV),
-                          Constants::HIST_NBINS, Constants::HIST_XMIN,
-                          Constants::HIST_XMAX);
-
-    TH1F *zoomedHist = new TH1F(PlottingUtils::GetRandomName(),
-                                Form("; Deposited Energy [keV]; Counts / %d eV",
-                                     Constants::BIN_WIDTH_EV),
-                                Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
-                                Constants::ZOOMED_XMAX);
-
-    TH1F *peakHist = new TH1F(PlottingUtils::GetRandomName(),
-                              Form("; Deposited Energy [keV]; Counts / %d eV",
-                                   Constants::BIN_WIDTH_EV),
-                              Constants::PEAK_NBINS, Constants::PEAK_XMIN,
-                              Constants::PEAK_XMAX);
-
-    TString output_filepath = "root_files/" + input_name + ".root";
-
-    TFile *output = new TFile(output_filepath, "UPDATE");
-
-    output->cd();
-
-    Bool_t isFiltered = input_name.Contains("_filtered");
-
-    TTree *tree = nullptr;
-    TString treeName;
-    TString energyBranchName;
-
-    if (isFiltered) {
-      treeName = "bef_tree";
-      energyBranchName = "energykeV";
-      tree = static_cast<TTree *>(output->Get(treeName));
-    } else {
-      treeName = "bef_tree_event_summary";
-      energyBranchName = "totalEnergykeV";
-      tree = static_cast<TTree *>(output->Get(treeName));
-    }
-
-    if (!tree) {
-      std::cerr << "ERROR: Could not find tree '" << treeName << "' in file "
-                << output_filepath << std::endl;
-      output->Close();
-      delete hist;
-      delete zoomedHist;
-      delete peakHist;
-      continue;
-    }
-
-    Float_t energy, deposited_energy_keV;
-    tree->SetBranchAddress(energyBranchName, &energy);
-    tree->Branch("deposited_energy", &deposited_energy_keV,
-                 "deposited_energy/F");
-
-    Int_t num_entries = tree->GetEntries();
-
-    tree->LoadBaskets();
-    for (Int_t j = 0; j < num_entries; j++) {
-      tree->GetEntry(j);
-      deposited_energy_keV = calibration_function->Eval(energy);
-      tree->GetBranch("deposited_energy")->Fill();
-      hist->Fill(deposited_energy_keV);
-      zoomedHist->Fill(deposited_energy_keV);
-      peakHist->Fill(deposited_energy_keV);
-    }
-
-    PlottingUtils::ConfigureHistogram(hist, kViolet);
-
-    tree->Write("", TObject::kOverwrite);
-    hist->Write("calibrated_hist", TObject::kOverwrite);
-    zoomedHist->Write("calibrated_zoomedHist", TObject::kOverwrite);
-    peakHist->Write("calibrated_peakHist", TObject::kOverwrite);
-    output->Close();
-    delete hist;
-    delete zoomedHist;
-    delete peakHist;
-  }
-  calibration_file->Close();
-}
-
-struct ReferenceCalibration {
-  TF1 *calibration_function;
-  Float_t ref_pb_ka1;
-  Float_t ref_pb_ka1_error;
-  Float_t ref_pb_ka2;
-  Float_t ref_pb_ka2_error;
-  Float_t ref_cd114m;
-  Float_t ref_cd114m_error;
-};
-
-ReferenceCalibration GetReferenceCalibration_20260113() {
-  std::cout << "Building Reference Calibration for Jan 13" << std::endl;
-
-  CalibrationData cal_data;
-
+void AddZeroPoint(CalibrationData &cal_data) {
   cal_data.run_names.push_back("Zero Point");
   cal_data.mu.push_back(0);
   cal_data.mu_errors.push_back(0);
   cal_data.calibration_values_keV.push_back(0);
   cal_data.reduced_chi2.push_back(0);
-
-  FitResult am241_result = FitSinglePeak(Constants::POSTREACTOR_AM241_20260113,
-                                         "Am_59.5keV", E_AM241);
-  cal_data.run_names.push_back("Post-reactor Am-241");
-  cal_data.mu.push_back(am241_result.peaks.at(0).mu);
-  cal_data.mu_errors.push_back(am241_result.peaks.at(0).mu_error);
-  cal_data.calibration_values_keV.push_back(E_AM241);
-  cal_data.reduced_chi2.push_back(am241_result.reduced_chi2);
-
-  FitResult cu_bkg_pb =
-      FitDoublePeak(Constants::CUSHIELDBACKGROUND_10PERCENT_20260113,
-                    "Pb_KAlpha", E_PB_KA1, E_PB_KA2);
-  cal_data.run_names.push_back("Cu Shield Bkg Pb-Ka1 (reference)");
-  cal_data.mu.push_back(cu_bkg_pb.peaks.at(0).mu);
-  cal_data.mu_errors.push_back(cu_bkg_pb.peaks.at(0).mu_error);
-  cal_data.calibration_values_keV.push_back(E_PB_KA1);
-  cal_data.reduced_chi2.push_back(cu_bkg_pb.reduced_chi2);
-
-  cal_data.run_names.push_back("Cu Shield Bkg Pb-Ka2 (reference)");
-  cal_data.mu.push_back(cu_bkg_pb.peaks.at(1).mu);
-  cal_data.mu_errors.push_back(cu_bkg_pb.peaks.at(1).mu_error);
-  cal_data.calibration_values_keV.push_back(E_PB_KA2);
-  cal_data.reduced_chi2.push_back(-1);
-
-  FitResult cu_bkg_cd =
-      FitSinglePeak(Constants::CUSHIELDBACKGROUND_10PERCENT_20260113,
-                    "Cd114m_95.9keV", E_CD114M);
-  cal_data.run_names.push_back("Cu Shield Bkg Cd-114m (reference)");
-  cal_data.mu.push_back(cu_bkg_cd.peaks.at(0).mu);
-  cal_data.mu_errors.push_back(cu_bkg_cd.peaks.at(0).mu_error);
-  cal_data.calibration_values_keV.push_back(E_CD114M);
-  cal_data.reduced_chi2.push_back(cu_bkg_cd.reduced_chi2);
-
-  PrintCalibrationSummary(cal_data, "20260113_reference");
-
-  TF1 *cal_func =
-      CreateAndSaveCalibration(cal_data.mu, cal_data.calibration_values_keV,
-                               cal_data.mu_errors, "20260113_reference");
-
-  ReferenceCalibration ref;
-  ref.calibration_function = cal_func;
-  ref.ref_pb_ka1 = cu_bkg_pb.peaks.at(0).mu;
-  ref.ref_pb_ka1_error = cu_bkg_pb.peaks.at(0).mu_error;
-  ref.ref_pb_ka2 = cu_bkg_pb.peaks.at(1).mu;
-  ref.ref_pb_ka2_error = cu_bkg_pb.peaks.at(1).mu_error;
-  ref.ref_cd114m = cu_bkg_cd.peaks.at(0).mu;
-  ref.ref_cd114m_error = cu_bkg_cd.peaks.at(0).mu_error;
-
-  return ref;
 }
 
-void ApplyCalibration_CuShield_20260113(TF1 *calibration_function) {
-  std::cout << "Applying calibration to CuShield runs + PostReactor "
-               "(Jan 13)"
-            << std::endl;
-
-  std::vector<TString> datasets = {
-      Constants::CUSHIELDBACKGROUND_10PERCENT_20260113,
-      Constants::CUSHIELDSIGNAL_10PERCENT_20260113,
-      Constants::POSTREACTOR_AM241_20260113};
-
-  PulseHeightToDepositedEnergy(datasets, calibration_function,
-                               "20260113_cushield");
-}
-
-void ApplyCalibration_CdShield_20260113(const ReferenceCalibration &ref) {
-  std::cout << "Applying drift-corrected calibration to CdShield runs "
-               "(Jan 13)"
-            << std::endl;
-
-  std::vector<std::pair<TString, TString>> cd_configs = {
-      {Constants::CDSHIELDBACKGROUND_10PERCENT_20260113, "CdShield_10%"},
-      {Constants::CDSHIELDBACKGROUND_25PERCENT_20260113, "CdShield_25%"}};
-
-  Int_t n_entries = cd_configs.size();
-  for (Int_t i = 0; i < n_entries; i++) {
-    std::pair<TString, TString> config = cd_configs.at(i);
-    TString bkg_name = config.first;
-    TString label = config.second;
-
-    std::cout << "Processing " << label << ":" << std::endl;
-
-    FitResult pb_fit = FitDoublePeak(bkg_name, "Pb_KAlpha", E_PB_KA1, E_PB_KA2);
-    FitResult cd_fit = FitSinglePeak(bkg_name, "Cd114m_95.9keV", E_CD114M);
-
-    std::vector<Float_t> ref_pos = {ref.ref_pb_ka1, ref.ref_pb_ka2,
-                                    ref.ref_cd114m};
-    std::vector<Float_t> ref_err = {ref.ref_pb_ka1_error, ref.ref_pb_ka2_error,
-                                    ref.ref_cd114m_error};
-    std::vector<Float_t> meas_pos = {
-        pb_fit.peaks.at(0).mu, pb_fit.peaks.at(1).mu, cd_fit.peaks.at(0).mu};
-    std::vector<Float_t> meas_err = {pb_fit.peaks.at(0).mu_error,
-                                     pb_fit.peaks.at(1).mu_error,
-                                     cd_fit.peaks.at(0).mu_error};
-    std::vector<TString> names = {"Pb-Ka1", "Pb-Ka2", "Cd-114m"};
-
-    DriftCorrectionResult drift =
-        CalculateDriftCorrection(ref_pos, ref_err, meas_pos, meas_err, names);
-
-    Float_t original_slope = ref.calibration_function->GetParameter(1);
-    Float_t corrected_slope = original_slope * drift.correction_factor;
-
-    TString func_name = "linear_20260113_" + label;
-    TF1 *corrected_cal = new TF1(func_name, "pol1", -10, 100);
-    corrected_cal->FixParameter(0, 0);
-    corrected_cal->SetParameter(1, corrected_slope);
-
-    std::cout << "  Original slope: " << std::fixed << std::setprecision(6)
-              << original_slope << ", Corrected slope: " << corrected_slope
-              << std::endl;
-
-    TString signal_name;
-    if (bkg_name.Contains("10Percent")) {
-      signal_name = Constants::CDSHIELDSIGNAL_10PERCENT_20260113;
-    } else {
-      signal_name = Constants::CDSHIELDSIGNAL_25PERCENT_20260113;
-    }
-
-    std::vector<TString> datasets = {bkg_name, signal_name};
-    TString date_label = "20260113_" + label;
-    date_label.ReplaceAll("%", "pct");
-    PulseHeightToDepositedEnergy(datasets, corrected_cal, date_label);
-  }
-}
-
-void ApplyCalibration_20260114(const ReferenceCalibration &ref_jan13) {
-  std::cout << "Applying drift-corrected calibration to Jan 14 runs"
-            << std::endl;
-
-  FitResult pb_fit =
-      FitDoublePeak(Constants::CUSHIELDBACKGROUND_10PERCENT_20260114,
-                    "Pb_KAlpha", E_PB_KA1, E_PB_KA2);
-  FitResult cd_fit =
-      FitSinglePeak(Constants::CUSHIELDBACKGROUND_10PERCENT_20260114,
-                    "Cd114m_95.9keV", E_CD114M);
-
-  std::vector<Float_t> ref_pos = {ref_jan13.ref_pb_ka1, ref_jan13.ref_pb_ka2,
-                                  ref_jan13.ref_cd114m};
-  std::vector<Float_t> ref_err = {ref_jan13.ref_pb_ka1_error,
-                                  ref_jan13.ref_pb_ka2_error,
-                                  ref_jan13.ref_cd114m_error};
-  std::vector<Float_t> meas_pos = {pb_fit.peaks.at(0).mu, pb_fit.peaks.at(1).mu,
-                                   cd_fit.peaks.at(0).mu};
-  std::vector<Float_t> meas_err = {pb_fit.peaks.at(0).mu_error,
-                                   pb_fit.peaks.at(1).mu_error,
-                                   cd_fit.peaks.at(0).mu_error};
-  std::vector<TString> names = {"Pb-Ka1", "Pb-Ka2", "Cd-114m"};
-
-  DriftCorrectionResult drift =
-      CalculateDriftCorrection(ref_pos, ref_err, meas_pos, meas_err, names);
-
-  Float_t original_slope = ref_jan13.calibration_function->GetParameter(1);
-  Float_t corrected_slope = original_slope * drift.correction_factor;
-
-  TF1 *corrected_cal = new TF1("linear_20260114", "pol1", -10, 100);
-  corrected_cal->FixParameter(0, 0);
-  corrected_cal->SetParameter(1, corrected_slope);
-
-  std::cout << "  Original slope (Jan 13): " << std::fixed
-            << std::setprecision(6) << original_slope
-            << ", Corrected slope (Jan 14): " << corrected_slope << std::endl;
-
-  std::vector<TString> datasets = {
-      Constants::CUSHIELDBACKGROUND_10PERCENT_20260114,
-      Constants::CUSHIELDSIGNAL_10PERCENT_20260114,
-      Constants::CUSHIELDSIGNAL_90PERCENT_20260114};
-
-  PulseHeightToDepositedEnergy(datasets, corrected_cal, "20260114");
-}
-
-ReferenceCalibration GetReferenceCalibration_20260115() {
-  std::cout << "Building Reference Calibration for Jan 15" << std::endl;
-
-  CalibrationData cal_data;
-
-  cal_data.run_names.push_back("Zero Point");
-  cal_data.mu.push_back(0);
-  cal_data.mu_errors.push_back(0);
-  cal_data.calibration_values_keV.push_back(0);
-  cal_data.reduced_chi2.push_back(0);
-
-  FitResult am241_result = FitSinglePeak(Constants::POSTREACTOR_AM241_20260115,
-                                         "Am_59.5keV", E_AM241);
-  cal_data.run_names.push_back("Post-reactor Am-241");
-  cal_data.mu.push_back(am241_result.peaks.at(0).mu);
-  cal_data.mu_errors.push_back(am241_result.peaks.at(0).mu_error);
-  cal_data.calibration_values_keV.push_back(E_AM241);
-  cal_data.reduced_chi2.push_back(am241_result.reduced_chi2);
-
-  FitResult ba133_result = FitSinglePeak(Constants::POSTREACTOR_BA133_20260115,
-                                         "Ba_80.98keV", E_BA133_81);
-  cal_data.run_names.push_back("Post-reactor Ba-133 80.98keV");
-  cal_data.mu.push_back(ba133_result.peaks.at(0).mu);
-  cal_data.mu_errors.push_back(ba133_result.peaks.at(0).mu_error);
-  cal_data.calibration_values_keV.push_back(E_BA133_81);
-  cal_data.reduced_chi2.push_back(ba133_result.reduced_chi2);
-
-  FitResult cd_fit =
-      FitSinglePeak(Constants::NOSHIELDBACKGROUND_5PERCENT_20260115,
-                    "Cd114m_95.9keV", E_CD114M);
-  cal_data.run_names.push_back("No Shield Bkg Cd-114m (reference)");
-  cal_data.mu.push_back(cd_fit.peaks.at(0).mu);
-  cal_data.mu_errors.push_back(cd_fit.peaks.at(0).mu_error);
-  cal_data.calibration_values_keV.push_back(E_CD114M);
-  cal_data.reduced_chi2.push_back(cd_fit.reduced_chi2);
-
-  PrintCalibrationSummary(cal_data, "20260115_reference");
-
-  TF1 *cal_func =
-      CreateAndSaveCalibration(cal_data.mu, cal_data.calibration_values_keV,
-                               cal_data.mu_errors, "20260115_reference");
-
-  ReferenceCalibration ref;
-  ref.calibration_function = cal_func;
-  ref.ref_pb_ka1 = 0; // No Pb on Jan 15
-  ref.ref_pb_ka1_error = 0;
-  ref.ref_pb_ka2 = 0;
-  ref.ref_pb_ka2_error = 0;
-  ref.ref_cd114m = cd_fit.peaks.at(0).mu;
-  ref.ref_cd114m_error = cd_fit.peaks.at(0).mu_error;
-
-  return ref;
-}
-
-void ApplyCalibration_20260115(TF1 *calibration_function) {
-  std::cout << "Applying calibration to Jan 15 runs" << std::endl;
-
-  std::vector<TString> datasets = {
-      Constants::NOSHIELDBACKGROUND_5PERCENT_20260115,
-      Constants::NOSHIELDSIGNAL_5PERCENT_20260115,
-      Constants::POSTREACTOR_AM241_20260115,
-      Constants::POSTREACTOR_BA133_20260115, Constants::SHUTTERCLOSED_20260115};
-
-  PulseHeightToDepositedEnergy(datasets, calibration_function, "20260115");
-}
-
-void ApplyCalibration_20260116(const ReferenceCalibration &ref_jan15) {
-  std::cout << "Applying drift-corrected calibration to Jan 16 runs"
-            << std::endl;
-
-  FitResult cd_fit = FitSinglePeak(
-      Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_20260116,
-      "Cd114m_95.9keV", E_CD114M);
-
-  std::vector<Float_t> ref_pos = {ref_jan15.ref_cd114m};
-  std::vector<Float_t> ref_err = {ref_jan15.ref_cd114m_error};
-  std::vector<Float_t> meas_pos = {cd_fit.peaks.at(0).mu};
-  std::vector<Float_t> meas_err = {cd_fit.peaks.at(0).mu_error};
-  std::vector<TString> names = {"Cd-114m"};
-
-  DriftCorrectionResult drift =
-      CalculateDriftCorrection(ref_pos, ref_err, meas_pos, meas_err, names);
-
-  Float_t original_slope = ref_jan15.calibration_function->GetParameter(1);
-  Float_t corrected_slope = original_slope * drift.correction_factor;
-
-  TF1 *corrected_cal = new TF1("linear_20260116", "pol1", -10, 100);
-  corrected_cal->FixParameter(0, 0);
-  corrected_cal->SetParameter(1, corrected_slope);
-
-  std::cout << "  Original slope (Jan 15): " << std::fixed
-            << std::setprecision(6) << original_slope
-            << ", Corrected slope (Jan 16): " << corrected_slope << std::endl;
-
-  std::vector<TString> datasets = {
-      Constants::NOSHIELD_GEONCZT_0_5PERCENT_20260116,
-      Constants::NOSHIELD_ACTIVEBACKGROUND_0_5PERCENT_20260116,
-      Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_20260116,
-      Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_20260116,
-      Constants::POSTREACTOR_AM241_BA133_20260116};
-
-  PulseHeightToDepositedEnergy(datasets, corrected_cal, "20260116");
+void AddCalibrationPoint(CalibrationData &cal_data, const TString run_name,
+                         const Float_t mu, const Float_t mu_error,
+                         const Float_t true_energy,
+                         const Float_t reduced_chi2) {
+  cal_data.run_names.push_back(run_name);
+  cal_data.mu.push_back(mu);
+  cal_data.mu_errors.push_back(mu_error);
+  cal_data.calibration_values_keV.push_back(true_energy);
+  cal_data.reduced_chi2.push_back(reduced_chi2);
 }
 
 void PrintCalibrationSummary(const CalibrationData &cal_data,
@@ -664,25 +206,309 @@ void PrintCalibrationSummary(const CalibrationData &cal_data,
     if (cal_data.reduced_chi2[i] > 0) {
       std::cout << " (chi2/ndf = " << std::setprecision(3)
                 << cal_data.reduced_chi2[i] << ")";
-      std::cout << std::endl;
     }
+    std::cout << std::endl;
+  }
+}
+
+TF1 *BuildCalibration_20260113(const Bool_t use_calibrated,
+                               const Bool_t interactive) {
+  std::cout << "Building Calibration for Jan 13" << std::endl;
+
+  CalibrationData cal_data;
+  AddZeroPoint(cal_data);
+
+  FitResult am241_result =
+      FitCalibrationPeak(Constants::POSTREACTOR_AM241_20260113, "Am_59.5keV",
+                         use_calibrated, interactive);
+  AddCalibrationPoint(
+      cal_data, "Post-reactor Am-241", am241_result.peaks.at(0).mu,
+      am241_result.peaks.at(0).mu_error, E_AM241, am241_result.reduced_chi2);
+
+  FitResult cu_bkg_pb =
+      FitPbKAlpha(Constants::CUSHIELDBACKGROUND_10PERCENT_20260113,
+                  use_calibrated, interactive);
+  AddCalibrationPoint(cal_data, "Cu Shield Bkg Pb-Ka1",
+                      cu_bkg_pb.peaks.at(0).mu, cu_bkg_pb.peaks.at(0).mu_error,
+                      E_PB_KA1, cu_bkg_pb.reduced_chi2);
+  AddCalibrationPoint(cal_data, "Cu Shield Bkg Pb-Ka2",
+                      cu_bkg_pb.peaks.at(1).mu, cu_bkg_pb.peaks.at(1).mu_error,
+                      E_PB_KA2, -1);
+
+  FitResult cu_bkg_cd =
+      FitCalibrationPeak(Constants::CUSHIELDBACKGROUND_10PERCENT_20260113,
+                         "Cd114m_95.9keV", use_calibrated, interactive);
+  AddCalibrationPoint(cal_data, "Cu Shield Bkg Cd-114m",
+                      cu_bkg_cd.peaks.at(0).mu, cu_bkg_cd.peaks.at(0).mu_error,
+                      E_CD114M, cu_bkg_cd.reduced_chi2);
+
+  PrintCalibrationSummary(cal_data, "20260113");
+
+  TF1 *cal_func =
+      CreateAndSaveCalibration(cal_data.mu, cal_data.calibration_values_keV,
+                               cal_data.mu_errors, "20260113");
+  return cal_func;
+}
+
+TF1 *BuildCalibration_20260114(const Bool_t use_calibrated,
+                               const Bool_t interactive) {
+  std::cout << "Building Calibration for Jan 14" << std::endl;
+
+  CalibrationData cal_data;
+  AddZeroPoint(cal_data);
+
+  FitResult cu_bkg_pb =
+      FitPbKAlpha(Constants::CUSHIELDBACKGROUND_10PERCENT_20260114,
+                  use_calibrated, interactive);
+  AddCalibrationPoint(cal_data, "Cu Shield Bkg Pb-Ka1",
+                      cu_bkg_pb.peaks.at(0).mu, cu_bkg_pb.peaks.at(0).mu_error,
+                      E_PB_KA1, cu_bkg_pb.reduced_chi2);
+  AddCalibrationPoint(cal_data, "Cu Shield Bkg Pb-Ka2",
+                      cu_bkg_pb.peaks.at(1).mu, cu_bkg_pb.peaks.at(1).mu_error,
+                      E_PB_KA2, -1);
+
+  FitResult cu_bkg_cd =
+      FitCalibrationPeak(Constants::CUSHIELDBACKGROUND_10PERCENT_20260114,
+                         "Cd114m_95.9keV", use_calibrated, interactive);
+  AddCalibrationPoint(cal_data, "Cu Shield Bkg Cd-114m",
+                      cu_bkg_cd.peaks.at(0).mu, cu_bkg_cd.peaks.at(0).mu_error,
+                      E_CD114M, cu_bkg_cd.reduced_chi2);
+
+  PrintCalibrationSummary(cal_data, "20260114");
+
+  TF1 *cal_func =
+      CreateAndSaveCalibration(cal_data.mu, cal_data.calibration_values_keV,
+                               cal_data.mu_errors, "20260114");
+  return cal_func;
+}
+
+TF1 *BuildCalibration_20260115(const Bool_t use_calibrated,
+                               const Bool_t interactive) {
+  std::cout << "Building Calibration for Jan 15" << std::endl;
+
+  CalibrationData cal_data;
+  AddZeroPoint(cal_data);
+
+  FitResult am241_result =
+      FitCalibrationPeak(Constants::POSTREACTOR_AM241_20260115, "Am_59.5keV",
+                         use_calibrated, interactive);
+  AddCalibrationPoint(
+      cal_data, "Post-reactor Am-241", am241_result.peaks.at(0).mu,
+      am241_result.peaks.at(0).mu_error, E_AM241, am241_result.reduced_chi2);
+
+  FitResult ba133_result =
+      FitCalibrationPeak(Constants::POSTREACTOR_BA133_20260115, "Ba_80.98keV",
+                         use_calibrated, interactive);
+  AddCalibrationPoint(
+      cal_data, "Post-reactor Ba-133 80.98keV", ba133_result.peaks.at(0).mu,
+      ba133_result.peaks.at(0).mu_error, E_BA133_81, ba133_result.reduced_chi2);
+
+  FitResult cd_fit =
+      FitCalibrationPeak(Constants::NOSHIELDBACKGROUND_5PERCENT_20260115,
+                         "Cd114m_95.9keV", use_calibrated, interactive);
+  AddCalibrationPoint(cal_data, "No Shield Bkg Cd-114m", cd_fit.peaks.at(0).mu,
+                      cd_fit.peaks.at(0).mu_error, E_CD114M,
+                      cd_fit.reduced_chi2);
+
+  PrintCalibrationSummary(cal_data, "20260115");
+
+  TF1 *cal_func =
+      CreateAndSaveCalibration(cal_data.mu, cal_data.calibration_values_keV,
+                               cal_data.mu_errors, "20260115");
+  return cal_func;
+}
+
+TF1 *BuildCalibration_20260116(const Bool_t use_calibrated,
+                               const Bool_t interactive) {
+  std::cout << "Building Calibration for Jan 16" << std::endl;
+
+  CalibrationData cal_data;
+  AddZeroPoint(cal_data);
+
+  FitResult am241_result = FitCalibrationPeak(
+      Constants::POSTREACTOR_AM241_BA133_20260116, "Am_59.5keV",
+      use_calibrated, interactive);
+  AddCalibrationPoint(
+      cal_data, "Post-reactor Am-241", am241_result.peaks.at(0).mu,
+      am241_result.peaks.at(0).mu_error, E_AM241, am241_result.reduced_chi2);
+
+  FitResult ba133_result = FitCalibrationPeak(
+      Constants::POSTREACTOR_AM241_BA133_20260116, "Ba_80.98keV",
+      use_calibrated, interactive);
+  AddCalibrationPoint(
+      cal_data, "Post-reactor Ba-133 80.98keV", ba133_result.peaks.at(0).mu,
+      ba133_result.peaks.at(0).mu_error, E_BA133_81,
+      ba133_result.reduced_chi2);
+
+  FitResult cd_fit = FitCalibrationPeak(
+      Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_20260116,
+      "Cd114m_95.9keV", use_calibrated, interactive);
+  AddCalibrationPoint(cal_data, "GraphiteCastle Bkg Cd-114m",
+                      cd_fit.peaks.at(0).mu, cd_fit.peaks.at(0).mu_error,
+                      E_CD114M, cd_fit.reduced_chi2);
+
+  PrintCalibrationSummary(cal_data, "20260116");
+
+  TF1 *cal_func =
+      CreateAndSaveCalibration(cal_data.mu, cal_data.calibration_values_keV,
+                               cal_data.mu_errors, "20260116");
+  return cal_func;
+}
+
+void PulseHeightToDepositedEnergy(const std::vector<TString> &input_names,
+                                  TF1 *calibration_function,
+                                  const TString date_label) {
+  TString cal_filepath =
+      "root_files/calibration_function_" + date_label + ".root";
+  TFile *cal_file = new TFile(cal_filepath, "RECREATE");
+  calibration_function->Write("calibration", TObject::kOverwrite);
+  cal_file->Close();
+  delete cal_file;
+
+  Int_t n_files = input_names.size();
+  for (Int_t i = 0; i < n_files; i++) {
+    TString input_name = input_names[i];
+    TString filepath = "root_files/" + input_name + ".root";
+    TFile *file = new TFile(filepath, "UPDATE");
+
+    TTree *tree = static_cast<TTree *>(file->Get("bef_tree"));
+    if (!tree) {
+      std::cerr << "ERROR: Could not find bef_tree in " << filepath
+                << std::endl;
+      file->Close();
+      delete file;
+      continue;
+    }
+
+    Float_t energy;
+    Float_t x, y, z;
+    Int_t nInteractions;
+    tree->SetBranchAddress("energykeV", &energy);
+    tree->SetBranchAddress("xum", &x);
+    tree->SetBranchAddress("yum", &y);
+    tree->SetBranchAddress("zum", &z);
+    tree->SetBranchAddress("nInteractions", &nInteractions);
+
+    Float_t deposited_energy;
+    TTree *cal_tree =
+        new TTree("calibrated_tree", "Filtered and calibrated events");
+    cal_tree->SetDirectory(file);
+    cal_tree->Branch("deposited_energy", &deposited_energy,
+                     "deposited_energy/F");
+
+    TH1F *hist = new TH1F(
+        PlottingUtils::GetRandomName(),
+        Form("; Deposited Energy [keV]; Counts / %d eV",
+             Constants::BIN_WIDTH_EV),
+        Constants::HIST_NBINS, Constants::HIST_XMIN, Constants::HIST_XMAX);
+    hist->SetDirectory(0);
+
+    TH1F *zoomedHist = new TH1F(
+        PlottingUtils::GetRandomName(),
+        Form("; Deposited Energy [keV]; Counts / %d eV",
+             Constants::BIN_WIDTH_EV),
+        Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
+        Constants::ZOOMED_XMAX);
+    zoomedHist->SetDirectory(0);
+
+    TH1F *peakHist = new TH1F(
+        PlottingUtils::GetRandomName(),
+        Form("; Deposited Energy [keV]; Counts / %d eV",
+             Constants::BIN_WIDTH_EV),
+        Constants::PEAK_NBINS, Constants::PEAK_XMIN, Constants::PEAK_XMAX);
+    peakHist->SetDirectory(0);
+
+    Int_t n_entries = tree->GetEntries();
+
+    for (Int_t j = 0; j < n_entries; j++) {
+      tree->GetEntry(j);
+
+      Bool_t in_excluded_region = kFALSE;
+      if (nInteractions != 1)
+        in_excluded_region = kTRUE;
+      if (z < Constants::FILTER_DEPTH_UM)
+        in_excluded_region = kTRUE;
+
+      if (!in_excluded_region) {
+        for (size_t r = 0;
+             r < Constants::FILTER_REGIONS_EXCLUDE_XY_UM.size(); r++) {
+          if (x >= Constants::FILTER_REGIONS_EXCLUDE_XY_UM[r].xmin &&
+              x <= Constants::FILTER_REGIONS_EXCLUDE_XY_UM[r].xmax &&
+              y >= Constants::FILTER_REGIONS_EXCLUDE_XY_UM[r].ymin &&
+              y <= Constants::FILTER_REGIONS_EXCLUDE_XY_UM[r].ymax) {
+            in_excluded_region = kTRUE;
+            break;
+          }
+        }
+      }
+
+      if (!in_excluded_region) {
+        deposited_energy = calibration_function->Eval(energy);
+        cal_tree->Fill();
+        hist->Fill(deposited_energy);
+        zoomedHist->Fill(deposited_energy);
+        peakHist->Fill(deposited_energy);
+      }
+    }
+
+    std::cout << "Calibrated " << input_name << ": " << cal_tree->GetEntries()
+              << " / " << n_entries << " events passed filter" << std::endl;
+
+    file->cd();
+    cal_tree->Write("calibrated_tree", TObject::kOverwrite);
+    hist->Write("calibrated_hist", TObject::kOverwrite);
+    zoomedHist->Write("calibrated_zoomedHist", TObject::kOverwrite);
+    peakHist->Write("calibrated_peakHist", TObject::kOverwrite);
+    file->Close();
+    delete file;
+    delete hist;
+    delete zoomedHist;
+    delete peakHist;
   }
 }
 
 void Calibration() {
-  InitUtils::SetROOTPreferences();
-  std::cout << "Jan 13 Calibration" << std::endl;
-  ReferenceCalibration ref_jan13 = GetReferenceCalibration_20260113();
-  ApplyCalibration_CuShield_20260113(ref_jan13.calibration_function);
-  ApplyCalibration_CdShield_20260113(ref_jan13);
+  InitUtils::SetROOTPreferences(PlotSaveFormat::kPNG);
 
-  std::cout << "Jan 14 Calibration" << std::endl;
-  ApplyCalibration_20260114(ref_jan13);
+  Bool_t use_calibrated = kFALSE;
+  Bool_t interactive = kTRUE;
 
-  std::cout << "Jan 15 Calibration" << std::endl;
-  ReferenceCalibration ref_jan15 = GetReferenceCalibration_20260115();
-  ApplyCalibration_20260115(ref_jan15.calibration_function);
+  TF1 *cal_jan13 = BuildCalibration_20260113(use_calibrated, interactive);
+  TF1 *cal_jan14 = BuildCalibration_20260114(use_calibrated, interactive);
+  TF1 *cal_jan15 = BuildCalibration_20260115(use_calibrated, interactive);
+  TF1 *cal_jan16 = BuildCalibration_20260116(use_calibrated, interactive);
 
-  std::cout << "Jan 16 Calibration" << std::endl;
-  ApplyCalibration_20260116(ref_jan15);
+  std::vector<TString> datasets_jan13 = {
+      Constants::CUSHIELDBACKGROUND_10PERCENT_20260113,
+      Constants::CUSHIELDSIGNAL_10PERCENT_20260113,
+      Constants::CDSHIELDBACKGROUND_10PERCENT_20260113,
+      Constants::CDSHIELDSIGNAL_10PERCENT_20260113,
+      Constants::CDSHIELDBACKGROUND_25PERCENT_20260113,
+      Constants::CDSHIELDSIGNAL_25PERCENT_20260113,
+      Constants::POSTREACTOR_AM241_20260113,
+      Constants::ACTIVEBACKGROUND_TEST_5PERCENT_20260113,
+      Constants::ACTIVEBACKGROUND_TEST_90PERCENT_20260113};
+  PulseHeightToDepositedEnergy(datasets_jan13, cal_jan13, "20260113");
+
+  std::vector<TString> datasets_jan14 = {
+      Constants::CUSHIELDBACKGROUND_10PERCENT_20260114,
+      Constants::CUSHIELDSIGNAL_10PERCENT_20260114,
+      Constants::CUSHIELDSIGNAL_90PERCENT_20260114};
+  PulseHeightToDepositedEnergy(datasets_jan14, cal_jan14, "20260114");
+
+  std::vector<TString> datasets_jan15 = {
+      Constants::NOSHIELDBACKGROUND_5PERCENT_20260115,
+      Constants::NOSHIELDSIGNAL_5PERCENT_20260115,
+      Constants::POSTREACTOR_AM241_20260115,
+      Constants::POSTREACTOR_BA133_20260115,
+      Constants::SHUTTERCLOSED_20260115};
+  PulseHeightToDepositedEnergy(datasets_jan15, cal_jan15, "20260115");
+
+  std::vector<TString> datasets_jan16 = {
+      Constants::NOSHIELD_GEONCZT_0_5PERCENT_20260116,
+      Constants::NOSHIELD_ACTIVEBACKGROUND_0_5PERCENT_20260116,
+      Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_20260116,
+      Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_20260116,
+      Constants::POSTREACTOR_AM241_BA133_20260116};
+  PulseHeightToDepositedEnergy(datasets_jan16, cal_jan16, "20260116");
 }

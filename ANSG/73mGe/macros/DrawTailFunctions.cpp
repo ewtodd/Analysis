@@ -10,7 +10,7 @@ void DrawTailFunctions() {
 
   Double_t mu = 59.5;
   Double_t sigma = 1;
-  Double_t tail_amplitude = 1;
+  Double_t tail_amplitude = 2;
   Double_t tail_slope = 0.9;
 
   TF1 *low_tail = new TF1(
@@ -49,7 +49,8 @@ void DrawTailFunctions() {
   line1->SetLineWidth(2);
   line1->Draw();
 
-  PlottingUtils::SaveFigure(c1, "low_tail_test", "", PlotSaveOptions::kLOG);
+  PlottingUtils::SaveFigure(c1, "low_tail_test", "tailTest",
+                            PlotSaveOptions::kLOG);
 
   TCanvas *c2 = PlottingUtils::GetConfiguredCanvas(kFALSE);
   high_tail->SetTitle("High Tail Function;x;Amplitude");
@@ -63,7 +64,8 @@ void DrawTailFunctions() {
   line2->SetLineWidth(2);
   line2->Draw();
 
-  PlottingUtils::SaveFigure(c2, "high_tail_test", "", PlotSaveOptions::kLOG);
+  PlottingUtils::SaveFigure(c2, "high_tail_test", "tailTest",
+                            PlotSaveOptions::kLOG);
 
   delete low_tail;
   delete high_tail;

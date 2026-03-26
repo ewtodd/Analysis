@@ -15,18 +15,21 @@ void TestFilter(std::vector<TString> filenames) {
     TString filename = filenames.at(j);
     TString filepath = "root_files/" + filename + ".root";
     TFile *file = new TFile(filepath, "UPDATE");
-    TTree *tree_with_pos = static_cast<TTree *>(file->Get("bef_tree"));
+    TTree *tree = static_cast<TTree *>(file->Get("bef_tree"));
 
     Float_t energy = 0;
     Float_t x = 0, y = 0, z = 0;
-
     Int_t nInteractions = 0;
+    Int_t interaction = 0;
 
-    tree_with_pos->SetBranchAddress("energykeV", &energy);
-    tree_with_pos->SetBranchAddress("xum", &x);
-    tree_with_pos->SetBranchAddress("yum", &y);
-    tree_with_pos->SetBranchAddress("zum", &z);
-    tree_with_pos->SetBranchAddress("nInteractions", &nInteractions);
+    tree->SetBranchAddress("energykeV", &energy);
+    tree->SetBranchAddress("xum", &x);
+    tree->SetBranchAddress("yum", &y);
+    tree->SetBranchAddress("zum", &z);
+    tree->SetBranchAddress("nInteractions", &nInteractions);
+    tree->SetBranchAddress("interaction", &interaction);
+
+    Int_t n_entries = tree->GetEntries();
 
     TH2F *XY = new TH2F(PlottingUtils::GetRandomName(),
                         "; X Position [um]; Y Position [um]", 22, -215, 215, 22,
@@ -36,8 +39,6 @@ void TestFilter(std::vector<TString> filenames) {
                         "; Energy [keV]; Interaction Z Position [um]",
                         Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
                         Constants::ZOOMED_XMAX, 200, 0, 100);
-
-    Int_t n_entries = tree_with_pos->GetEntries();
 
     TParameter<Double_t> *param =
         (TParameter<Double_t> *)file->Get("N42_RealTime_Total");
@@ -61,12 +62,40 @@ void TestFilter(std::vector<TString> filenames) {
                  Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
                  Constants::ZOOMED_XMAX);
 
+    TH2F *hE1E2_Wide = new TH2F(
+        PlottingUtils::GetRandomName(),
+        Form("%s n=2; E_{1} [keV]; E_{2} [keV]", filename.Data()),
+        Constants::HIST_NBINS, Constants::HIST_XMIN, Constants::HIST_XMAX,
+        Constants::HIST_NBINS, Constants::HIST_XMIN, Constants::HIST_XMAX);
+
+    TH2F *hE1E2_Zoom = new TH2F(
+        PlottingUtils::GetRandomName(),
+        Form("%s n=2; E_{1} [keV]; E_{2} [keV]", filename.Data()),
+        Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN, Constants::ZOOMED_XMAX,
+        Constants::HIST_NBINS, Constants::HIST_XMIN, Constants::HIST_XMAX);
+
     Bool_t in_excluded_region;
 
     for (Int_t i = 0; i < n_entries; i++) {
-      in_excluded_region = kFALSE;
+      tree->GetEntry(i);
 
-      tree_with_pos->GetEntry(i);
+      if (nInteractions == 2 && interaction == 0 && i + 1 < n_entries) {
+        Float_t e1 = energy;
+
+        tree->GetEntry(i + 1);
+
+        if (nInteractions == 2 && interaction == 1) {
+          Float_t e2 = energy;
+
+          hE1E2_Wide->Fill(e1, e2);
+          if (e1 > Constants::ZOOMED_XMIN && e1 < Constants::ZOOMED_XMAX)
+            hE1E2_Zoom->Fill(e1, e2);
+        }
+
+        tree->GetEntry(i);
+      }
+
+      in_excluded_region = kFALSE;
 
       if (nInteractions != 1)
         in_excluded_region = kTRUE;
@@ -97,7 +126,7 @@ void TestFilter(std::vector<TString> filenames) {
 
     std::cout << "Created histograms for " << filename << std::endl;
 
-    TCanvas *canvasXY = new TCanvas("", "", 1200, 800);
+    TCanvas *canvasXY = PlottingUtils::GetConfiguredCanvas();
     canvasXY->SetRightMargin(0.2);
     XY->Draw("COLZ");
     PlottingUtils::Configure2DHistogram(XY, canvasXY);
@@ -120,7 +149,7 @@ void TestFilter(std::vector<TString> filenames) {
     PlottingUtils::SaveFigure(canvasXY, filename + "_YvsX", "filterDemo",
                               PlotSaveOptions::kLINEAR);
 
-    TCanvas *canvasEZ = new TCanvas("", "", 1200, 800);
+    TCanvas *canvasEZ = PlottingUtils::GetConfiguredCanvas();
     canvasEZ->SetRightMargin(0.2);
     EZ->Draw("COLZ");
     PlottingUtils::Configure2DHistogram(EZ, canvasEZ);
@@ -155,7 +184,7 @@ void TestFilter(std::vector<TString> filenames) {
     excludedSpectrum->SetLineWidth(2);
     excludedSpectrum->Draw("HIST SAME");
 
-    if (filename == Constants::CDSHIELDSIGNAL_10PERCENT_20260113) {
+    if (filename.Contains("Signal")) {
       TLine *line68 = new TLine(68.752, 0, 68.752, maxY * 1.1);
       line68->SetLineColor(kViolet);
       line68->SetLineWidth(2);
@@ -163,7 +192,7 @@ void TestFilter(std::vector<TString> filenames) {
       line68->Draw();
 
       TLatex *label68 = PlottingUtils::AddText(
-          "^{73m}Ge 7/2^{+} #rightarrow 9/2^{+} #gamma ray", 0.47, 0.75);
+          "^{73m}Ge 7/2^{+} #rightarrow 9/2^{+} #gamma ray", 0.47, 0.83);
       label68->SetTextColor(kViolet);
     }
 
@@ -175,10 +204,21 @@ void TestFilter(std::vector<TString> filenames) {
     canvasRegions->SetLeftMargin(0.2);
     PlottingUtils::SaveFigure(canvasRegions, filename + "_FilterSpectra",
                               "filterDemo", PlotSaveOptions::kLINEAR);
+
+    TCanvas *canvasE1E2 = PlottingUtils::GetConfiguredCanvas();
+    PlottingUtils::ConfigureAndDraw2DHistogram(hE1E2_Wide, canvasE1E2);
+    PlottingUtils::SaveFigure(canvasE1E2, filename + "_E1vsE2_Wide",
+                              "filterDemo", PlotSaveOptions::kLINEAR);
+    canvasE1E2->Clear();
+    PlottingUtils::ConfigureAndDraw2DHistogram(hE1E2_Zoom, canvasE1E2);
+    PlottingUtils::SaveFigure(canvasE1E2, filename + "_E1vsE2_Zoom",
+                              "filterDemo", PlotSaveOptions::kLINEAR);
+
     std::cout << "Wrote histograms for " << filename << std::endl;
 
     XY->Write("XY", TObject::kOverwrite);
     EZ->Write("EZ", TObject::kOverwrite);
+    hE1E2_Wide->Write("E1vsE2_Wide", TObject::kOverwrite);
 
     canvasRegions->cd();
     canvasRegions->Write("AcceptedRejectedSpectra", TObject::kOverwrite);
@@ -192,6 +232,10 @@ void FilterDemo() {
 
   std::vector<TString> filenames;
   filenames.push_back(Constants::CDSHIELDSIGNAL_10PERCENT_20260113);
+  filenames.push_back(
+      Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_20260116);
+  filenames.push_back(Constants::NOSHIELDSIGNAL_5PERCENT_20260115);
+  filenames.push_back(Constants::NOSHIELD_GEONCZT_0_5PERCENT_20260116);
   filenames.push_back(Constants::POSTREACTOR_AM241_BA133_20260116);
 
   TestFilter(filenames);

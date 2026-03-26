@@ -65,76 +65,6 @@ void ProcessDrift(TString filename) {
   std::cout << "Processed drift check for " << filename << std::endl;
 }
 
-void ProcessPeakDrift(TString filename) {
-  TString filepath = "root_files/" + filename + ".root";
-  TFile *file = new TFile(filepath, "READ");
-  if (!file || file->IsZombie()) {
-    std::cerr << "ERROR: Cannot open " << filepath << std::endl;
-    return;
-  }
-
-  TTree *tree = static_cast<TTree *>(file->Get("bef_tree"));
-  if (!tree) {
-    std::cerr << "ERROR: Cannot find bef_tree in " << filepath << std::endl;
-    file->Close();
-    delete file;
-    return;
-  }
-
-  Float_t energy;
-  tree->SetBranchAddress("energykeV", &energy);
-
-  Int_t n_entries = tree->GetEntries();
-
-  // Fill one histogram with all events in the Pb Ka1 window
-  TH1F *peakHist = new TH1F(PlottingUtils::GetRandomName(), "", 100, PB_FIT_LOW,
-                            PB_FIT_HIGH);
-  for (Int_t i = 0; i < n_entries; i++) {
-    tree->GetEntry(i);
-    if (energy >= PB_FIT_LOW && energy <= PB_FIT_HIGH)
-      peakHist->Fill(energy);
-  }
-  peakHist->SetDirectory(0);
-
-  // Fit the whole dataset once
-  FittingUtils *fitter = new FittingUtils(peakHist, PB_FIT_LOW, PB_FIT_HIGH,
-                                          kTRUE, kTRUE, kTRUE, kTRUE, kTRUE);
-  FitResult result = fitter->FitPeak(filename, "PbKa1");
-
-  if (!result.valid) {
-    std::cerr << "ERROR: Fit failed for " << filename << std::endl;
-    delete fitter;
-    delete peakHist;
-    file->Close();
-    delete file;
-    return;
-  }
-
-  TF1 *fitFunc = fitter->GetFitFunction();
-
-  // Sample N_POINTS from the fitted function and plot value vs sample index
-  TGraph *samplePlot = new TGraph(N_POINTS);
-  for (Int_t i = 0; i < N_POINTS; i++) {
-    Float_t val = fitFunc->GetRandom(PB_FIT_LOW, PB_FIT_HIGH);
-    samplePlot->SetPoint(i, i, val);
-  }
-
-  TCanvas *canvas = PlottingUtils::GetConfiguredCanvas();
-  PlottingUtils::ConfigureAndDrawGraph(samplePlot, kRed,
-                                       "; Sample; Pb K#alpha_{1} Energy [keV]");
-  PlottingUtils::SaveFigure(canvas, filename + "_PbKa1Drift", "",
-                            PlotSaveOptions::kLINEAR);
-
-  file->Close();
-
-  delete fitter;
-  delete peakHist;
-  delete file;
-  delete canvas;
-
-  std::cout << "Processed Pb Ka1 peak drift for " << filename << std::endl;
-}
-
 void CheckDrift() {
   InitUtils::SetROOTPreferences(PlotSaveFormat::kPNG);
 
@@ -170,15 +100,5 @@ void CheckDrift() {
   Int_t n_files = filenames.size();
   for (Int_t i = 0; i < n_files; i++) {
     ProcessDrift(filenames.at(i));
-  }
-
-  std::vector<TString> pb_backgrounds;
-  pb_backgrounds.push_back(Constants::CDSHIELDBACKGROUND_10PERCENT_20260113);
-  pb_backgrounds.push_back(Constants::CDSHIELDBACKGROUND_25PERCENT_20260113);
-  pb_backgrounds.push_back(Constants::CUSHIELDBACKGROUND_10PERCENT_20260113);
-
-  Int_t n_pb = pb_backgrounds.size();
-  for (Int_t i = 0; i < n_pb; i++) {
-    ProcessPeakDrift(pb_backgrounds.at(i));
   }
 }

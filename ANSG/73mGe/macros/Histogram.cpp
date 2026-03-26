@@ -29,6 +29,15 @@ void AddHistogram(TString filename) {
   Float_t energy;
   tree->SetBranchAddress(energyBranchName, &energy);
 
+  Float_t x = 0, y = 0, z = 0;
+
+  Int_t nInteractions = 0;
+
+  tree->SetBranchAddress("xum", &x);
+  tree->SetBranchAddress("yum", &y);
+  tree->SetBranchAddress("zum", &z);
+  tree->SetBranchAddress("nInteractions", &nInteractions);
+
   Int_t n_entries = tree->GetEntries();
 
   TH1F *hist = new TH1F(PlottingUtils::GetRandomName(),
@@ -50,13 +59,37 @@ void AddHistogram(TString filename) {
                             Constants::PEAK_XMAX);
 
   tree->LoadBaskets();
+  Bool_t in_excluded_region;
+
   for (Int_t i = 0; i < n_entries; i++) {
     tree->GetEntry(i);
-    hist->Fill(energy);
-    if (Constants::ZOOMED_XMIN < energy && energy < Constants::ZOOMED_XMAX)
-      zoomedHist->Fill(energy);
-    if (Constants::PEAK_XMIN < energy && energy < Constants::PEAK_XMAX)
-      peakHist->Fill(energy);
+
+    in_excluded_region = kFALSE;
+    if (nInteractions != 1)
+      in_excluded_region = kTRUE;
+    if (z < Constants::FILTER_DEPTH_UM)
+      in_excluded_region = kTRUE;
+
+    if (!in_excluded_region) {
+      for (size_t r = 0; r < Constants::FILTER_REGIONS_EXCLUDE_XY_UM.size();
+           r++) {
+        if (x >= Constants::FILTER_REGIONS_EXCLUDE_XY_UM[r].xmin &&
+            x <= Constants::FILTER_REGIONS_EXCLUDE_XY_UM[r].xmax &&
+            y >= Constants::FILTER_REGIONS_EXCLUDE_XY_UM[r].ymin &&
+            y <= Constants::FILTER_REGIONS_EXCLUDE_XY_UM[r].ymax) {
+          in_excluded_region = kTRUE;
+          break;
+        }
+      }
+    }
+
+    if (!in_excluded_region) {
+      hist->Fill(energy);
+      if (Constants::ZOOMED_XMIN < energy && energy < Constants::ZOOMED_XMAX)
+        zoomedHist->Fill(energy);
+      if (Constants::PEAK_XMIN < energy && energy < Constants::PEAK_XMAX)
+        peakHist->Fill(energy);
+    }
   }
 
   std::cout << "Created histograms for " << filename

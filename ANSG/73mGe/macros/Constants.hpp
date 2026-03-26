@@ -17,7 +17,7 @@ const Int_t HIST_NBINS = (HIST_XMAX - HIST_XMIN) / BIN_WIDTH_KEV;
 const Int_t ZOOMED_NBINS = (ZOOMED_XMAX - ZOOMED_XMIN) / BIN_WIDTH_KEV;
 const Int_t PEAK_NBINS = (PEAK_XMAX - PEAK_XMIN) / BIN_WIDTH_KEV;
 
-const Int_t FILTER_DEPTH_UM = 70;
+const Int_t FILTER_DEPTH_UM = 80;
 const std::vector<Region> FILTER_REGIONS_EXCLUDE_XY_UM = {
     {-215, 215, -215, -210},
     {-215, 215, 210, 215},
