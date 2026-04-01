@@ -1,0 +1,13 @@
+RANGE 91 103
+Mu 96.2709770183644 0
+Sigma 1.09112306168895 0
+GausAmplitude 293.92308728125 0
+StepAmplitude 0 1
+LowExpTailAmplitude 0 1
+LowExpTailDecay 1 0
+LowLinTailAmplitude 0 1
+LowLinTailSlope 0 0
+HighExpTailAmplitude 0 1
+HighExpTailDecay 1 0
+BkgConstant 3426.42699262993 0
+LinBkgSlope -8.97310066732825 0

@@ -17,12 +17,21 @@ const Int_t HIST_NBINS = (HIST_XMAX - HIST_XMIN) / BIN_WIDTH_KEV;
 const Int_t ZOOMED_NBINS = (ZOOMED_XMAX - ZOOMED_XMIN) / BIN_WIDTH_KEV;
 const Int_t PEAK_NBINS = (PEAK_XMAX - PEAK_XMIN) / BIN_WIDTH_KEV;
 
-const Int_t FILTER_DEPTH_UM = 80;
-const std::vector<Region> FILTER_REGIONS_EXCLUDE_XY_UM = {
-    {-215, 215, -215, -210},
-    {-215, 215, 210, 215},
-    {-215, -210, -210, 210},
-    {210, 215, -210, 210}};
+const Bool_t USE_FILTERED = kTRUE;
+const Bool_t NORMALIZE_BY_TIME = kFALSE;
+
+const Int_t FILTER_DEPTH_MM = 9;
+const Double_t PIXEL_ACCEPT_HALFWIDTH_MM = 0.02;
+const std::vector<Double_t> PIXEL_CENTERS_X_MM = {
+    -20.7690, -18.8370, -16.9470, -15.0570, -13.1670, -11.2350,
+    -9.3450,  -7.4550,  -5.5230,  -3.6330,  -1.7430,  1.7430,
+    3.6330,   5.5230,   7.4550,   9.3450,   11.2350,  13.1670,
+    15.0570,  16.9470,  18.8370,  20.7690};
+const std::vector<Double_t> PIXEL_CENTERS_Y_MM = {
+    -20.7690, -18.8370, -16.9470, -15.0570, -13.1670, -11.2350,
+    -9.3450,  -7.4550,  -5.5230,  -3.6330,  -1.7430,  1.7430,
+    3.6330,   5.5230,   7.4550,   9.3450,   11.2350,  13.1670,
+    15.0570,  16.9470,  18.8370,  20.7690};
 
 const TString PASSIVEBACKGROUND_20260112 = "PassiveBackground_20260112";
 const TString CALIBRATION_20260112 = "Calibration_20260112";
@@ -66,9 +75,6 @@ const TString NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_20260116 =
     "NoShield_GraphiteCastleBackground_10Percent_20260116";
 const TString POSTREACTOR_AM241_BA133_20260116 =
     "PostReactor_Am241_Ba133_20260116";
-
-const TString SIM_1E6 = "sim/1E6";
-const TString SIM_5E7 = "sim/5E7";
 
 const std::vector<TString> ALL_DATASETS = {
     PASSIVEBACKGROUND_20260112,

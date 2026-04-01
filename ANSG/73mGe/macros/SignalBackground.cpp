@@ -25,9 +25,9 @@ void MakePlot(TString signal_filename, TString background_filename) {
   Int_t signal_nInteractions = 0;
 
   signal_tree_with_pos->SetBranchAddress("energykeV", &signal_energy);
-  signal_tree_with_pos->SetBranchAddress("xum", &signal_x);
-  signal_tree_with_pos->SetBranchAddress("yum", &signal_y);
-  signal_tree_with_pos->SetBranchAddress("zum", &signal_z);
+  signal_tree_with_pos->SetBranchAddress("xmm", &signal_x);
+  signal_tree_with_pos->SetBranchAddress("ymm", &signal_y);
+  signal_tree_with_pos->SetBranchAddress("zmm", &signal_z);
   signal_tree_with_pos->SetBranchAddress("nInteractions",
                                          &signal_nInteractions);
   Float_t background_energy = 0;
@@ -35,9 +35,9 @@ void MakePlot(TString signal_filename, TString background_filename) {
   Int_t background_nInteractions = 0;
 
   background_tree_with_pos->SetBranchAddress("energykeV", &background_energy);
-  background_tree_with_pos->SetBranchAddress("xum", &background_x);
-  background_tree_with_pos->SetBranchAddress("yum", &background_y);
-  background_tree_with_pos->SetBranchAddress("zum", &background_z);
+  background_tree_with_pos->SetBranchAddress("xmm", &background_x);
+  background_tree_with_pos->SetBranchAddress("ymm", &background_y);
+  background_tree_with_pos->SetBranchAddress("zmm", &background_z);
   background_tree_with_pos->SetBranchAddress("nInteractions",
                                              &background_nInteractions);
 
@@ -67,7 +67,7 @@ void MakePlot(TString signal_filename, TString background_filename) {
     if (signal_nInteractions != 1)
       signal_in_excluded_region = kTRUE;
 
-    if (signal_z < Constants::FILTER_DEPTH_UM)
+    if (signal_z < Constants::FILTER_DEPTH_MM)
       signal_in_excluded_region = kTRUE;
 
     if (signal_energy > Constants::ZOOMED_XMIN &&
@@ -86,7 +86,7 @@ void MakePlot(TString signal_filename, TString background_filename) {
     if (background_nInteractions != 1)
       background_in_excluded_region = kTRUE;
 
-    if (background_z < Constants::FILTER_DEPTH_UM)
+    if (background_z < Constants::FILTER_DEPTH_MM)
       background_in_excluded_region = kTRUE;
 
     if (background_energy > Constants::ZOOMED_XMIN &&
