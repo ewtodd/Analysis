@@ -9,11 +9,19 @@
 #include <TTree.h>
 #include <iomanip>
 
-static const Int_t N_CRYSTALS = 4;
-
+Int_t GetCrystalIndex(Double_t x, Double_t y) {
+  if (x < 0 && y < 0)
+    return 0;
+  if (x > 0 && y < 0)
+    return 1;
+  if (x < 0 && y > 0)
+    return 2;
+  if (x > 0 && y > 0)
+    return 3;
+  return -1;
+}
 
 void LiveTimeSums(std::vector<TString> filenames) {
-  Double_t const TENS_OF_NS_TO_S = 1e-8;
   Double_t const MS_TO_S = 1e-3;
 
   Int_t n_files = Int_t(filenames.size());
@@ -34,50 +42,62 @@ void LiveTimeSums(std::vector<TString> filenames) {
     std::cout << "--- " << filename << " ---" << std::endl;
     std::cout << "  DAQ live time: " << daqLiveTime_s << " s" << std::endl;
 
-    for (Int_t c = 0; c < N_CRYSTALS; c++) {
-      TString treeName = Form("crystal%d_unfiltered_tree", c);
-      TTree *tree = static_cast<TTree *>(file->Get(treeName));
-      if (!tree) {
-        std::cerr << filename << ": missing " << treeName << std::endl;
+    TTree *tree = static_cast<TTree *>(file->Get("bef_tree"));
+    if (!tree) {
+      std::cerr << filename << ": missing bef_tree" << std::endl;
+      file->Close();
+      continue;
+    }
+
+    Float_t x = 0, y = 0;
+    UInt_t eventTime = 0;
+    Int_t interaction = 0;
+    tree->SetBranchAddress("xmm", &x);
+    tree->SetBranchAddress("ymm", &y);
+    tree->SetBranchAddress("eventTime", &eventTime);
+    tree->SetBranchAddress("interaction", &interaction);
+
+    Int_t n_entries = tree->GetEntries();
+
+    UInt_t firstEventTime[Constants::N_CRYSTALS];
+    UInt_t lastEventTime[Constants::N_CRYSTALS];
+    Int_t nPhysicalEvents[Constants::N_CRYSTALS];
+    for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
+      firstEventTime[c] = 0;
+      lastEventTime[c] = 0;
+      nPhysicalEvents[c] = 0;
+    }
+
+    for (Int_t i = 0; i < n_entries; i++) {
+      tree->GetEntry(i);
+      if (interaction != 0)
         continue;
-      }
-
-      Int_t liveTime = 0;
-      UInt_t eventTime = 0;
-      Int_t interaction = 0;
-      tree->SetBranchAddress("liveTime", &liveTime);
-      tree->SetBranchAddress("eventTime", &eventTime);
-      tree->SetBranchAddress("interaction", &interaction);
-
-      Int_t n_entries = tree->GetEntries();
-      if (n_entries == 0)
+      Int_t c = GetCrystalIndex(x, y);
+      if (c < 0)
         continue;
+      if (nPhysicalEvents[c] == 0)
+        firstEventTime[c] = eventTime;
+      lastEventTime[c] = eventTime;
+      nPhysicalEvents[c]++;
+    }
 
-      Double_t sumLiveTime_s = 0;
-      UInt_t firstEventTime = 0;
-      UInt_t lastEventTime = 0;
-      Int_t nPhysicalEvents = 0;
+    for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
+      TString paramName = Form("LiveTime_Unfiltered_Crystal%d_s", c);
+      TParameter<Double_t> *ltParam =
+          (TParameter<Double_t> *)file->Get(paramName);
+      Double_t sumLiveTime_s = ltParam ? ltParam->GetVal() : -1;
 
-      for (Int_t i = 0; i < n_entries; i++) {
-        tree->GetEntry(i);
-        if (interaction != 0)
-          continue;
-        sumLiveTime_s += liveTime * TENS_OF_NS_TO_S;
-        if (nPhysicalEvents == 0)
-          firstEventTime = eventTime;
-        lastEventTime = eventTime;
-        nPhysicalEvents++;
-      }
-
-      Double_t eventSpan_s = (Double_t)(lastEventTime - firstEventTime) * MS_TO_S;
+      Double_t eventSpan_s =
+          (Double_t)(lastEventTime[c] - firstEventTime[c]) * MS_TO_S;
 
       std::cout << "  Crystal " << c << ":"
-                << " physEvents=" << nPhysicalEvents
-                << " (entries=" << n_entries << ")"
+                << " physEvents=" << nPhysicalEvents[c]
                 << " sumLT=" << sumLiveTime_s << " s"
                 << " span=" << eventSpan_s << " s"
-                << " sum/span=" << (eventSpan_s > 0 ? sumLiveTime_s / eventSpan_s : 0)
-                << " sum/DAQ=" << (daqLiveTime_s > 0 ? sumLiveTime_s / daqLiveTime_s : 0)
+                << " sum/span="
+                << (eventSpan_s > 0 ? sumLiveTime_s / eventSpan_s : 0)
+                << " sum/DAQ="
+                << (daqLiveTime_s > 0 ? sumLiveTime_s / daqLiveTime_s : 0)
                 << std::endl;
     }
 

@@ -29,23 +29,16 @@ struct CalibrationData {
 void PrintCalibrationSummary(const CalibrationData &cal_data,
                              TString date_label);
 
-static const Int_t N_CRYSTALS = 4;
-
-TH1F *LoadHistogram(const TString input_name, Int_t crystal,
-                    const Bool_t use_calibrated = kFALSE) {
+TH1D *LoadHistogram(const TString input_name) {
   TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
   if (!file || file->IsZombie()) {
     std::cerr << "ERROR: Cannot open " << input_name << ".root" << std::endl;
     return nullptr;
   }
 
-  TString histName = use_calibrated
-      ? Form("calibrated_zoomedHist_crystal%d", crystal)
-      : Form("zoomedHist_crystal%d", crystal);
-  TH1F *hist = static_cast<TH1F *>(file->Get(histName));
+  TH1D *hist = static_cast<TH1D *>(file->Get("zoomedHist"));
   if (!hist) {
-    std::cerr << "ERROR: Cannot find " << histName << " in " << input_name
-              << std::endl;
+    std::cerr << "ERROR: Cannot find zoomedHist in " << input_name << std::endl;
     file->Close();
     delete file;
     return nullptr;
@@ -57,13 +50,12 @@ TH1F *LoadHistogram(const TString input_name, Int_t crystal,
 }
 
 FitResult FitCalibrationPeak(const TString input_name, const TString peak_name,
-                             Int_t crystal, const Bool_t use_calibrated,
                              const Bool_t interactive) {
-  TH1F *hist = LoadHistogram(input_name, crystal, use_calibrated);
+  TH1D *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 
-  Bool_t use_flat_background = kTRUE;
+  Bool_t use_flat_background = kFALSE;
   Bool_t use_step = kFALSE;
   Bool_t use_low_exp_tail = kTRUE;
   Bool_t use_low_lin_tail = kTRUE;
@@ -103,21 +95,18 @@ FitResult FitCalibrationPeak(const TString input_name, const TString peak_name,
 
   if (interactive)
     fitter->SetInteractive();
-  TString label = Form("%s_crystal%d", input_name.Data(), crystal);
-  FitResult result = fitter->FitSinglePeak(label, peak_name);
+  FitResult result = fitter->FitSinglePeak(input_name, peak_name);
   delete hist;
   delete fitter;
   return result;
 }
 
-FitResult FitPbKAlpha(const TString input_name, Int_t crystal,
-                      const Bool_t use_calibrated,
-                      const Bool_t interactive) {
-  TH1F *hist = LoadHistogram(input_name, crystal, use_calibrated);
+FitResult FitPbKAlpha(const TString input_name, const Bool_t interactive) {
+  TH1D *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 
-  Bool_t use_flat_background = kTRUE;
+  Bool_t use_flat_background = kFALSE;
   Bool_t use_step = kFALSE;
   Bool_t use_low_exp_tail = kTRUE;
   Bool_t use_low_lin_tail = kTRUE;
@@ -147,9 +136,8 @@ FitResult FitPbKAlpha(const TString input_name, Int_t crystal,
 
   if (interactive)
     fitter->SetInteractive();
-  TString label = Form("%s_crystal%d", input_name.Data(), crystal);
   FitResult result =
-      fitter->FitDoublePeak(label, "Pb_KAlpha", E_PB_KA1, E_PB_KA2);
+      fitter->FitDoublePeak(input_name, "Pb_KAlpha", E_PB_KA1, E_PB_KA2);
   delete hist;
   delete fitter;
   return result;
@@ -224,24 +212,20 @@ void PrintCalibrationSummary(const CalibrationData &cal_data,
   }
 }
 
-TF1 *BuildCalibration_20260113(Int_t crystal, const Bool_t use_calibrated,
-                               const Bool_t interactive) {
-  TString crystalLabel = Form("crystal%d", crystal);
-  std::cout << "Building Calibration for Jan 13 " << crystalLabel << std::endl;
+TF1 *BuildCalibration_20260113(const Bool_t interactive) {
+  std::cout << "Building Calibration for Jan 13" << std::endl;
 
   CalibrationData cal_data;
   AddZeroPoint(cal_data);
 
-  FitResult am241_result =
-      FitCalibrationPeak(Constants::POSTREACTOR_AM241_20260113, "Am_59.5keV",
-                         crystal, use_calibrated, interactive);
+  FitResult am241_result = FitCalibrationPeak(
+      Constants::POSTREACTOR_AM241_20260113, "Am_59.5keV", interactive);
   AddCalibrationPoint(
       cal_data, "Post-reactor Am-241", am241_result.peaks.at(0).mu,
       am241_result.peaks.at(0).mu_error, E_AM241, am241_result.reduced_chi2);
 
-  FitResult cu_bkg_pb =
-      FitPbKAlpha(Constants::CUSHIELDBACKGROUND_10PERCENT_20260113,
-                  crystal, use_calibrated, interactive);
+  FitResult cu_bkg_pb = FitPbKAlpha(
+      Constants::CUSHIELDBACKGROUND_10PERCENT_20260113, interactive);
   AddCalibrationPoint(cal_data, "Cu Shield Bkg Pb-Ka1",
                       cu_bkg_pb.peaks.at(0).mu, cu_bkg_pb.peaks.at(0).mu_error,
                       E_PB_KA1, cu_bkg_pb.reduced_chi2);
@@ -249,33 +233,22 @@ TF1 *BuildCalibration_20260113(Int_t crystal, const Bool_t use_calibrated,
                       cu_bkg_pb.peaks.at(1).mu, cu_bkg_pb.peaks.at(1).mu_error,
                       E_PB_KA2, -1);
 
-  FitResult cu_bkg_cd =
-      FitCalibrationPeak(Constants::CUSHIELDBACKGROUND_10PERCENT_20260113,
-                         "Cd114m_95.9keV", crystal, use_calibrated, interactive);
-  AddCalibrationPoint(cal_data, "Cu Shield Bkg Cd-114m",
-                      cu_bkg_cd.peaks.at(0).mu, cu_bkg_cd.peaks.at(0).mu_error,
-                      E_CD114M, cu_bkg_cd.reduced_chi2);
-
-  TString dateLabel = Form("20260113_%s", crystalLabel.Data());
-  PrintCalibrationSummary(cal_data, dateLabel);
+  PrintCalibrationSummary(cal_data, "20260113");
 
   TF1 *cal_func =
       CreateAndSaveCalibration(cal_data.mu, cal_data.calibration_values_keV,
-                               cal_data.mu_errors, dateLabel);
+                               cal_data.mu_errors, "20260113");
   return cal_func;
 }
 
-TF1 *BuildCalibration_20260114(Int_t crystal, const Bool_t use_calibrated,
-                               const Bool_t interactive) {
-  TString crystalLabel = Form("crystal%d", crystal);
-  std::cout << "Building Calibration for Jan 14 " << crystalLabel << std::endl;
+TF1 *BuildCalibration_20260114(const Bool_t interactive) {
+  std::cout << "Building Calibration for Jan 14" << std::endl;
 
   CalibrationData cal_data;
   AddZeroPoint(cal_data);
 
-  FitResult cu_bkg_pb =
-      FitPbKAlpha(Constants::CUSHIELDBACKGROUND_10PERCENT_20260114,
-                  crystal, use_calibrated, interactive);
+  FitResult cu_bkg_pb = FitPbKAlpha(
+      Constants::CUSHIELDBACKGROUND_10PERCENT_20260114, interactive);
   AddCalibrationPoint(cal_data, "Cu Shield Bkg Pb-Ka1",
                       cu_bkg_pb.peaks.at(0).mu, cu_bkg_pb.peaks.at(0).mu_error,
                       E_PB_KA1, cu_bkg_pb.reduced_chi2);
@@ -283,111 +256,75 @@ TF1 *BuildCalibration_20260114(Int_t crystal, const Bool_t use_calibrated,
                       cu_bkg_pb.peaks.at(1).mu, cu_bkg_pb.peaks.at(1).mu_error,
                       E_PB_KA2, -1);
 
-  FitResult cu_bkg_cd =
-      FitCalibrationPeak(Constants::CUSHIELDBACKGROUND_10PERCENT_20260114,
-                         "Cd114m_95.9keV", crystal, use_calibrated, interactive);
-  AddCalibrationPoint(cal_data, "Cu Shield Bkg Cd-114m",
-                      cu_bkg_cd.peaks.at(0).mu, cu_bkg_cd.peaks.at(0).mu_error,
-                      E_CD114M, cu_bkg_cd.reduced_chi2);
-
-  TString dateLabel = Form("20260114_%s", crystalLabel.Data());
-  PrintCalibrationSummary(cal_data, dateLabel);
+  PrintCalibrationSummary(cal_data, "20260114");
 
   TF1 *cal_func =
       CreateAndSaveCalibration(cal_data.mu, cal_data.calibration_values_keV,
-                               cal_data.mu_errors, dateLabel);
+                               cal_data.mu_errors, "20260114");
   return cal_func;
 }
 
-TF1 *BuildCalibration_20260115(Int_t crystal, const Bool_t use_calibrated,
-                               const Bool_t interactive) {
-  TString crystalLabel = Form("crystal%d", crystal);
-  std::cout << "Building Calibration for Jan 15 " << crystalLabel << std::endl;
+TF1 *BuildCalibration_20260115(const Bool_t interactive) {
+  std::cout << "Building Calibration for Jan 15" << std::endl;
 
   CalibrationData cal_data;
   AddZeroPoint(cal_data);
 
-  FitResult am241_result =
-      FitCalibrationPeak(Constants::POSTREACTOR_AM241_20260115, "Am_59.5keV",
-                         crystal, use_calibrated, interactive);
+  FitResult am241_result = FitCalibrationPeak(
+      Constants::POSTREACTOR_AM241_20260115, "Am_59.5keV", interactive);
   AddCalibrationPoint(
       cal_data, "Post-reactor Am-241", am241_result.peaks.at(0).mu,
       am241_result.peaks.at(0).mu_error, E_AM241, am241_result.reduced_chi2);
 
-  FitResult ba133_result =
-      FitCalibrationPeak(Constants::POSTREACTOR_BA133_20260115, "Ba_80.98keV",
-                         crystal, use_calibrated, interactive);
+  FitResult ba133_result = FitCalibrationPeak(
+      Constants::POSTREACTOR_BA133_20260115, "Ba_80.98keV", interactive);
   AddCalibrationPoint(
       cal_data, "Post-reactor Ba-133 80.98keV", ba133_result.peaks.at(0).mu,
       ba133_result.peaks.at(0).mu_error, E_BA133_81, ba133_result.reduced_chi2);
 
-  FitResult cd_fit =
-      FitCalibrationPeak(Constants::NOSHIELDBACKGROUND_5PERCENT_20260115,
-                         "Cd114m_95.9keV", crystal, use_calibrated, interactive);
-  AddCalibrationPoint(cal_data, "No Shield Bkg Cd-114m", cd_fit.peaks.at(0).mu,
-                      cd_fit.peaks.at(0).mu_error, E_CD114M,
-                      cd_fit.reduced_chi2);
-
-  TString dateLabel = Form("20260115_%s", crystalLabel.Data());
-  PrintCalibrationSummary(cal_data, dateLabel);
+  PrintCalibrationSummary(cal_data, "20260115");
 
   TF1 *cal_func =
       CreateAndSaveCalibration(cal_data.mu, cal_data.calibration_values_keV,
-                               cal_data.mu_errors, dateLabel);
+                               cal_data.mu_errors, "20260115");
   return cal_func;
 }
 
-TF1 *BuildCalibration_20260116(Int_t crystal, const Bool_t use_calibrated,
-                               const Bool_t interactive) {
-  TString crystalLabel = Form("crystal%d", crystal);
-  std::cout << "Building Calibration for Jan 16 " << crystalLabel << std::endl;
+TF1 *BuildCalibration_20260116(const Bool_t interactive) {
+  std::cout << "Building Calibration for Jan 16" << std::endl;
 
   CalibrationData cal_data;
   AddZeroPoint(cal_data);
 
-  FitResult am241_result =
-      FitCalibrationPeak(Constants::POSTREACTOR_AM241_BA133_20260116,
-                         "Am_59.5keV", crystal, use_calibrated, interactive);
+  FitResult am241_result = FitCalibrationPeak(
+      Constants::POSTREACTOR_AM241_BA133_20260116, "Am_59.5keV", interactive);
   AddCalibrationPoint(
       cal_data, "Post-reactor Am-241", am241_result.peaks.at(0).mu,
       am241_result.peaks.at(0).mu_error, E_AM241, am241_result.reduced_chi2);
 
-  FitResult ba133_result =
-      FitCalibrationPeak(Constants::POSTREACTOR_AM241_BA133_20260116,
-                         "Ba_80.98keV", crystal, use_calibrated, interactive);
+  FitResult ba133_result = FitCalibrationPeak(
+      Constants::POSTREACTOR_AM241_BA133_20260116, "Ba_80.98keV", interactive);
   AddCalibrationPoint(
       cal_data, "Post-reactor Ba-133 80.98keV", ba133_result.peaks.at(0).mu,
       ba133_result.peaks.at(0).mu_error, E_BA133_81, ba133_result.reduced_chi2);
 
-  FitResult cd_fit = FitCalibrationPeak(
-      Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_20260116,
-      "Cd114m_95.9keV", crystal, use_calibrated, interactive);
-  AddCalibrationPoint(cal_data, "GraphiteCastle Bkg Cd-114m",
-                      cd_fit.peaks.at(0).mu, cd_fit.peaks.at(0).mu_error,
-                      E_CD114M, cd_fit.reduced_chi2);
-
-  TString dateLabel = Form("20260116_%s", crystalLabel.Data());
-  PrintCalibrationSummary(cal_data, dateLabel);
+  PrintCalibrationSummary(cal_data, "20260116");
 
   TF1 *cal_func =
       CreateAndSaveCalibration(cal_data.mu, cal_data.calibration_values_keV,
-                               cal_data.mu_errors, dateLabel);
+                               cal_data.mu_errors, "20260116");
   return cal_func;
 }
 
 void PulseHeightToDepositedEnergy(const std::vector<TString> &input_names,
-                                  TF1 *calibration_functions[N_CRYSTALS],
+                                  TF1 *calibration_function,
                                   const TString date_label) {
-  for (Int_t c = 0; c < N_CRYSTALS; c++) {
-    TString cal_filepath = Form("root_files/calibration_function_%s_crystal%d.root",
-                                date_label.Data(), c);
-    TFile *cal_file = new TFile(cal_filepath, "RECREATE");
-    calibration_functions[c]->Write("calibration", TObject::kOverwrite);
-    cal_file->Close();
-    delete cal_file;
-  }
-
-  TString treeType = Constants::USE_FILTERED ? "filtered" : "unfiltered";
+  TString cal_filepath =
+      "root_files/calibration_function_" + date_label + ".root";
+  TFile *cal_file = new TFile(cal_filepath, "RECREATE");
+  calibration_function->Write("calibration", TObject::kOverwrite);
+  cal_file->Close();
+  delete cal_file;
 
   Int_t n_files = input_names.size();
   for (Int_t i = 0; i < n_files; i++) {
@@ -395,8 +332,36 @@ void PulseHeightToDepositedEnergy(const std::vector<TString> &input_names,
     TString filepath = "root_files/" + input_name + ".root";
     TFile *file = new TFile(filepath, "UPDATE");
 
-    for (Int_t c = 0; c < N_CRYSTALS; c++) {
-      TString treeName = Form("crystal%d_%s_tree", c, treeType.Data());
+    Double_t deposited_energy = 0;
+    TTree *cal_tree = new TTree("calibrated_tree", "Calibrated events");
+    cal_tree->SetDirectory(file);
+    cal_tree->Branch("depositedEnergykeV", &deposited_energy,
+                     "depositedEnergykeV/D");
+
+    TH1D *hist = new TH1D(PlottingUtils::GetRandomName(),
+                          Form("; Deposited Energy [keV]; Counts / %d eV",
+                               Constants::BIN_WIDTH_EV),
+                          Constants::HIST_NBINS, Constants::HIST_XMIN,
+                          Constants::HIST_XMAX);
+    hist->SetDirectory(0);
+
+    TH1D *zoomedHist =
+        new TH1D(PlottingUtils::GetRandomName(),
+                 Form("; Deposited Energy [keV]; Counts / %d eV",
+                      Constants::BIN_WIDTH_EV),
+                 Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
+                 Constants::ZOOMED_XMAX);
+    zoomedHist->SetDirectory(0);
+
+    TH1D *peakHist = new TH1D(PlottingUtils::GetRandomName(),
+                              Form("; Deposited Energy [keV]; Counts / %d eV",
+                                   Constants::BIN_WIDTH_EV),
+                              Constants::PEAK_NBINS, Constants::PEAK_XMIN,
+                              Constants::PEAK_XMAX);
+    peakHist->SetDirectory(0);
+
+    for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
+      TString treeName = Form("crystal%d_filtered_tree", c);
       TTree *tree = static_cast<TTree *>(file->Get(treeName));
       if (!tree) {
         std::cerr << "ERROR: Could not find " << treeName << " in " << filepath
@@ -404,58 +369,29 @@ void PulseHeightToDepositedEnergy(const std::vector<TString> &input_names,
         continue;
       }
 
-      Float_t energy = 0;
+      Double_t energy = 0;
       tree->SetBranchAddress("energykeV", &energy);
-
-      Float_t deposited_energy = 0;
-      TString calTreeName = Form("calibrated_crystal%d_tree", c);
-      TTree *cal_tree = new TTree(calTreeName,
-          Form("Calibrated events for crystal %d", c));
-      cal_tree->SetDirectory(file);
-      cal_tree->Branch("deposited_energy", &deposited_energy,
-                       "deposited_energy/F");
-
-      TH1F *hist = new TH1F(PlottingUtils::GetRandomName(),
-                             Form("; Deposited Energy [keV]; Counts / %d eV",
-                                  Constants::BIN_WIDTH_EV),
-                             Constants::HIST_NBINS, Constants::HIST_XMIN,
-                             Constants::HIST_XMAX);
-      hist->SetDirectory(0);
-
-      TH1F *zoomedHist = new TH1F(PlottingUtils::GetRandomName(),
-                                   Form("; Deposited Energy [keV]; Counts / %d eV",
-                                        Constants::BIN_WIDTH_EV),
-                                   Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
-                                   Constants::ZOOMED_XMAX);
-      zoomedHist->SetDirectory(0);
-
-      TH1F *peakHist = new TH1F(PlottingUtils::GetRandomName(),
-                                 Form("; Deposited Energy [keV]; Counts / %d eV",
-                                      Constants::BIN_WIDTH_EV),
-                                 Constants::PEAK_NBINS, Constants::PEAK_XMIN,
-                                 Constants::PEAK_XMAX);
-      peakHist->SetDirectory(0);
 
       Int_t n_entries = tree->GetEntries();
       for (Int_t j = 0; j < n_entries; j++) {
         tree->GetEntry(j);
-        deposited_energy = calibration_functions[c]->Eval(energy);
+        deposited_energy = calibration_function->Eval(energy);
         cal_tree->Fill();
         hist->Fill(deposited_energy);
         zoomedHist->Fill(deposited_energy);
         peakHist->Fill(deposited_energy);
       }
-
-      file->cd();
-      cal_tree->Write(calTreeName, TObject::kOverwrite);
-      hist->Write(Form("calibrated_hist_crystal%d", c), TObject::kOverwrite);
-      zoomedHist->Write(Form("calibrated_zoomedHist_crystal%d", c), TObject::kOverwrite);
-      peakHist->Write(Form("calibrated_peakHist_crystal%d", c), TObject::kOverwrite);
-
-      delete hist;
-      delete zoomedHist;
-      delete peakHist;
     }
+
+    file->cd();
+    cal_tree->Write("calibrated_tree", TObject::kOverwrite);
+    hist->Write("calibrated_hist", TObject::kOverwrite);
+    zoomedHist->Write("calibrated_zoomedHist", TObject::kOverwrite);
+    peakHist->Write("calibrated_peakHist", TObject::kOverwrite);
+
+    delete hist;
+    delete zoomedHist;
+    delete peakHist;
 
     std::cout << "Calibrated " << input_name << std::endl;
     file->Close();
@@ -466,20 +402,26 @@ void PulseHeightToDepositedEnergy(const std::vector<TString> &input_names,
 void Calibration() {
   InitUtils::SetROOTPreferences(PlotSaveFormat::kPNG);
 
-  Bool_t use_calibrated = kFALSE;
   Bool_t interactive = kTRUE;
 
-  TF1 *cal_jan13[N_CRYSTALS];
-  TF1 *cal_jan14[N_CRYSTALS];
-  TF1 *cal_jan15[N_CRYSTALS];
-  TF1 *cal_jan16[N_CRYSTALS];
+  TF1 *cal_jan13 = BuildCalibration_20260113(interactive);
+  TF1 *cal_jan14 = BuildCalibration_20260114(interactive);
+  TF1 *cal_jan15 = BuildCalibration_20260115(interactive);
+  TF1 *cal_jan16 = BuildCalibration_20260116(interactive);
 
-  for (Int_t c = 0; c < N_CRYSTALS; c++) {
-    cal_jan13[c] = BuildCalibration_20260113(c, use_calibrated, interactive);
-    cal_jan14[c] = BuildCalibration_20260114(c, use_calibrated, interactive);
-    cal_jan15[c] = BuildCalibration_20260115(c, use_calibrated, interactive);
-    cal_jan16[c] = BuildCalibration_20260116(c, use_calibrated, interactive);
-  }
+  std::cout << std::endl;
+  std::cout << "Calibration Slopes:" << std::endl;
+  std::cout << "  Jan 13: " << std::fixed << std::setprecision(6)
+            << cal_jan13->GetParameter(1) << " +/- "
+            << cal_jan13->GetParError(1) << std::endl;
+  std::cout << "  Jan 14: " << cal_jan14->GetParameter(1) << " +/- "
+            << cal_jan14->GetParError(1) << std::endl;
+  std::cout << "  Jan 15: " << cal_jan15->GetParameter(1) << " +/- "
+            << cal_jan15->GetParError(1) << std::endl;
+  std::cout << "  Jan 16: " << cal_jan16->GetParameter(1) << " +/- "
+            << cal_jan16->GetParError(1) << std::endl;
+
+  std::cout << std::endl;
 
   std::vector<TString> datasets_jan13 = {
       Constants::CUSHIELDBACKGROUND_10PERCENT_20260113,

@@ -2,8 +2,8 @@
 #include "InitUtils.hpp"
 #include "PlottingUtils.hpp"
 #include <TFile.h>
-#include <TH1F.h>
-#include <TH2F.h>
+#include <TH1D.h>
+#include <TH2D.h>
 #include <TParameter.h>
 #include <TROOT.h>
 #include <TTree.h>
@@ -44,13 +44,13 @@ void MakePlot(TString signal_filename, TString background_filename) {
   Int_t signal_n_entries = signal_tree_with_pos->GetEntries();
   Int_t background_n_entries = background_tree_with_pos->GetEntries();
 
-  TH1F *signalSpectrum = new TH1F(
+  TH1D *signalSpectrum = new TH1D(
       PlottingUtils::GetRandomName(),
       Form("%s; Energy [keV]; Counts / %d eV", signal_filename.Data(),
            Constants::BIN_WIDTH_EV),
       Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN, Constants::ZOOMED_XMAX);
 
-  TH1F *backgroundSpectrum = new TH1F(
+  TH1D *backgroundSpectrum = new TH1D(
       PlottingUtils::GetRandomName(),
       Form("%s; Energy [keV]; Counts / %d eV", signal_filename.Data(),
            Constants::BIN_WIDTH_EV),

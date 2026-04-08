@@ -229,8 +229,8 @@ Bool_t FilterFile(TString filename) {
   TFile *file = new TFile(filepath, "UPDATE");
   TTree *tree = static_cast<TTree *>(file->Get("bef_tree"));
 
-  Float_t energy = 0;
-  Float_t x = 0, y = 0, z = 0;
+  Double_t energy = 0;
+  Double_t x = 0, y = 0, z = 0;
   UInt_t eventTime = 0;
   Int_t liveTime = 0;
   Int_t nInteractions = 0;
@@ -354,10 +354,6 @@ void Filter() {
   InitUtils::SetROOTPreferences(PlotSaveFormat::kPNG);
   ROOT::EnableThreadSafety();
 
-  std::vector<TString> filenames;
-  filenames.push_back(Constants::CDSHIELDSIGNAL_10PERCENT_20260113);
-  filenames.push_back(Constants::POSTREACTOR_AM241_BA133_20260116);
-  FilterDemo(filenames);
-
+  FilterDemo(Constants::ALL_DATASETS);
   FilterEvents(Constants::ALL_DATASETS);
 }

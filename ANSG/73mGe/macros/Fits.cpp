@@ -17,22 +17,16 @@ const Float_t E_PB_KA1 = 72.8042;
 const Float_t E_PB_KA2 = 74.9694;
 const Float_t E_CD114M = 95.9023;
 
-static const Int_t N_CRYSTALS = 4;
-
-TH1F *LoadHistogram(const TString input_name, Int_t crystal,
-                    const Bool_t use_calibrated = kFALSE) {
+TH1D *LoadHistogram(const TString input_name) {
   TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
   if (!file || file->IsZombie()) {
     std::cerr << "ERROR: Cannot open " << input_name << ".root" << std::endl;
     return nullptr;
   }
 
-  TString histName = use_calibrated
-      ? Form("calibrated_zoomedHist_crystal%d", crystal)
-      : Form("zoomedHist_crystal%d", crystal);
-  TH1F *hist = static_cast<TH1F *>(file->Get(histName));
+  TH1D *hist = static_cast<TH1D *>(file->Get("calibrated_zoomedHist"));
   if (!hist) {
-    std::cerr << "ERROR: Cannot find " << histName << " in " << input_name
+    std::cerr << "ERROR: Cannot find calibrated_zoomedHist in " << input_name
               << std::endl;
     file->Close();
     delete file;
@@ -44,11 +38,9 @@ TH1F *LoadHistogram(const TString input_name, Int_t crystal,
   return hist;
 }
 
-// Calibration single peaks
 FitResult FitCalibrationPeak(const TString input_name, const TString peak_name,
-                             Int_t crystal, const Bool_t use_calibrated,
                              const Bool_t interactive) {
-  TH1F *hist = LoadHistogram(input_name, crystal, use_calibrated);
+  TH1D *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 
@@ -92,18 +84,15 @@ FitResult FitCalibrationPeak(const TString input_name, const TString peak_name,
 
   if (interactive)
     fitter->SetInteractive();
-  TString label = Form("%s_crystal%d", input_name.Data(), crystal);
-  FitResult result = fitter->FitSinglePeak(label, peak_name);
+  FitResult result = fitter->FitSinglePeak(input_name, peak_name);
   delete hist;
   delete fitter;
   return result;
 }
 
-// Background single peaks (for constrained signal fits)
-FitResult FitBackgroundPeak(const TString input_name, Int_t crystal,
-                            const Bool_t use_calibrated,
+FitResult FitBackgroundPeak(const TString input_name,
                             const Bool_t interactive) {
-  TH1F *hist = LoadHistogram(input_name, crystal, use_calibrated);
+  TH1D *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 
@@ -127,18 +116,14 @@ FitResult FitBackgroundPeak(const TString input_name, Int_t crystal,
 
   if (interactive)
     fitter->SetInteractive();
-  TString label = Form("%s_crystal%d", input_name.Data(), crystal);
-  FitResult result = fitter->FitSinglePeak(label, "Background");
+  FitResult result = fitter->FitSinglePeak(input_name, "Background");
   delete hist;
   delete fitter;
   return result;
 }
 
-// Pb K-alpha double peak (shared between calibration and signal analysis)
-FitResult FitPbKAlpha(const TString input_name, Int_t crystal,
-                      const Bool_t use_calibrated,
-                      const Bool_t interactive) {
-  TH1F *hist = LoadHistogram(input_name, crystal, use_calibrated);
+FitResult FitPbKAlpha(const TString input_name, const Bool_t interactive) {
+  TH1D *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 
@@ -172,20 +157,17 @@ FitResult FitPbKAlpha(const TString input_name, Int_t crystal,
 
   if (interactive)
     fitter->SetInteractive();
-  TString label = Form("%s_crystal%d", input_name.Data(), crystal);
   FitResult result =
-      fitter->FitDoublePeak(label, "Pb_KAlpha", E_PB_KA1, E_PB_KA2);
+      fitter->FitDoublePeak(input_name, "Pb_KAlpha", E_PB_KA1, E_PB_KA2);
   delete hist;
   delete fitter;
   return result;
 }
 
-// Constrained double peak (signal with one constrained peak from background)
 FitResult FitSignalDoublePeak(const TString input_name,
                               const PeakFitResult &constrained_peak,
-                              Int_t crystal, const Bool_t use_calibrated,
                               const Bool_t interactive) {
-  TH1F *hist = LoadHistogram(input_name, crystal, use_calibrated);
+  TH1D *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 
@@ -209,20 +191,17 @@ FitResult FitSignalDoublePeak(const TString input_name,
 
   if (interactive)
     fitter->SetInteractive();
-  TString label = Form("%s_crystal%d", input_name.Data(), crystal);
   FitResult result =
-      fitter->FitDoublePeak(label, "Ge", constrained_peak, 68.75);
+      fitter->FitDoublePeak(input_name, "Ge", constrained_peak, 68.75);
   delete hist;
   delete fitter;
   return result;
 }
 
-// Triple peak (signal with two constrained peaks from background)
 FitResult FitSignalTriplePeak(const TString input_name,
                               const FitResult &constrained_peaks,
-                              Int_t crystal, const Bool_t use_calibrated,
                               const Bool_t interactive) {
-  TH1F *hist = LoadHistogram(input_name, crystal, use_calibrated);
+  TH1D *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 
@@ -257,9 +236,8 @@ FitResult FitSignalTriplePeak(const TString input_name,
 
   if (interactive)
     fitter->SetInteractive();
-  TString label = Form("%s_crystal%d", input_name.Data(), crystal);
   FitResult result =
-      fitter->FitTriplePeak(label, "Ge", constrained_peaks, 68.75);
+      fitter->FitTriplePeak(input_name, "Ge", constrained_peaks, 68.75);
   delete hist;
   delete fitter;
   return result;
@@ -268,7 +246,6 @@ FitResult FitSignalTriplePeak(const TString input_name,
 void Fits() {
   InitUtils::SetROOTPreferences(PlotSaveFormat::kPNG);
 
-  Bool_t use_calibrated = kTRUE;
   Bool_t interactive = kTRUE;
 
   std::vector<TString> run_names;
@@ -276,59 +253,47 @@ void Fits() {
   std::vector<Float_t> mu_errors;
   std::vector<Float_t> reduced_chi2;
 
-  for (Int_t c = 0; c < N_CRYSTALS; c++) {
-    std::cout << std::endl << "=== Crystal " << c << " ===" << std::endl;
+  // Pb K-alpha backgrounds (used as constraints for signal fits)
 
-    // Pb K-alpha backgrounds (used as constraints for signal fits)
+  FitResult cd_bkg_10 = FitPbKAlpha(
+      Constants::CDSHIELDBACKGROUND_10PERCENT_20260113, interactive);
+  FitResult cd_bkg_25 = FitPbKAlpha(
+      Constants::CDSHIELDBACKGROUND_25PERCENT_20260113, interactive);
+  FitResult cu_bkg_0113 = FitPbKAlpha(
+      Constants::CUSHIELDBACKGROUND_10PERCENT_20260113, interactive);
+  FitResult cu_bkg_0114 = FitPbKAlpha(
+      Constants::CUSHIELDBACKGROUND_10PERCENT_20260114, interactive);
 
-    FitResult cd_bkg_10 =
-        FitPbKAlpha(Constants::CDSHIELDBACKGROUND_10PERCENT_20260113,
-                    c, use_calibrated, interactive);
-    FitResult cd_bkg_25 =
-        FitPbKAlpha(Constants::CDSHIELDBACKGROUND_25PERCENT_20260113,
-                    c, use_calibrated, interactive);
-    FitResult cu_bkg_0113 =
-        FitPbKAlpha(Constants::CUSHIELDBACKGROUND_10PERCENT_20260113,
-                    c, use_calibrated, interactive);
-    FitResult cu_bkg_0114 =
-        FitPbKAlpha(Constants::CUSHIELDBACKGROUND_10PERCENT_20260114,
-                    c, use_calibrated, interactive);
+  // Triple peak signal fits (Ge peak + constrained Pb K-alpha)
 
-    // Triple peak signal fits (Ge peak + constrained Pb K-alpha)
+  FitResult cd_sig_10 = FitSignalTriplePeak(
+      Constants::CDSHIELDSIGNAL_10PERCENT_20260113, cd_bkg_10, interactive);
+  FitResult cd_sig_25 = FitSignalTriplePeak(
+      Constants::CDSHIELDSIGNAL_25PERCENT_20260113, cd_bkg_25, interactive);
+  FitResult cu_sig_0113 = FitSignalTriplePeak(
+      Constants::CUSHIELDSIGNAL_10PERCENT_20260113, cu_bkg_0113, interactive);
+  FitResult cu_sig_0114 = FitSignalTriplePeak(
+      Constants::CUSHIELDSIGNAL_10PERCENT_20260114, cu_bkg_0114, interactive);
 
-    FitResult cd_sig_10 =
-        FitSignalTriplePeak(Constants::CDSHIELDSIGNAL_10PERCENT_20260113,
-                            cd_bkg_10, c, use_calibrated, interactive);
-    FitResult cd_sig_25 =
-        FitSignalTriplePeak(Constants::CDSHIELDSIGNAL_25PERCENT_20260113,
-                            cd_bkg_25, c, use_calibrated, interactive);
-    FitResult cu_sig_0113 =
-        FitSignalTriplePeak(Constants::CUSHIELDSIGNAL_10PERCENT_20260113,
-                            cu_bkg_0113, c, use_calibrated, interactive);
-    FitResult cu_sig_0114 =
-        FitSignalTriplePeak(Constants::CUSHIELDSIGNAL_10PERCENT_20260114,
-                            cu_bkg_0114, c, use_calibrated, interactive);
+  run_names.push_back("Cd Shield Signal 10% (01/13)");
+  mu.push_back(cd_sig_10.peaks.at(0).mu);
+  mu_errors.push_back(cd_sig_10.peaks.at(0).mu_error);
+  reduced_chi2.push_back(cd_sig_10.reduced_chi2);
 
-    run_names.push_back(Form("Cd Shield Signal 10%% (01/13) crystal %d", c));
-    mu.push_back(cd_sig_10.peaks.at(0).mu);
-    mu_errors.push_back(cd_sig_10.peaks.at(0).mu_error);
-    reduced_chi2.push_back(cd_sig_10.reduced_chi2);
+  run_names.push_back("Cd Shield Signal 25% (01/13)");
+  mu.push_back(cd_sig_25.peaks.at(0).mu);
+  mu_errors.push_back(cd_sig_25.peaks.at(0).mu_error);
+  reduced_chi2.push_back(cd_sig_25.reduced_chi2);
 
-    run_names.push_back(Form("Cd Shield Signal 25%% (01/13) crystal %d", c));
-    mu.push_back(cd_sig_25.peaks.at(0).mu);
-    mu_errors.push_back(cd_sig_25.peaks.at(0).mu_error);
-    reduced_chi2.push_back(cd_sig_25.reduced_chi2);
+  run_names.push_back("Cu Shield Signal 10% (01/13)");
+  mu.push_back(cu_sig_0113.peaks.at(0).mu);
+  mu_errors.push_back(cu_sig_0113.peaks.at(0).mu_error);
+  reduced_chi2.push_back(cu_sig_0113.reduced_chi2);
 
-    run_names.push_back(Form("Cu Shield Signal 10%% (01/13) crystal %d", c));
-    mu.push_back(cu_sig_0113.peaks.at(0).mu);
-    mu_errors.push_back(cu_sig_0113.peaks.at(0).mu_error);
-    reduced_chi2.push_back(cu_sig_0113.reduced_chi2);
-
-    run_names.push_back(Form("Cu Shield Signal 10%% (01/14) crystal %d", c));
-    mu.push_back(cu_sig_0114.peaks.at(0).mu);
-    mu_errors.push_back(cu_sig_0114.peaks.at(0).mu_error);
-    reduced_chi2.push_back(cu_sig_0114.reduced_chi2);
-  }
+  run_names.push_back("Cu Shield Signal 10% (01/14)");
+  mu.push_back(cu_sig_0114.peaks.at(0).mu);
+  mu_errors.push_back(cu_sig_0114.peaks.at(0).mu_error);
+  reduced_chi2.push_back(cu_sig_0114.reduced_chi2);
 
   std::cout << std::endl;
   std::cout << "Individual Run Results (Ge Peak mu):" << std::endl;

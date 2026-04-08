@@ -8,7 +8,7 @@ struct Region {
 };
 
 namespace Constants {
-const Int_t BIN_WIDTH_EV = 300;
+const Int_t BIN_WIDTH_EV = 75;
 const Float_t BIN_WIDTH_KEV = BIN_WIDTH_EV / 1000.0;
 const Int_t HIST_XMIN = 0, HIST_XMAX = 1500;
 const Int_t ZOOMED_XMIN = 40, ZOOMED_XMAX = 110;
@@ -17,10 +17,13 @@ const Int_t HIST_NBINS = (HIST_XMAX - HIST_XMIN) / BIN_WIDTH_KEV;
 const Int_t ZOOMED_NBINS = (ZOOMED_XMAX - ZOOMED_XMIN) / BIN_WIDTH_KEV;
 const Int_t PEAK_NBINS = (PEAK_XMAX - PEAK_XMIN) / BIN_WIDTH_KEV;
 
-const Bool_t USE_FILTERED = kTRUE;
-const Bool_t NORMALIZE_BY_TIME = kFALSE;
+const Int_t N_CRYSTALS = 4;
+const Double_t TENS_OF_NS_TO_S = 1e-8;
+const Double_t GE73M_ENERGY = 68.752;
 
-const Int_t FILTER_DEPTH_MM = 9;
+const Bool_t USE_FILTERED = kTRUE;
+
+const Int_t FILTER_DEPTH_MM = 8;
 const Double_t PIXEL_ACCEPT_HALFWIDTH_MM = 0.02;
 const std::vector<Double_t> PIXEL_CENTERS_X_MM = {
     -20.7690, -18.8370, -16.9470, -15.0570, -13.1670, -11.2350,
