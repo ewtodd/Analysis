@@ -85,7 +85,7 @@ void FilterDemo(std::vector<TString> filenames) {
         new TH1F(PlottingUtils::GetRandomName(), "; X Position [mm]; Counts",
                  pos_n_bins, -xy_range, xy_range);
 
-    Int_t z_n_bins = 500;
+    Int_t z_n_bins = 250;
     Int_t z_min_mm = 0;
 
     TH2D *EZ = new TH2D(PlottingUtils::GetRandomName(),

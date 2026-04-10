@@ -3,10 +3,6 @@
 #include <TROOT.h>
 #include <vector>
 
-struct Region {
-  Float_t xmin, xmax, ymin, ymax;
-};
-
 namespace Constants {
 const Int_t BIN_WIDTH_EV = 150;
 const Float_t BIN_WIDTH_KEV = BIN_WIDTH_EV / 1000.0;
