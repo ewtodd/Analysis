@@ -2,7 +2,7 @@
 #include "InitUtils.hpp"
 #include "PlottingUtils.hpp"
 #include <TFile.h>
-#include <TH1D.h>
+#include <TH1F.h>
 #include <TROOT.h>
 #include <TTree.h>
 
@@ -32,7 +32,7 @@ void MultiInteraction() {
       continue;
     }
 
-    Double_t totalEnergy = 0;
+    Float_t totalEnergy = 0;
     Int_t nInteractions = 0;
     Int_t interaction = 0;
 
@@ -40,16 +40,16 @@ void MultiInteraction() {
     tree->SetBranchAddress("nInteractions", &nInteractions);
     tree->SetBranchAddress("interaction", &interaction);
 
-    TH1D *hSummedWide = new TH1D(
+    TH1F *hSummedWide = new TH1F(
         Form("multiint_summed_wide_%s", filename.Data()),
         Form("; Energy [keV]; Counts / %d eV", Constants::BIN_WIDTH_EV),
         WIDE_NBINS, Constants::HIST_XMIN, WIDE_XMAX);
-    TH1D *hSummedZoomed = new TH1D(
+    TH1F *hSummedZoomed = new TH1F(
         Form("multiint_summed_zoomed_%s", filename.Data()),
         Form("; Energy [keV]; Counts / %d eV", Constants::BIN_WIDTH_EV),
         Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
         Constants::ZOOMED_XMAX);
-    TH1D *hSummedPeak = new TH1D(
+    TH1F *hSummedPeak = new TH1F(
         Form("multiint_summed_peak_%s", filename.Data()),
         Form("; Energy [keV]; Counts / %d eV", Constants::BIN_WIDTH_EV),
         Constants::PEAK_NBINS, Constants::PEAK_XMIN, Constants::PEAK_XMAX);

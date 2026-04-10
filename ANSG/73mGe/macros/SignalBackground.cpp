@@ -97,8 +97,8 @@ void MakePlot(TString signal_filename, TString background_filename) {
     }
   }
 
-  Double_t maxY = TMath::Max(signalSpectrum->GetMaximum(),
-                             backgroundSpectrum->GetMaximum());
+  Float_t maxY = TMath::Max(signalSpectrum->GetMaximum(),
+                            backgroundSpectrum->GetMaximum());
 
   TCanvas *canvas = PlottingUtils::GetConfiguredCanvas();
 

@@ -2,7 +2,7 @@
 #include "InitUtils.hpp"
 #include "PlottingUtils.hpp"
 #include <TFile.h>
-#include <TH1D.h>
+#include <TH1F.h>
 #include <TParameter.h>
 #include <TROOT.h>
 #include <TTree.h>
@@ -14,7 +14,7 @@ struct DatasetPair {
   TString backgroundFile;
 };
 
-Int_t GetCrystalIndex(Double_t x, Double_t y) {
+Int_t GetCrystalIndex(Float_t x, Float_t y) {
   if (x < 0 && y < 0)
     return 0;
   if (x > 0 && y < 0)
@@ -26,10 +26,9 @@ Int_t GetCrystalIndex(Double_t x, Double_t y) {
   return -1;
 }
 
-Double_t ComputeLiveTimePerCrystal(TFile *file, Int_t crystal) {
+Float_t ComputeLiveTimePerCrystal(TFile *file, Int_t crystal) {
   TString paramName = Form("LiveTime_Unfiltered_Crystal%d_s", crystal);
-  TParameter<Double_t> *param =
-      (TParameter<Double_t> *)file->Get(paramName);
+  TParameter<Float_t> *param = (TParameter<Float_t> *)file->Get(paramName);
   if (!param) {
     std::cerr << "WARNING: " << paramName << " not found" << std::endl;
     return 0.0;
@@ -38,11 +37,11 @@ Double_t ComputeLiveTimePerCrystal(TFile *file, Int_t crystal) {
 }
 
 struct CrystalHistograms {
-  TH1D *wide;
+  TH1F *wide;
 };
 
 struct MultiIntHistograms {
-  TH1D *wide;
+  TH1F *wide;
   std::vector<CrystalHistograms> crystalHists;
 };
 
@@ -63,8 +62,8 @@ MultiIntHistograms BuildMultiIntHistograms(TString filename) {
     return {};
   }
 
-  Double_t totalEnergy = 0;
-  Double_t x = 0, y = 0;
+  Float_t totalEnergy = 0;
+  Float_t x = 0, y = 0;
   Int_t nInteractions = 0;
   Int_t interaction = 0;
 
@@ -77,7 +76,7 @@ MultiIntHistograms BuildMultiIntHistograms(TString filename) {
   // Per-crystal histograms
   for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
     CrystalHistograms ch;
-    ch.wide = new TH1D(
+    ch.wide = new TH1F(
         PlottingUtils::GetRandomName(),
         Form("; Energy [keV]; Counts / %d eV", Constants::BIN_WIDTH_EV),
         Constants::HIST_NBINS, Constants::HIST_XMIN, Constants::HIST_XMAX);
@@ -101,7 +100,7 @@ MultiIntHistograms BuildMultiIntHistograms(TString filename) {
 
   // Get per-crystal live times and normalize
   for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
-    Double_t lt = ComputeLiveTimePerCrystal(file, c);
+    Float_t lt = ComputeLiveTimePerCrystal(file, c);
     if (lt > 0) {
       result.crystalHists[c].wide->Scale(1.0 / lt);
     }
@@ -111,7 +110,7 @@ MultiIntHistograms BuildMultiIntHistograms(TString filename) {
   delete file;
 
   // Sum crystals
-  result.wide = static_cast<TH1D *>(
+  result.wide = static_cast<TH1F *>(
       result.crystalHists[0].wide->Clone(PlottingUtils::GetRandomName()));
   result.wide->SetDirectory(0);
 
@@ -153,7 +152,7 @@ void SubtractBackgroundMultiInt() {
        Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_20260116,
        Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_20260116});
 
-  TH1D *wideCombined = new TH1D(
+  TH1F *wideCombined = new TH1F(
       "multiint_wide_combined",
       Form("Multi-Int BkgSub; Energy [keV]; Counts / %d eV / s",
            Constants::BIN_WIDTH_EV),

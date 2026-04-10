@@ -2,7 +2,7 @@
 #include "InitUtils.hpp"
 #include "PlottingUtils.hpp"
 #include <TFile.h>
-#include <TH1D.h>
+#include <TH1F.h>
 #include <TH2D.h>
 #include <TParameter.h>
 #include <TROOT.h>
@@ -14,12 +14,43 @@
 
 static std::mutex print_mutex;
 
-Bool_t IsOnPixelCenter(Double_t pos, const std::vector<Double_t> &centers) {
+Bool_t IsOnPixelCenter(Float_t pos, const std::vector<Float_t> &centers) {
   for (Int_t i = 0; i < (Int_t)centers.size(); i++) {
     if (TMath::Abs(pos - centers[i]) <= Constants::PIXEL_ACCEPT_HALFWIDTH_MM)
       return kTRUE;
   }
   return kFALSE;
+}
+
+Int_t GetCrystalIndex(Float_t x, Float_t y) {
+  if (x < 0 && y < 0)
+    return 0;
+  if (x > 0 && y < 0)
+    return 1;
+  if (x < 0 && y > 0)
+    return 2;
+  if (x > 0 && y > 0)
+    return 3;
+  return -1; // on boundary
+}
+
+std::vector<Float_t> GetTrimmedPixelCenters(const std::vector<Float_t> &centers,
+                                            Int_t nEdgeSkip) {
+  // centers is sorted. First half (negative values) is one crystal,
+  // second half (positive values) is the other. Skip nEdgeSkip from
+  // each end of each half.
+  std::vector<Float_t> trimmed;
+  Int_t halfSize = (Int_t)centers.size() / 2; // 11
+  for (Int_t i = 0; i < halfSize; i++) {
+    if (i >= nEdgeSkip && i < halfSize - nEdgeSkip)
+      trimmed.push_back(centers[i]);
+  }
+  for (Int_t i = halfSize; i < (Int_t)centers.size(); i++) {
+    Int_t j = i - halfSize;
+    if (j >= nEdgeSkip && j < halfSize - nEdgeSkip)
+      trimmed.push_back(centers[i]);
+  }
+  return trimmed;
 }
 
 void FilterDemo(std::vector<TString> filenames) {
@@ -31,8 +62,8 @@ void FilterDemo(std::vector<TString> filenames) {
     TFile *file = new TFile(filepath, "UPDATE");
     TTree *tree = static_cast<TTree *>(file->Get("bef_tree"));
 
-    Double_t energy = 0;
-    Double_t x = 0, y = 0, z = 0;
+    Float_t energy = 0;
+    Float_t x = 0, y = 0, z = 0;
     Int_t liveTime = 0;
     Int_t nInteractions = 0;
     Int_t interaction = 0;
@@ -50,8 +81,8 @@ void FilterDemo(std::vector<TString> filenames) {
     Int_t pos_n_bins = 1000;
     Int_t xy_range = 22;
 
-    TH1D *X =
-        new TH1D(PlottingUtils::GetRandomName(), "; X Position [mm]; Counts",
+    TH1F *X =
+        new TH1F(PlottingUtils::GetRandomName(), "; X Position [mm]; Counts",
                  pos_n_bins, -xy_range, xy_range);
 
     Int_t z_n_bins = 500;
@@ -62,23 +93,23 @@ void FilterDemo(std::vector<TString> filenames) {
                         Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
                         Constants::ZOOMED_XMAX, z_n_bins, z_min_mm, 10);
 
-    TParameter<Double_t> *param =
-        (TParameter<Double_t> *)file->Get("N42_RealTime_Total");
+    TParameter<Float_t> *param =
+        (TParameter<Float_t> *)file->Get("N42_RealTime_Total");
 
     if (!param) {
       std::cerr << "WARNING: Could not find N42_RealTime_Total parameter in "
                 << filepath << std::endl;
     }
 
-    TH1D *includedSpectrum =
-        new TH1D(PlottingUtils::GetRandomName(),
+    TH1F *includedSpectrum =
+        new TH1F(PlottingUtils::GetRandomName(),
                  Form("%s; Energy [keV]; Counts / %d eV", filename.Data(),
                       Constants::BIN_WIDTH_EV),
                  Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
                  Constants::ZOOMED_XMAX);
 
-    TH1D *excludedSpectrum =
-        new TH1D(PlottingUtils::GetRandomName(),
+    TH1F *excludedSpectrum =
+        new TH1F(PlottingUtils::GetRandomName(),
                  Form("%s; Energy [keV]; Counts / %d eV", filename.Data(),
                       Constants::BIN_WIDTH_EV),
                  Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
@@ -98,12 +129,8 @@ void FilterDemo(std::vector<TString> filenames) {
 
       X->Fill(x);
 
-      if (!IsOnPixelCenter(x, Constants::PIXEL_CENTERS_X_MM) ||
-          !IsOnPixelCenter(y, Constants::PIXEL_CENTERS_Y_MM))
-        in_excluded_region = kTRUE;
-
-      Double_t liveTime_us = liveTime * Constants::TENS_OF_NS_TO_S * 1e6;
-      if (liveTime_us < 5.0)
+      Float_t liveTime_us = liveTime * Constants::TENS_OF_NS_TO_S * 1e6;
+      if (liveTime_us < Constants::PILEUP_LIVETIME_THRESHOLD_US)
         in_excluded_region = kTRUE;
 
       if (energy > Constants::ZOOMED_XMIN && energy < Constants::ZOOMED_XMAX) {
@@ -125,10 +152,10 @@ void FilterDemo(std::vector<TString> filenames) {
     Int_t nFound = spec->Search(X, 1, "", 0.05);
     Double_t *centers = spec->GetPositionX();
 
-    std::vector<Double_t> pixelCenters(centers, centers + nFound);
+    std::vector<Float_t> pixelCenters(centers, centers + nFound);
     std::sort(pixelCenters.begin(), pixelCenters.end());
 
-    Double_t halfWidth = 0.02; // [mm]
+    Float_t halfWidth = 0.02; // [mm]
 
     for (Int_t i = 0; i < (Int_t)pixelCenters.size(); i++) {
       TBox *box = new TBox(pixelCenters[i] - halfWidth, X->GetMinimum(),
@@ -161,23 +188,17 @@ void FilterDemo(std::vector<TString> filenames) {
 
     TCanvas *canvasRegions = PlottingUtils::GetConfiguredCanvas(kFALSE);
 
-    Double_t maxY = TMath::Max(includedSpectrum->GetMaximum(),
-                               excludedSpectrum->GetMaximum());
+    Float_t maxY = TMath::Max(includedSpectrum->GetMaximum(),
+                              excludedSpectrum->GetMaximum());
 
     PlottingUtils::ConfigureHistogram(includedSpectrum, kRed);
     includedSpectrum->GetYaxis()->SetRangeUser(0, maxY * 1.1);
     includedSpectrum->SetFillStyle(0);
-    includedSpectrum->SetLineWidth(PlottingUtils::GetLineWidth());
-    includedSpectrum->SetLineColor(kBlack);
-    includedSpectrum->SetMarkerStyle(20);
-    includedSpectrum->SetMarkerSize(0.65);
-    includedSpectrum->SetMarkerColor(kRed);
     includedSpectrum->GetYaxis()->SetTitleOffset(1.5);
-    includedSpectrum->Draw("P");
+    includedSpectrum->Draw("HIST");
 
     PlottingUtils::ConfigureHistogram(excludedSpectrum, kBlack);
     excludedSpectrum->SetFillStyle(0);
-    excludedSpectrum->SetLineWidth(PlottingUtils::GetLineWidth());
     excludedSpectrum->Draw("HIST SAME");
 
     if (filename.Contains("Signal")) {
@@ -193,7 +214,7 @@ void FilterDemo(std::vector<TString> filenames) {
     }
 
     TLegend *leg = PlottingUtils::AddLegend(0.72, 0.9, 0.75, 0.88);
-    leg->AddEntry(includedSpectrum, "Accepted", "p");
+    leg->AddEntry(includedSpectrum, "Accepted", "l");
     leg->AddEntry(excludedSpectrum, "Rejected", "l");
     leg->Draw();
 
@@ -210,18 +231,6 @@ void FilterDemo(std::vector<TString> filenames) {
 
     file->Close();
   }
-}
-
-Int_t GetCrystalIndex(Double_t x, Double_t y) {
-  if (x < 0 && y < 0)
-    return 0;
-  if (x > 0 && y < 0)
-    return 1;
-  if (x < 0 && y > 0)
-    return 2;
-  if (x > 0 && y > 0)
-    return 3;
-  return -1; // on boundary
 }
 
 Bool_t FilterFile(TString filename) {
@@ -247,14 +256,12 @@ Bool_t FilterFile(TString filename) {
 
   Int_t n_entries = tree->GetEntries();
 
-  Double_t outEnergy = 0;
-  Double_t outX = 0, outY = 0, outZ = 0;
+  Float_t outEnergy = 0;
+  Float_t outX = 0, outY = 0, outZ = 0;
   UInt_t outEventTime = 0;
   Int_t outLiveTime = 0;
 
-  const Double_t PILEUP_LIVETIME_THRESHOLD_US = 5.0;
-
-  Double_t filteredLiveTime_s[Constants::N_CRYSTALS];
+  Float_t filteredLiveTime_s[Constants::N_CRYSTALS];
   for (Int_t c = 0; c < Constants::N_CRYSTALS; c++)
     filteredLiveTime_s[c] = 0.0;
 
@@ -262,10 +269,10 @@ Bool_t FilterFile(TString filename) {
   for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
     filteredTrees[c] = new TTree(Form("crystal%d_filtered_tree", c),
                                  Form("Filtered events for crystal %d", c));
-    filteredTrees[c]->Branch("energykeV", &outEnergy, "energykeV/D");
-    filteredTrees[c]->Branch("xmm", &outX, "xmm/D");
-    filteredTrees[c]->Branch("ymm", &outY, "ymm/D");
-    filteredTrees[c]->Branch("zmm", &outZ, "zmm/D");
+    filteredTrees[c]->Branch("energykeV", &outEnergy, "energykeV/F");
+    filteredTrees[c]->Branch("xmm", &outX, "xmm/F");
+    filteredTrees[c]->Branch("ymm", &outY, "ymm/F");
+    filteredTrees[c]->Branch("zmm", &outZ, "zmm/F");
     filteredTrees[c]->Branch("eventTime", &outEventTime, "eventTime/i");
     filteredTrees[c]->Branch("liveTime", &outLiveTime, "liveTime/I");
   }
@@ -274,6 +281,7 @@ Bool_t FilterFile(TString filename) {
     tree->GetEntry(i);
 
     Int_t crystal = GetCrystalIndex(x, y);
+
     if (crystal < 0)
       continue;
 
@@ -287,8 +295,8 @@ Bool_t FilterFile(TString filename) {
         !IsOnPixelCenter(y, Constants::PIXEL_CENTERS_Y_MM))
       continue;
 
-    Double_t liveTime_us = liveTime * Constants::TENS_OF_NS_TO_S * 1e6;
-    if (liveTime_us < PILEUP_LIVETIME_THRESHOLD_US)
+    Float_t liveTime_us = liveTime * Constants::TENS_OF_NS_TO_S * 1e6;
+    if (liveTime_us < Constants::PILEUP_LIVETIME_THRESHOLD_US)
       continue;
 
     outEnergy = energy;
@@ -315,7 +323,7 @@ Bool_t FilterFile(TString filename) {
   }
 
   for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
-    TParameter<Double_t> *ltParam = new TParameter<Double_t>(
+    TParameter<Float_t> *ltParam = new TParameter<Float_t>(
         Form("LiveTime_Filtered_Crystal%d_s", c), filteredLiveTime_s[c]);
     ltParam->Write("", TObject::kOverwrite);
   }

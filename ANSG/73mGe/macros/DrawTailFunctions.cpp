@@ -8,10 +8,10 @@
 void DrawTailFunctions() {
   InitUtils::SetROOTPreferences();
 
-  Double_t mu = 59.5;
-  Double_t sigma = 1;
-  Double_t tail_amplitude = 2;
-  Double_t tail_slope = 0.9;
+  Float_t mu = 59.5;
+  Float_t sigma = 1;
+  Float_t tail_amplitude = 2;
+  Float_t tail_slope = 0.9;
 
   TF1 *low_tail = new TF1(
       "low_tail",

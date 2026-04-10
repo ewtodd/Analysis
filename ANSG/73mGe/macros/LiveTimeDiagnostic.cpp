@@ -3,13 +3,13 @@
 #include "PlottingUtils.hpp"
 #include <TFile.h>
 #include <TGraph.h>
-#include <TH1D.h>
+#include <TH1F.h>
 #include <TParameter.h>
 #include <TROOT.h>
 #include <TTree.h>
 #include <iomanip>
 
-Int_t GetCrystalIndex(Double_t x, Double_t y) {
+Int_t GetCrystalIndex(Float_t x, Float_t y) {
   if (x < 0 && y < 0)
     return 0;
   if (x > 0 && y < 0)
@@ -22,7 +22,7 @@ Int_t GetCrystalIndex(Double_t x, Double_t y) {
 }
 
 void LiveTimeSums(std::vector<TString> filenames) {
-  Double_t const MS_TO_S = 1e-3;
+  Float_t const MS_TO_S = 1e-3;
 
   Int_t n_files = Int_t(filenames.size());
   for (Int_t j = 0; j < n_files; j++) {
@@ -34,9 +34,9 @@ void LiveTimeSums(std::vector<TString> filenames) {
       continue;
     }
 
-    TParameter<Double_t> *param =
-        (TParameter<Double_t> *)file->Get("N42_RealTime_Total");
-    Double_t daqLiveTime_s = param ? param->GetVal() : -1;
+    TParameter<Float_t> *param =
+        (TParameter<Float_t> *)file->Get("N42_RealTime_Total");
+    Float_t daqLiveTime_s = param ? param->GetVal() : -1;
 
     std::cout << std::fixed << std::setprecision(6);
     std::cout << "--- " << filename << " ---" << std::endl;
@@ -83,12 +83,12 @@ void LiveTimeSums(std::vector<TString> filenames) {
 
     for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
       TString paramName = Form("LiveTime_Unfiltered_Crystal%d_s", c);
-      TParameter<Double_t> *ltParam =
-          (TParameter<Double_t> *)file->Get(paramName);
-      Double_t sumLiveTime_s = ltParam ? ltParam->GetVal() : -1;
+      TParameter<Float_t> *ltParam =
+          (TParameter<Float_t> *)file->Get(paramName);
+      Float_t sumLiveTime_s = ltParam ? ltParam->GetVal() : -1;
 
-      Double_t eventSpan_s =
-          (Double_t)(lastEventTime[c] - firstEventTime[c]) * MS_TO_S;
+      Float_t eventSpan_s =
+          (Float_t)(lastEventTime[c] - firstEventTime[c]) * MS_TO_S;
 
       std::cout << "  Crystal " << c << ":"
                 << " physEvents=" << nPhysicalEvents[c]
@@ -96,7 +96,7 @@ void LiveTimeSums(std::vector<TString> filenames) {
                 << " span=" << eventSpan_s << " s"
                 << " sum/span="
                 << (eventSpan_s > 0 ? sumLiveTime_s / eventSpan_s : 0)
-                << " sum/DAQ="
+                << " sum/FAQ="
                 << (daqLiveTime_s > 0 ? sumLiveTime_s / daqLiveTime_s : 0)
                 << std::endl;
     }

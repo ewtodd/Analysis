@@ -12,19 +12,19 @@
 
 const Float_t E_AM241 = 59.5409;
 const Float_t E_BA133_53 = 53.16;
-const Float_t E_BA133_81 = 80.98;
+const Float_t E_BA133_81 = 80.9979;
 const Float_t E_PB_KA1 = 72.8042;
 const Float_t E_PB_KA2 = 74.9694;
 const Float_t E_CD114M = 95.9023;
 
-TH1D *LoadHistogram(const TString input_name) {
+TH1F *LoadHistogram(const TString input_name) {
   TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
   if (!file || file->IsZombie()) {
     std::cerr << "ERROR: Cannot open " << input_name << ".root" << std::endl;
     return nullptr;
   }
 
-  TH1D *hist = static_cast<TH1D *>(file->Get("calibrated_zoomedHist"));
+  TH1F *hist = static_cast<TH1F *>(file->Get("calibrated_zoomedHist"));
   if (!hist) {
     std::cerr << "ERROR: Cannot find calibrated_zoomedHist in " << input_name
               << std::endl;
@@ -40,7 +40,7 @@ TH1D *LoadHistogram(const TString input_name) {
 
 FitResult FitCalibrationPeak(const TString input_name, const TString peak_name,
                              const Bool_t interactive) {
-  TH1D *hist = LoadHistogram(input_name);
+  TH1F *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 
@@ -92,7 +92,7 @@ FitResult FitCalibrationPeak(const TString input_name, const TString peak_name,
 
 FitResult FitBackgroundPeak(const TString input_name,
                             const Bool_t interactive) {
-  TH1D *hist = LoadHistogram(input_name);
+  TH1F *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 
@@ -123,7 +123,7 @@ FitResult FitBackgroundPeak(const TString input_name,
 }
 
 FitResult FitPbKAlpha(const TString input_name, const Bool_t interactive) {
-  TH1D *hist = LoadHistogram(input_name);
+  TH1F *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 
@@ -167,7 +167,7 @@ FitResult FitPbKAlpha(const TString input_name, const Bool_t interactive) {
 FitResult FitSignalDoublePeak(const TString input_name,
                               const PeakFitResult &constrained_peak,
                               const Bool_t interactive) {
-  TH1D *hist = LoadHistogram(input_name);
+  TH1F *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 
@@ -201,7 +201,7 @@ FitResult FitSignalDoublePeak(const TString input_name,
 FitResult FitSignalTriplePeak(const TString input_name,
                               const FitResult &constrained_peaks,
                               const Bool_t interactive) {
-  TH1D *hist = LoadHistogram(input_name);
+  TH1F *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 

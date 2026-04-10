@@ -2,7 +2,7 @@
 #include "InitUtils.hpp"
 #include "PlottingUtils.hpp"
 #include <TFile.h>
-#include <TH1D.h>
+#include <TH1F.h>
 #include <TMath.h>
 #include <TROOT.h>
 #include <TTree.h>
@@ -18,19 +18,19 @@ Bool_t AddHistogram(TString filename) {
 
   TString treeType = Constants::USE_FILTERED ? "filtered" : "unfiltered";
 
-  TH1D *hist = new TH1D(PlottingUtils::GetRandomName(),
+  TH1F *hist = new TH1F(PlottingUtils::GetRandomName(),
                         Form("%s; Energy [keV]; Counts / %d eV",
                              filename.Data(), Constants::BIN_WIDTH_EV),
                         Constants::HIST_NBINS, Constants::HIST_XMIN,
                         Constants::HIST_XMAX);
 
-  TH1D *zoomedHist = new TH1D(PlottingUtils::GetRandomName(),
+  TH1F *zoomedHist = new TH1F(PlottingUtils::GetRandomName(),
                               Form("%s; Energy [keV]; Counts / %d eV",
                                    filename.Data(), Constants::BIN_WIDTH_EV),
                               Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
                               Constants::ZOOMED_XMAX);
 
-  TH1D *peakHist = new TH1D(PlottingUtils::GetRandomName(),
+  TH1F *peakHist = new TH1F(PlottingUtils::GetRandomName(),
                             Form("%s; Energy [keV]; Counts / %d eV",
                                  filename.Data(), Constants::BIN_WIDTH_EV),
                             Constants::PEAK_NBINS, Constants::PEAK_XMIN,
@@ -45,19 +45,19 @@ Bool_t AddHistogram(TString filename) {
       continue;
     }
 
-    Double_t energy = 0;
+    Float_t energy = 0;
     tree->SetBranchAddress("energykeV", &energy);
 
     Int_t n_entries = tree->GetEntries();
 
-    TH1D *cHist =
-        new TH1D(PlottingUtils::GetRandomName(), "", Constants::HIST_NBINS,
+    TH1F *cHist =
+        new TH1F(PlottingUtils::GetRandomName(), "", Constants::HIST_NBINS,
                  Constants::HIST_XMIN, Constants::HIST_XMAX);
-    TH1D *cZoomed =
-        new TH1D(PlottingUtils::GetRandomName(), "", Constants::ZOOMED_NBINS,
+    TH1F *cZoomed =
+        new TH1F(PlottingUtils::GetRandomName(), "", Constants::ZOOMED_NBINS,
                  Constants::ZOOMED_XMIN, Constants::ZOOMED_XMAX);
-    TH1D *cPeak =
-        new TH1D(PlottingUtils::GetRandomName(), "", Constants::PEAK_NBINS,
+    TH1F *cPeak =
+        new TH1F(PlottingUtils::GetRandomName(), "", Constants::PEAK_NBINS,
                  Constants::PEAK_XMIN, Constants::PEAK_XMAX);
 
     for (Int_t i = 0; i < n_entries; i++) {

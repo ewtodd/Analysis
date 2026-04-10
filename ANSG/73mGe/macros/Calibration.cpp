@@ -7,6 +7,7 @@
 #include <TGraphErrors.h>
 #include <TROOT.h>
 #include <TSystem.h>
+#include <TTree.h>
 #include <cmath>
 #include <iomanip>
 #include <vector>
@@ -17,6 +18,46 @@ const Float_t E_BA133_81 = 80.98;
 const Float_t E_PB_KA1 = 72.8042;
 const Float_t E_PB_KA2 = 74.9694;
 const Float_t E_CD114M = 95.9023;
+
+TF1 *gain_functions[Constants::N_CRYSTALS];
+
+void InitDefaultGainFunctions() {
+  for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
+    gain_functions[c] = new TF1(Form("default_gain%d", c), "pol1", -10, 600);
+    gain_functions[c]->SetParameter(0, 0);
+    gain_functions[c]->SetParameter(1, 1);
+  }
+}
+
+void LoadGainMatch() {
+  InitDefaultGainFunctions();
+  TFile *file = new TFile("root_files/gain_match.root", "READ");
+  if (!file || file->IsZombie()) {
+    std::cerr << "WARNING: No gain match file found, using unity gain"
+              << std::endl;
+    if (file)
+      delete file;
+    return;
+  }
+  std::cout << "Loading gain match factors:" << std::endl;
+  for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
+    TString name = Form("gain_crystal%d", c);
+    TF1 *func = static_cast<TF1 *>(file->Get(name));
+    if (func) {
+      delete gain_functions[c];
+      gain_functions[c] = static_cast<TF1 *>(func->Clone());
+      std::cout << "  Crystal " << c << ": intercept = " << std::fixed
+                << std::setprecision(6) << gain_functions[c]->GetParameter(0)
+                << ", slope = " << gain_functions[c]->GetParameter(1)
+                << std::endl;
+    } else {
+      std::cerr << "  WARNING: Missing " << name << ", using identity"
+                << std::endl;
+    }
+  }
+  file->Close();
+  delete file;
+}
 
 struct CalibrationData {
   std::vector<Float_t> mu;
@@ -29,21 +70,35 @@ struct CalibrationData {
 void PrintCalibrationSummary(const CalibrationData &cal_data,
                              TString date_label);
 
-TH1D *LoadHistogram(const TString input_name) {
+TH1F *LoadHistogram(const TString input_name) {
   TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
   if (!file || file->IsZombie()) {
     std::cerr << "ERROR: Cannot open " << input_name << ".root" << std::endl;
     return nullptr;
   }
 
-  TH1D *hist = static_cast<TH1D *>(file->Get("zoomedHist"));
-  if (!hist) {
-    std::cerr << "ERROR: Cannot find zoomedHist in " << input_name << std::endl;
-    file->Close();
-    delete file;
-    return nullptr;
-  }
+  TH1F *hist = new TH1F(
+      PlottingUtils::GetRandomName(),
+      Form("; Energy [keV]; Counts / %d eV", Constants::BIN_WIDTH_EV),
+      Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN, Constants::ZOOMED_XMAX);
   hist->SetDirectory(0);
+
+  for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
+    TString treeName = Form("crystal%d_filtered_tree", c);
+    TTree *tree = static_cast<TTree *>(file->Get(treeName));
+    if (!tree)
+      continue;
+
+    Float_t energy = 0;
+    tree->SetBranchAddress("energykeV", &energy);
+    Int_t n_entries = tree->GetEntries();
+    for (Int_t j = 0; j < n_entries; j++) {
+      tree->GetEntry(j);
+      Float_t corrected = gain_functions[c]->Eval(energy);
+      hist->Fill(corrected);
+    }
+  }
+
   file->Close();
   delete file;
   return hist;
@@ -51,7 +106,7 @@ TH1D *LoadHistogram(const TString input_name) {
 
 FitResult FitCalibrationPeak(const TString input_name, const TString peak_name,
                              const Bool_t interactive) {
-  TH1D *hist = LoadHistogram(input_name);
+  TH1F *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 
@@ -76,6 +131,11 @@ FitResult FitCalibrationPeak(const TString input_name, const TString peak_name,
       fitter = new FittingUtils(hist, 51, 71, use_flat_background, use_step,
                                 use_low_exp_tail, use_low_lin_tail,
                                 use_high_exp_tail);
+  }
+  if (peak_name == "Ba_53.16keV") {
+    fitter =
+        new FittingUtils(hist, 48, 58, use_flat_background, use_step,
+                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
   }
   if (peak_name == "Ba_80.98keV") {
     fitter =
@@ -102,7 +162,7 @@ FitResult FitCalibrationPeak(const TString input_name, const TString peak_name,
 }
 
 FitResult FitPbKAlpha(const TString input_name, const Bool_t interactive) {
-  TH1D *hist = LoadHistogram(input_name);
+  TH1F *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 
@@ -165,7 +225,7 @@ TF1 *CreateAndSaveCalibration(
   calibration_curve->Draw("AP");
 
   TF1 *calibration_fit = new TF1("linear_" + date_label, "pol1", -10, 100);
-  calibration_fit->FixParameter(0, 0);
+  calibration_fit->SetParameter(0, 0);
   calibration_fit->SetParameter(1, 1);
   calibration_fit->SetNpx(1000);
 
@@ -216,7 +276,6 @@ TF1 *BuildCalibration_20260113(const Bool_t interactive) {
   std::cout << "Building Calibration for Jan 13" << std::endl;
 
   CalibrationData cal_data;
-  AddZeroPoint(cal_data);
 
   FitResult am241_result = FitCalibrationPeak(
       Constants::POSTREACTOR_AM241_20260113, "Am_59.5keV", interactive);
@@ -241,26 +300,30 @@ TF1 *BuildCalibration_20260113(const Bool_t interactive) {
   return cal_func;
 }
 
-TF1 *BuildCalibration_20260114(const Bool_t interactive) {
-  std::cout << "Building Calibration for Jan 14" << std::endl;
-
-  CalibrationData cal_data;
-  AddZeroPoint(cal_data);
+TF1 *BuildCalibration_20260114(TF1 *cal_jan13, const Bool_t interactive) {
+  std::cout << "Building Calibration for Jan 14 (drift-corrected from Jan 13)"
+            << std::endl;
 
   FitResult cu_bkg_pb = FitPbKAlpha(
       Constants::CUSHIELDBACKGROUND_10PERCENT_20260114, interactive);
-  AddCalibrationPoint(cal_data, "Cu Shield Bkg Pb-Ka1",
-                      cu_bkg_pb.peaks.at(0).mu, cu_bkg_pb.peaks.at(0).mu_error,
-                      E_PB_KA1, cu_bkg_pb.reduced_chi2);
-  AddCalibrationPoint(cal_data, "Cu Shield Bkg Pb-Ka2",
-                      cu_bkg_pb.peaks.at(1).mu, cu_bkg_pb.peaks.at(1).mu_error,
-                      E_PB_KA2, -1);
 
-  PrintCalibrationSummary(cal_data, "20260114");
+  Float_t mu_ka1 = cu_bkg_pb.peaks.at(0).mu;
+  Float_t mu_ka2 = cu_bkg_pb.peaks.at(1).mu;
 
-  TF1 *cal_func =
-      CreateAndSaveCalibration(cal_data.mu, cal_data.calibration_values_keV,
-                               cal_data.mu_errors, "20260114");
+  Float_t residual_ka1 = E_PB_KA1 - cal_jan13->Eval(mu_ka1);
+  Float_t residual_ka2 = E_PB_KA2 - cal_jan13->Eval(mu_ka2);
+  Float_t avg_drift = (residual_ka1 + residual_ka2) / 2.0;
+
+  std::cout << "  Pb Ka1 residual: " << std::fixed << std::setprecision(4)
+            << residual_ka1 << " keV" << std::endl;
+  std::cout << "  Pb Ka2 residual: " << residual_ka2 << " keV" << std::endl;
+  std::cout << "  Average drift:   " << avg_drift << " keV" << std::endl;
+
+  TF1 *cal_func = new TF1("linear_20260114", "pol1", -10, 100);
+  cal_func->SetParameter(0, cal_jan13->GetParameter(0) + avg_drift);
+  cal_func->SetParameter(1, cal_jan13->GetParameter(1));
+  cal_func->SetNpx(1000);
+
   return cal_func;
 }
 
@@ -268,13 +331,19 @@ TF1 *BuildCalibration_20260115(const Bool_t interactive) {
   std::cout << "Building Calibration for Jan 15" << std::endl;
 
   CalibrationData cal_data;
-  AddZeroPoint(cal_data);
 
   FitResult am241_result = FitCalibrationPeak(
       Constants::POSTREACTOR_AM241_20260115, "Am_59.5keV", interactive);
   AddCalibrationPoint(
       cal_data, "Post-reactor Am-241", am241_result.peaks.at(0).mu,
       am241_result.peaks.at(0).mu_error, E_AM241, am241_result.reduced_chi2);
+
+  FitResult ba133_53_result = FitCalibrationPeak(
+      Constants::POSTREACTOR_BA133_20260115, "Ba_53.16keV", interactive);
+  AddCalibrationPoint(cal_data, "Post-reactor Ba-133 53.16keV",
+                      ba133_53_result.peaks.at(0).mu,
+                      ba133_53_result.peaks.at(0).mu_error, E_BA133_53,
+                      ba133_53_result.reduced_chi2);
 
   FitResult ba133_result = FitCalibrationPeak(
       Constants::POSTREACTOR_BA133_20260115, "Ba_80.98keV", interactive);
@@ -294,13 +363,19 @@ TF1 *BuildCalibration_20260116(const Bool_t interactive) {
   std::cout << "Building Calibration for Jan 16" << std::endl;
 
   CalibrationData cal_data;
-  AddZeroPoint(cal_data);
 
   FitResult am241_result = FitCalibrationPeak(
       Constants::POSTREACTOR_AM241_BA133_20260116, "Am_59.5keV", interactive);
   AddCalibrationPoint(
       cal_data, "Post-reactor Am-241", am241_result.peaks.at(0).mu,
       am241_result.peaks.at(0).mu_error, E_AM241, am241_result.reduced_chi2);
+
+  FitResult ba133_53_result = FitCalibrationPeak(
+      Constants::POSTREACTOR_AM241_BA133_20260116, "Ba_53.16keV", interactive);
+  AddCalibrationPoint(cal_data, "Post-reactor Ba-133 53.16keV",
+                      ba133_53_result.peaks.at(0).mu,
+                      ba133_53_result.peaks.at(0).mu_error, E_BA133_53,
+                      ba133_53_result.reduced_chi2);
 
   FitResult ba133_result = FitCalibrationPeak(
       Constants::POSTREACTOR_AM241_BA133_20260116, "Ba_80.98keV", interactive);
@@ -332,33 +407,59 @@ void PulseHeightToDepositedEnergy(const std::vector<TString> &input_names,
     TString filepath = "root_files/" + input_name + ".root";
     TFile *file = new TFile(filepath, "UPDATE");
 
-    Double_t deposited_energy = 0;
+    Float_t deposited_energy = 0;
     TTree *cal_tree = new TTree("calibrated_tree", "Calibrated events");
     cal_tree->SetDirectory(file);
     cal_tree->Branch("depositedEnergykeV", &deposited_energy,
-                     "depositedEnergykeV/D");
+                     "depositedEnergykeV/F");
 
-    TH1D *hist = new TH1D(PlottingUtils::GetRandomName(),
+    TH1F *hist = new TH1F(PlottingUtils::GetRandomName(),
                           Form("; Deposited Energy [keV]; Counts / %d eV",
                                Constants::BIN_WIDTH_EV),
                           Constants::HIST_NBINS, Constants::HIST_XMIN,
                           Constants::HIST_XMAX);
     hist->SetDirectory(0);
 
-    TH1D *zoomedHist =
-        new TH1D(PlottingUtils::GetRandomName(),
-                 Form("; Deposited Energy [keV]; Counts / %d eV",
-                      Constants::BIN_WIDTH_EV),
-                 Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
-                 Constants::ZOOMED_XMAX);
+    TH1F *zoomedHist = new TH1F(PlottingUtils::GetRandomName(),
+                                Form("; Deposited Energy [keV]; Counts / %d eV",
+                                     Constants::BIN_WIDTH_EV),
+                                Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
+                                Constants::ZOOMED_XMAX);
     zoomedHist->SetDirectory(0);
 
-    TH1D *peakHist = new TH1D(PlottingUtils::GetRandomName(),
+    TH1F *peakHist = new TH1F(PlottingUtils::GetRandomName(),
                               Form("; Deposited Energy [keV]; Counts / %d eV",
                                    Constants::BIN_WIDTH_EV),
                               Constants::PEAK_NBINS, Constants::PEAK_XMIN,
                               Constants::PEAK_XMAX);
     peakHist->SetDirectory(0);
+
+    TH1F *crystalHists[Constants::N_CRYSTALS];
+    TH1F *crystalZoomedHists[Constants::N_CRYSTALS];
+    TH1F *crystalPeakHists[Constants::N_CRYSTALS];
+    for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
+      crystalHists[c] = new TH1F(
+          PlottingUtils::GetRandomName(),
+          Form("; Deposited Energy [keV]; Counts / %d eV",
+               Constants::BIN_WIDTH_EV),
+          Constants::HIST_NBINS, Constants::HIST_XMIN, Constants::HIST_XMAX);
+      crystalHists[c]->SetDirectory(0);
+
+      crystalZoomedHists[c] =
+          new TH1F(PlottingUtils::GetRandomName(),
+                   Form("; Deposited Energy [keV]; Counts / %d eV",
+                        Constants::BIN_WIDTH_EV),
+                   Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
+                   Constants::ZOOMED_XMAX);
+      crystalZoomedHists[c]->SetDirectory(0);
+
+      crystalPeakHists[c] = new TH1F(
+          PlottingUtils::GetRandomName(),
+          Form("; Deposited Energy [keV]; Counts / %d eV",
+               Constants::BIN_WIDTH_EV),
+          Constants::PEAK_NBINS, Constants::PEAK_XMIN, Constants::PEAK_XMAX);
+      crystalPeakHists[c]->SetDirectory(0);
+    }
 
     for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
       TString treeName = Form("crystal%d_filtered_tree", c);
@@ -369,17 +470,21 @@ void PulseHeightToDepositedEnergy(const std::vector<TString> &input_names,
         continue;
       }
 
-      Double_t energy = 0;
+      Float_t energy = 0;
       tree->SetBranchAddress("energykeV", &energy);
 
       Int_t n_entries = tree->GetEntries();
       for (Int_t j = 0; j < n_entries; j++) {
         tree->GetEntry(j);
-        deposited_energy = calibration_function->Eval(energy);
+        Float_t gain_matched = gain_functions[c]->Eval(energy);
+        deposited_energy = calibration_function->Eval(gain_matched);
         cal_tree->Fill();
         hist->Fill(deposited_energy);
         zoomedHist->Fill(deposited_energy);
         peakHist->Fill(deposited_energy);
+        crystalHists[c]->Fill(deposited_energy);
+        crystalZoomedHists[c]->Fill(deposited_energy);
+        crystalPeakHists[c]->Fill(deposited_energy);
       }
     }
 
@@ -388,6 +493,17 @@ void PulseHeightToDepositedEnergy(const std::vector<TString> &input_names,
     hist->Write("calibrated_hist", TObject::kOverwrite);
     zoomedHist->Write("calibrated_zoomedHist", TObject::kOverwrite);
     peakHist->Write("calibrated_peakHist", TObject::kOverwrite);
+    for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
+      crystalHists[c]->Write(Form("calibrated_hist_crystal%d", c),
+                             TObject::kOverwrite);
+      crystalZoomedHists[c]->Write(Form("calibrated_zoomedHist_crystal%d", c),
+                                   TObject::kOverwrite);
+      crystalPeakHists[c]->Write(Form("calibrated_peakHist_crystal%d", c),
+                                 TObject::kOverwrite);
+      delete crystalHists[c];
+      delete crystalZoomedHists[c];
+      delete crystalPeakHists[c];
+    }
 
     delete hist;
     delete zoomedHist;
@@ -401,24 +517,33 @@ void PulseHeightToDepositedEnergy(const std::vector<TString> &input_names,
 
 void Calibration() {
   InitUtils::SetROOTPreferences(PlotSaveFormat::kPNG);
+  LoadGainMatch();
 
   Bool_t interactive = kTRUE;
 
   TF1 *cal_jan13 = BuildCalibration_20260113(interactive);
-  TF1 *cal_jan14 = BuildCalibration_20260114(interactive);
+  TF1 *cal_jan14 = BuildCalibration_20260114(cal_jan13, interactive);
   TF1 *cal_jan15 = BuildCalibration_20260115(interactive);
   TF1 *cal_jan16 = BuildCalibration_20260116(interactive);
 
   std::cout << std::endl;
-  std::cout << "Calibration Slopes:" << std::endl;
-  std::cout << "  Jan 13: " << std::fixed << std::setprecision(6)
-            << cal_jan13->GetParameter(1) << " +/- "
+  std::cout << "Calibration Parameters (intercept, slope):" << std::endl;
+  std::cout << "  Jan 13: intercept = " << std::fixed << std::setprecision(6)
+            << cal_jan13->GetParameter(0) << " +/- "
+            << cal_jan13->GetParError(0)
+            << ", slope = " << cal_jan13->GetParameter(1) << " +/- "
             << cal_jan13->GetParError(1) << std::endl;
-  std::cout << "  Jan 14: " << cal_jan14->GetParameter(1) << " +/- "
-            << cal_jan14->GetParError(1) << std::endl;
-  std::cout << "  Jan 15: " << cal_jan15->GetParameter(1) << " +/- "
+  std::cout << "  Jan 14 (drift-corrected): intercept = "
+            << cal_jan14->GetParameter(0)
+            << ", slope = " << cal_jan14->GetParameter(1) << " (from Jan 13)"
+            << std::endl;
+  std::cout << "  Jan 15: intercept = " << cal_jan15->GetParameter(0) << " +/- "
+            << cal_jan15->GetParError(0)
+            << ", slope = " << cal_jan15->GetParameter(1) << " +/- "
             << cal_jan15->GetParError(1) << std::endl;
-  std::cout << "  Jan 16: " << cal_jan16->GetParameter(1) << " +/- "
+  std::cout << "  Jan 16: intercept = " << cal_jan16->GetParameter(0) << " +/- "
+            << cal_jan16->GetParError(0)
+            << ", slope = " << cal_jan16->GetParameter(1) << " +/- "
             << cal_jan16->GetParError(1) << std::endl;
 
   std::cout << std::endl;
