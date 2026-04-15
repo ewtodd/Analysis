@@ -1,5 +1,6 @@
 #include "Constants.hpp"
 #include "FittingUtils.hpp"
+#include "HyperEMGFitHelpers.hpp"
 #include "InitUtils.hpp"
 #include "PlottingUtils.hpp"
 #include <TF1.h>
@@ -15,49 +16,14 @@
 const Float_t E_AM241 = 59.5409;
 const Float_t E_BA133_53 = 53.16;
 const Float_t E_BA133_81 = 80.98;
+const Float_t E_BA133_276 = 276.3989;
+const Float_t E_BA133_303 = 302.8508;
+const Float_t E_BA133_356 = 356.0129;
+const Float_t E_BA133_384 = 383.8485;
 const Float_t E_PB_KA1 = 72.8042;
 const Float_t E_PB_KA2 = 74.9694;
 const Float_t E_CD114M = 95.9023;
-
-TF1 *gain_functions[Constants::N_CRYSTALS];
-
-void InitDefaultGainFunctions() {
-  for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
-    gain_functions[c] = new TF1(Form("default_gain%d", c), "pol1", -10, 600);
-    gain_functions[c]->SetParameter(0, 0);
-    gain_functions[c]->SetParameter(1, 1);
-  }
-}
-
-void LoadGainMatch() {
-  InitDefaultGainFunctions();
-  TFile *file = new TFile("root_files/gain_match.root", "READ");
-  if (!file || file->IsZombie()) {
-    std::cerr << "WARNING: No gain match file found, using unity gain"
-              << std::endl;
-    if (file)
-      delete file;
-    return;
-  }
-  std::cout << "Loading gain match factors:" << std::endl;
-  for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
-    TString name = Form("gain_crystal%d", c);
-    TF1 *func = static_cast<TF1 *>(file->Get(name));
-    if (func) {
-      delete gain_functions[c];
-      gain_functions[c] = static_cast<TF1 *>(func->Clone());
-      std::cout << "  Crystal " << c << ": intercept = " << std::fixed
-                << std::setprecision(6) << gain_functions[c]->GetParameter(0)
-                << ", slope = " << gain_functions[c]->GetParameter(1)
-                << std::endl;
-    } else {
-      std::cerr << "  WARNING: Missing " << name << ", using identity"
-                << std::endl;
-    }
-  }
-  file->Close();
-  delete file;
-}
+const Float_t E_ANNIHILATION = 510.999;
 
 struct CalibrationData {
   std::vector<Float_t> mu;
@@ -77,129 +43,149 @@ TH1F *LoadHistogram(const TString input_name) {
     return nullptr;
   }
 
-  TH1F *hist = new TH1F(
-      PlottingUtils::GetRandomName(),
-      Form("; Energy [keV]; Counts / %d eV", Constants::BIN_WIDTH_EV),
-      Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN, Constants::ZOOMED_XMAX);
-  hist->SetDirectory(0);
-
-  for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
-    TString treeName = Form("crystal%d_filtered_tree", c);
-    TTree *tree = static_cast<TTree *>(file->Get(treeName));
-    if (!tree)
-      continue;
-
-    Float_t energy = 0;
-    tree->SetBranchAddress("energykeV", &energy);
-    Int_t n_entries = tree->GetEntries();
-    for (Int_t j = 0; j < n_entries; j++) {
-      tree->GetEntry(j);
-      Float_t corrected = gain_functions[c]->Eval(energy);
-      hist->Fill(corrected);
-    }
+  TH1F *hist = static_cast<TH1F *>(file->Get("snip_zoomedHist"));
+  if (!hist) {
+    std::cerr << "ERROR: No snip_zoomedHist in " << input_name << std::endl;
+    file->Close();
+    delete file;
+    return nullptr;
   }
+  hist->SetDirectory(0);
+  hist->Rebin(Constants::REBIN_FACTOR);
+  hist->SetTitle(Form("; Energy [keV]; Counts / %d eV",
+                      Constants::REBIN_FACTOR * Constants::BIN_WIDTH_EV));
 
   file->Close();
   delete file;
   return hist;
 }
 
-FitResult FitCalibrationPeak(const TString input_name, const TString peak_name,
-                             const Bool_t interactive) {
-  TH1F *hist = LoadHistogram(input_name);
+TH1F *LoadFullHistogram(const TString input_name) {
+  TFile *file = new TFile("root_files/" + input_name + ".root", "READ");
+  if (!file || file->IsZombie()) {
+    std::cerr << "ERROR: Cannot open " << input_name << ".root" << std::endl;
+    return nullptr;
+  }
+
+  TH1F *hist = static_cast<TH1F *>(file->Get("snip_hist"));
+  if (!hist) {
+    std::cerr << "ERROR: No snip_hist in " << input_name << std::endl;
+    file->Close();
+    delete file;
+    return nullptr;
+  }
+  hist->SetDirectory(0);
+  hist->Rebin(Constants::REBIN_FACTOR);
+  hist->SetTitle(Form("; Energy [keV]; Counts / %d eV",
+                      Constants::REBIN_FACTOR * Constants::BIN_WIDTH_EV));
+
+  file->Close();
+  delete file;
+  return hist;
+}
+
+HyperEMGFitResult FitCalibrationPeakFull(const TString input_name,
+                                         const TString peak_name,
+                                         const Bool_t interactive) {
+  TH1F *hist = LoadFullHistogram(input_name);
   if (!hist)
     return {};
 
-  Bool_t use_flat_background = kFALSE;
-  Bool_t use_step = kFALSE;
-  Bool_t use_low_exp_tail = kTRUE;
-  Bool_t use_low_lin_tail = kTRUE;
-  Bool_t use_high_exp_tail = kTRUE;
-
-  FittingUtils *fitter = nullptr;
-
-  if (peak_name == "Am_59.5keV") {
-    if (input_name == Constants::POSTREACTOR_AM241_20260113)
-      fitter = new FittingUtils(hist, 50, 70, use_flat_background, use_step,
-                                use_low_exp_tail, use_low_lin_tail,
-                                use_high_exp_tail);
-    else if (input_name == Constants::POSTREACTOR_AM241_BA133_20260116)
-      fitter = new FittingUtils(hist, 55, 70, use_flat_background, use_step,
-                                use_low_exp_tail, use_low_lin_tail,
-                                use_high_exp_tail);
-    else
-      fitter = new FittingUtils(hist, 51, 71, use_flat_background, use_step,
-                                use_low_exp_tail, use_low_lin_tail,
-                                use_high_exp_tail);
-  }
-  if (peak_name == "Ba_53.16keV") {
-    fitter =
-        new FittingUtils(hist, 48, 58, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  }
-  if (peak_name == "Ba_80.98keV") {
-    fitter =
-        new FittingUtils(hist, 75, 90, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  }
-  if (peak_name == "Cd114m_95.9keV") {
-    if (input_name == Constants::NOSHIELDBACKGROUND_5PERCENT_20260115)
-      fitter = new FittingUtils(hist, 91, 100, use_flat_background, use_step,
-                                use_low_exp_tail, use_low_lin_tail,
-                                use_high_exp_tail);
-    else
-      fitter = new FittingUtils(hist, 91, 103, use_flat_background, use_step,
-                                use_low_exp_tail, use_low_lin_tail,
-                                use_high_exp_tail);
+  Double_t fit_low = 0, fit_high = 0;
+  if (peak_name == "Ba_276.40keV") {
+    fit_low = 270;
+    fit_high = 283;
+  } else if (peak_name == "Ba_302.85keV") {
+    fit_low = 296;
+    fit_high = 310;
+  } else if (peak_name == "Ba_356.01keV") {
+    fit_low = 349;
+    fit_high = 363;
+  } else if (peak_name == "Ba_383.85keV") {
+    fit_low = 377;
+    fit_high = 391;
+  } else if (peak_name == "Annihilation_511keV") {
+    fit_low = 500;
+    fit_high = 525;
+  } else {
+    delete hist;
+    return {};
   }
 
-  if (interactive)
-    fitter->SetInteractive();
-  FitResult result = fitter->FitSinglePeak(input_name, peak_name);
+  HyperEMGFitResult result = FitSingleHyperEMG(
+      hist, fit_low, fit_high, kTRUE, input_name, peak_name, interactive);
   delete hist;
-  delete fitter;
   return result;
 }
 
-FitResult FitPbKAlpha(const TString input_name, const Bool_t interactive) {
+HyperEMGFitResult FitCalibrationPeak(const TString input_name,
+                                     const TString peak_name,
+                                     const Bool_t interactive) {
   TH1F *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 
-  Bool_t use_flat_background = kFALSE;
-  Bool_t use_step = kFALSE;
-  Bool_t use_low_exp_tail = kTRUE;
-  Bool_t use_low_lin_tail = kTRUE;
-  Bool_t use_high_exp_tail = kTRUE;
+  Double_t fit_low = 0, fit_high = 0;
 
-  FittingUtils *fitter = nullptr;
-
-  if (input_name == Constants::CDSHIELDBACKGROUND_25PERCENT_20260113)
-    fitter =
-        new FittingUtils(hist, 66, 81, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  else if (input_name == Constants::CUSHIELDBACKGROUND_10PERCENT_20260114)
-    fitter =
-        new FittingUtils(hist, 66, 82, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  else if (input_name == Constants::CUSHIELDBACKGROUND_10PERCENT_20260113) {
-    use_flat_background = kFALSE;
-    fitter =
-        new FittingUtils(hist, 65, 82, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  } else {
-    use_flat_background = kFALSE;
-    fitter =
-        new FittingUtils(hist, 65, 81, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
+  if (peak_name == "Am_59.5keV") {
+    if (input_name == Constants::POSTREACTOR_AM241_20260113) {
+      fit_low = 50;
+      fit_high = 70;
+    } else if (input_name == Constants::POSTREACTOR_AM241_BA133_20260116) {
+      fit_low = 55;
+      fit_high = 70;
+    } else {
+      fit_low = 51;
+      fit_high = 71;
+    }
+  } else if (peak_name == "Ba_53.16keV") {
+    fit_low = 48;
+    fit_high = 58;
+  } else if (peak_name == "Ba_80.98keV") {
+    fit_low = 75;
+    fit_high = 90;
+  } else if (peak_name == "Cd114m_95.9keV") {
+    if (input_name == Constants::NOSHIELDBACKGROUND_5PERCENT_20260115) {
+      fit_low = 91;
+      fit_high = 100;
+    } else {
+      fit_low = 91;
+      fit_high = 103;
+    }
   }
 
-  if (interactive)
-    fitter->SetInteractive();
-  FitResult result =
-      fitter->FitDoublePeak(input_name, "Pb_KAlpha", E_PB_KA1, E_PB_KA2);
+  HyperEMGFitResult result = FitSingleHyperEMG(
+      hist, fit_low, fit_high, kTRUE, input_name, peak_name, interactive);
   delete hist;
-  delete fitter;
+  return result;
+}
+
+HyperEMGFitResult FitPbKAlpha(const TString input_name,
+                              const Bool_t interactive) {
+  TH1F *hist = LoadHistogram(input_name);
+  if (!hist)
+    return {};
+
+  Double_t fit_low = 0, fit_high = 0;
+
+  if (input_name == Constants::CDSHIELDBACKGROUND_25PERCENT_20260113) {
+    fit_low = 66;
+    fit_high = 81;
+  } else if (input_name == Constants::CUSHIELDBACKGROUND_10PERCENT_20260114) {
+    fit_low = 66;
+    fit_high = 82;
+  } else if (input_name == Constants::CUSHIELDBACKGROUND_10PERCENT_20260113) {
+    fit_low = 65;
+    fit_high = 82;
+  } else {
+    fit_low = 65;
+    fit_high = 81;
+  }
+
+  HyperEMGFitResult result =
+      FitDoubleHyperEMG(hist, fit_low, fit_high, E_PB_KA1, E_PB_KA2, kTRUE,
+                        input_name, "Pb_KAlpha", interactive);
+  delete hist;
   return result;
 }
 
@@ -217,16 +203,17 @@ TF1 *CreateAndSaveCalibration(
       calibration_curve, kBlue,
       "; Precalibrated Energy [keV]; Deposited Energy [keV]");
 
-  calibration_curve->GetXaxis()->SetRangeUser(-5, 100);
-  calibration_curve->GetYaxis()->SetRangeUser(-5, 100);
+  calibration_curve->GetXaxis()->SetRangeUser(-5, 600);
+  calibration_curve->GetYaxis()->SetRangeUser(-5, 600);
   calibration_curve->GetXaxis()->SetNdivisions(506);
   calibration_curve->SetMarkerStyle(5);
   calibration_curve->SetMarkerSize(2);
   calibration_curve->Draw("AP");
 
-  TF1 *calibration_fit = new TF1("linear_" + date_label, "pol1", -10, 100);
+  TF1 *calibration_fit = new TF1("cal_" + date_label, "pol2", -10, 600);
   calibration_fit->SetParameter(0, 0);
   calibration_fit->SetParameter(1, 1);
+  calibration_fit->SetParameter(2, 0);
   calibration_fit->SetNpx(1000);
 
   TFitResultPtr fit_result = calibration_curve->Fit(calibration_fit, "LRE");
@@ -272,123 +259,263 @@ void PrintCalibrationSummary(const CalibrationData &cal_data,
   }
 }
 
-TF1 *BuildCalibration_20260113(const Bool_t interactive) {
-  std::cout << "Building Calibration for Jan 13" << std::endl;
+// Build master calibration from Jan 15 (most calibration sources available)
+// Uses Am-241, Ba-133 (53, 81, 303, 356, 384), 511 keV → pol2
+TF1 *BuildMasterCalibration(const Bool_t interactive) {
+  std::cout << "Building Master Calibration from Jan 15" << std::endl;
 
   CalibrationData cal_data;
 
-  FitResult am241_result = FitCalibrationPeak(
-      Constants::POSTREACTOR_AM241_20260113, "Am_59.5keV", interactive);
-  AddCalibrationPoint(
-      cal_data, "Post-reactor Am-241", am241_result.peaks.at(0).mu,
-      am241_result.peaks.at(0).mu_error, E_AM241, am241_result.reduced_chi2);
+  TString am_dataset = Constants::POSTREACTOR_AM241_20260115;
+  TString ba_dataset = Constants::POSTREACTOR_BA133_20260115;
+  TString sig_dataset = Constants::NOSHIELDSIGNAL_5PERCENT_20260115;
 
-  FitResult cu_bkg_pb = FitPbKAlpha(
-      Constants::CUSHIELDBACKGROUND_10PERCENT_20260113, interactive);
-  AddCalibrationPoint(cal_data, "Cu Shield Bkg Pb-Ka1",
-                      cu_bkg_pb.peaks.at(0).mu, cu_bkg_pb.peaks.at(0).mu_error,
-                      E_PB_KA1, cu_bkg_pb.reduced_chi2);
-  AddCalibrationPoint(cal_data, "Cu Shield Bkg Pb-Ka2",
-                      cu_bkg_pb.peaks.at(1).mu, cu_bkg_pb.peaks.at(1).mu_error,
-                      E_PB_KA2, -1);
+  // Am-241 59.5 keV
+  HyperEMGFitResult am =
+      FitCalibrationPeak(am_dataset, "Am_59.5keV", interactive);
+  if (am.valid)
+    AddCalibrationPoint(cal_data, "Am-241 59.5keV", am.peaks.at(0).mu,
+                        am.peaks.at(0).mu_error, E_AM241, am.reduced_chi2);
 
-  PrintCalibrationSummary(cal_data, "20260113");
+  // Ba-133 53.16 keV
+  HyperEMGFitResult ba53 =
+      FitCalibrationPeak(ba_dataset, "Ba_53.16keV", interactive);
+  if (ba53.valid)
+    AddCalibrationPoint(cal_data, "Ba-133 53.16keV", ba53.peaks.at(0).mu,
+                        ba53.peaks.at(0).mu_error, E_BA133_53,
+                        ba53.reduced_chi2);
+
+  // Ba-133 80.98 keV
+  HyperEMGFitResult ba81 =
+      FitCalibrationPeak(ba_dataset, "Ba_80.98keV", interactive);
+  if (ba81.valid)
+    AddCalibrationPoint(cal_data, "Ba-133 80.98keV", ba81.peaks.at(0).mu,
+                        ba81.peaks.at(0).mu_error, E_BA133_81,
+                        ba81.reduced_chi2);
+
+  // Ba-133 276.40 keV
+  HyperEMGFitResult ba276 =
+      FitCalibrationPeakFull(ba_dataset, "Ba_276.40keV", interactive);
+  if (ba276.valid)
+    AddCalibrationPoint(cal_data, "Ba-133 276.40keV", ba276.peaks.at(0).mu,
+                        ba276.peaks.at(0).mu_error, E_BA133_276,
+                        ba276.reduced_chi2);
+
+  // Ba-133 302.85 keV
+  HyperEMGFitResult ba303 =
+      FitCalibrationPeakFull(ba_dataset, "Ba_302.85keV", interactive);
+  if (ba303.valid)
+    AddCalibrationPoint(cal_data, "Ba-133 302.85keV", ba303.peaks.at(0).mu,
+                        ba303.peaks.at(0).mu_error, E_BA133_303,
+                        ba303.reduced_chi2);
+
+  // Ba-133 356.01 keV
+  HyperEMGFitResult ba356 =
+      FitCalibrationPeakFull(ba_dataset, "Ba_356.01keV", interactive);
+  if (ba356.valid)
+    AddCalibrationPoint(cal_data, "Ba-133 356.01keV", ba356.peaks.at(0).mu,
+                        ba356.peaks.at(0).mu_error, E_BA133_356,
+                        ba356.reduced_chi2);
+
+  // Ba-133 383.85 keV
+  HyperEMGFitResult ba384 =
+      FitCalibrationPeakFull(ba_dataset, "Ba_383.85keV", interactive);
+  if (ba384.valid)
+    AddCalibrationPoint(cal_data, "Ba-133 383.85keV", ba384.peaks.at(0).mu,
+                        ba384.peaks.at(0).mu_error, E_BA133_384,
+                        ba384.reduced_chi2);
+
+  // 511 keV annihilation
+  HyperEMGFitResult ann =
+      FitCalibrationPeakFull(sig_dataset, "Annihilation_511keV", interactive);
+  if (ann.valid)
+    AddCalibrationPoint(cal_data, "511 keV Annihilation", ann.peaks.at(0).mu,
+                        ann.peaks.at(0).mu_error, E_ANNIHILATION,
+                        ann.reduced_chi2);
+
+  PrintCalibrationSummary(cal_data, "Master_20260115");
 
   TF1 *cal_func =
       CreateAndSaveCalibration(cal_data.mu, cal_data.calibration_values_keV,
-                               cal_data.mu_errors, "20260113");
+                               cal_data.mu_errors, "Master_20260115");
   return cal_func;
 }
 
-TF1 *BuildCalibration_20260114(TF1 *cal_jan13, const Bool_t interactive) {
-  std::cout << "Building Calibration for Jan 14 (drift-corrected from Jan 13)"
+// For other days: fit available peaks, find linear drift mapping
+// E_master = alpha + beta * E_dayX, then compose with master calibration.
+// Returns a composed TF1: master_cal(alpha + beta * x)
+TF1 *BuildDriftCalibration(TF1 *master, const TString date_label,
+                           const std::vector<TString> &peak_datasets,
+                           const std::vector<TString> &peak_names,
+                           const std::vector<Float_t> &true_energies,
+                           const std::vector<Bool_t> &use_full,
+                           const Bool_t interactive) {
+  std::cout << "Building Drift Calibration for " << date_label << std::endl;
+
+  // Fit peaks for this day
+  std::vector<Float_t> measured;
+  std::vector<Float_t> master_equiv; // where this peak falls in master coords
+  std::vector<Float_t> measured_errors;
+
+  for (Int_t p = 0; p < (Int_t)peak_names.size(); p++) {
+    HyperEMGFitResult fit;
+    if (use_full[p])
+      fit =
+          FitCalibrationPeakFull(peak_datasets[p], peak_names[p], interactive);
+    else if (peak_names[p].Contains("Pb_KAlpha")) {
+      fit = FitPbKAlpha(peak_datasets[p], interactive);
+      if (fit.valid) {
+        // Pb Ka double peak: add both
+        for (Int_t k = 0; k < (Int_t)fit.peaks.size(); k++) {
+          measured.push_back(fit.peaks[k].mu);
+          measured_errors.push_back(fit.peaks[k].mu_error);
+          master_equiv.push_back(true_energies[p + k]);
+        }
+        p++; // skip the second Pb entry
+        continue;
+      }
+    } else
+      fit = FitCalibrationPeak(peak_datasets[p], peak_names[p], interactive);
+
+    if (fit.valid) {
+      measured.push_back(fit.peaks.at(0).mu);
+      measured_errors.push_back(fit.peaks.at(0).mu_error);
+      master_equiv.push_back(true_energies[p]);
+    }
+  }
+
+  if (measured.size() < 2) {
+    std::cerr << "WARNING: Only " << measured.size()
+              << " valid peaks for drift, need >= 2" << std::endl;
+    return nullptr;
+  }
+
+  // For each measured peak, find what gain-matched energy in the master
+  // would give the same true energy. Invert master: E_true = master(E_gm)
+  // => E_gm_master = master^-1(E_true). Then the drift maps
+  // E_measured_dayX -> E_gm_master via linear fit.
+  //
+  // For pol2: E_true = p0 + p1*x + p2*x^2, solve for x given E_true
+  // using quadratic formula: x = (-p1 + sqrt(p1^2 - 4*p2*(p0 - E_true))) /
+  // (2*p2)
+  Double_t p0 = master->GetParameter(0);
+  Double_t p1 = master->GetParameter(1);
+  Double_t p2 = master->GetParameter(2);
+
+  std::vector<Float_t> master_gm; // gain-matched energy in master coordinates
+  for (Int_t i = 0; i < (Int_t)master_equiv.size(); i++) {
+    Double_t E_true = master_equiv[i];
+    Double_t e_gm = 0;
+    if (TMath::Abs(p2) > 1e-12) {
+      Double_t disc = p1 * p1 - 4.0 * p2 * (p0 - E_true);
+      if (disc >= 0)
+        e_gm = (-p1 + TMath::Sqrt(disc)) / (2.0 * p2);
+      else
+        e_gm = (E_true - p0) / p1; // fallback to linear
+    } else {
+      e_gm = (p1 != 0) ? (E_true - p0) / p1 : E_true;
+    }
+    master_gm.push_back(e_gm);
+  }
+
+  // Fit linear drift: E_gm_master = alpha + beta * E_measured_dayX
+  Int_t n = measured.size();
+  TGraph *drift_graph = new TGraph(n, measured.data(), master_gm.data());
+  TF1 *drift_fit = new TF1("drift_" + date_label, "pol1", -10, 600);
+  drift_fit->SetParameter(0, 0);
+  drift_fit->SetParameter(1, 1);
+  drift_graph->Fit(drift_fit, "RQ");
+
+  Double_t alpha = drift_fit->GetParameter(0);
+  Double_t beta = drift_fit->GetParameter(1);
+
+  std::cout << "  Drift: alpha = " << std::fixed << std::setprecision(6)
+            << alpha << ", beta = " << beta << " (" << n << " peaks)"
             << std::endl;
 
-  FitResult cu_bkg_pb = FitPbKAlpha(
-      Constants::CUSHIELDBACKGROUND_10PERCENT_20260114, interactive);
+  // Print per-peak residuals
+  for (Int_t i = 0; i < n; i++) {
+    Double_t mapped = alpha + beta * measured[i];
+    Double_t cal_true = master->Eval(mapped);
+    std::cout << "    E_meas = " << std::setprecision(4) << measured[i]
+              << ", E_true = " << master_equiv[i] << ", cal = " << cal_true
+              << ", residual = " << (cal_true - master_equiv[i]) << " keV"
+              << std::endl;
+  }
 
-  Float_t mu_ka1 = cu_bkg_pb.peaks.at(0).mu;
-  Float_t mu_ka2 = cu_bkg_pb.peaks.at(1).mu;
+  TCanvas *canvas = PlottingUtils::GetConfiguredCanvas();
+  PlottingUtils::ConfigureGraph(drift_graph, kBlue,
+                                "; Measured [keV]; Master GM [keV]");
+  drift_graph->SetMarkerStyle(5);
+  drift_graph->SetMarkerSize(2);
+  drift_graph->Draw("AP");
+  drift_fit->Draw("SAME");
+  PlottingUtils::SaveFigure(canvas, "drift_" + date_label, "",
+                            PlotSaveOptions::kLINEAR);
+  delete drift_graph;
 
-  Float_t residual_ka1 = E_PB_KA1 - cal_jan13->Eval(mu_ka1);
-  Float_t residual_ka2 = E_PB_KA2 - cal_jan13->Eval(mu_ka2);
-  Float_t avg_drift = (residual_ka1 + residual_ka2) / 2.0;
-
-  std::cout << "  Pb Ka1 residual: " << std::fixed << std::setprecision(4)
-            << residual_ka1 << " keV" << std::endl;
-  std::cout << "  Pb Ka2 residual: " << residual_ka2 << " keV" << std::endl;
-  std::cout << "  Average drift:   " << avg_drift << " keV" << std::endl;
-
-  TF1 *cal_func = new TF1("linear_20260114", "pol1", -10, 100);
-  cal_func->SetParameter(0, cal_jan13->GetParameter(0) + avg_drift);
-  cal_func->SetParameter(1, cal_jan13->GetParameter(1));
+  // Compose: E_true = master(alpha + beta * x) = p0 + p1*(a+b*x) +
+  // p2*(a+b*x)^2
+  TF1 *cal_func =
+      new TF1("cal_" + date_label,
+              Form("[0] + [1]*(%f + %f*x) + [2]*(%f + %f*x)*(%f + %f*x)", alpha,
+                   beta, alpha, beta, alpha, beta),
+              -10, 600);
+  cal_func->SetParameter(0, p0);
+  cal_func->SetParameter(1, p1);
+  cal_func->SetParameter(2, p2);
   cal_func->SetNpx(1000);
 
+  // Save
+  TString cal_filepath =
+      "root_files/calibration_function_" + date_label + ".root";
+  TFile *cal_file = new TFile(cal_filepath, "RECREATE");
+  cal_func->Write("calibration", TObject::kOverwrite);
+  drift_fit->Write("drift", TObject::kOverwrite);
+  cal_file->Close();
+  delete cal_file;
+  delete drift_fit;
+
   return cal_func;
 }
 
-TF1 *BuildCalibration_20260115(const Bool_t interactive) {
-  std::cout << "Building Calibration for Jan 15" << std::endl;
-
-  CalibrationData cal_data;
-
-  FitResult am241_result = FitCalibrationPeak(
-      Constants::POSTREACTOR_AM241_20260115, "Am_59.5keV", interactive);
-  AddCalibrationPoint(
-      cal_data, "Post-reactor Am-241", am241_result.peaks.at(0).mu,
-      am241_result.peaks.at(0).mu_error, E_AM241, am241_result.reduced_chi2);
-
-  FitResult ba133_53_result = FitCalibrationPeak(
-      Constants::POSTREACTOR_BA133_20260115, "Ba_53.16keV", interactive);
-  AddCalibrationPoint(cal_data, "Post-reactor Ba-133 53.16keV",
-                      ba133_53_result.peaks.at(0).mu,
-                      ba133_53_result.peaks.at(0).mu_error, E_BA133_53,
-                      ba133_53_result.reduced_chi2);
-
-  FitResult ba133_result = FitCalibrationPeak(
-      Constants::POSTREACTOR_BA133_20260115, "Ba_80.98keV", interactive);
-  AddCalibrationPoint(
-      cal_data, "Post-reactor Ba-133 80.98keV", ba133_result.peaks.at(0).mu,
-      ba133_result.peaks.at(0).mu_error, E_BA133_81, ba133_result.reduced_chi2);
-
-  PrintCalibrationSummary(cal_data, "20260115");
-
-  TF1 *cal_func =
-      CreateAndSaveCalibration(cal_data.mu, cal_data.calibration_values_keV,
-                               cal_data.mu_errors, "20260115");
-  return cal_func;
+// Invert calibration function at a given E_true value.
+// For the composed drift+master function, use Newton's method.
+Double_t InvertCalibration(TF1 *cal_func, Double_t e_true) {
+  // Start with linear estimate
+  Double_t x = e_true;
+  for (Int_t iter = 0; iter < 20; iter++) {
+    Double_t f = cal_func->Eval(x) - e_true;
+    Double_t df = cal_func->Derivative(x);
+    if (TMath::Abs(df) < 1e-15)
+      break;
+    Double_t dx = f / df;
+    x -= dx;
+    if (TMath::Abs(dx) < 1e-6)
+      break;
+  }
+  return x;
 }
 
-TF1 *BuildCalibration_20260116(const Bool_t interactive) {
-  std::cout << "Building Calibration for Jan 16" << std::endl;
+// Remap a histogram's x-axis through a calibration function.
+// For each output bin, numerically invert the calibration to find the source.
+TH1F *RemapHistogram(TH1F *input, TF1 *cal_func, Int_t nbins, Float_t xmin,
+                     Float_t xmax) {
+  TH1F *output = new TH1F(
+      PlottingUtils::GetRandomName(),
+      Form("; Deposited Energy [keV]; Counts / %d eV", Constants::BIN_WIDTH_EV),
+      nbins, xmin, xmax);
+  output->SetDirectory(0);
 
-  CalibrationData cal_data;
+  for (Int_t bin = 1; bin <= nbins; bin++) {
+    Double_t e_cal = output->GetBinCenter(bin);
+    Double_t e_gm = InvertCalibration(cal_func, e_cal);
+    Int_t src_bin = input->FindBin(e_gm);
+    if (src_bin >= 1 && src_bin <= input->GetNbinsX())
+      output->SetBinContent(bin, input->GetBinContent(src_bin));
+  }
 
-  FitResult am241_result = FitCalibrationPeak(
-      Constants::POSTREACTOR_AM241_BA133_20260116, "Am_59.5keV", interactive);
-  AddCalibrationPoint(
-      cal_data, "Post-reactor Am-241", am241_result.peaks.at(0).mu,
-      am241_result.peaks.at(0).mu_error, E_AM241, am241_result.reduced_chi2);
-
-  FitResult ba133_53_result = FitCalibrationPeak(
-      Constants::POSTREACTOR_AM241_BA133_20260116, "Ba_53.16keV", interactive);
-  AddCalibrationPoint(cal_data, "Post-reactor Ba-133 53.16keV",
-                      ba133_53_result.peaks.at(0).mu,
-                      ba133_53_result.peaks.at(0).mu_error, E_BA133_53,
-                      ba133_53_result.reduced_chi2);
-
-  FitResult ba133_result = FitCalibrationPeak(
-      Constants::POSTREACTOR_AM241_BA133_20260116, "Ba_80.98keV", interactive);
-  AddCalibrationPoint(
-      cal_data, "Post-reactor Ba-133 80.98keV", ba133_result.peaks.at(0).mu,
-      ba133_result.peaks.at(0).mu_error, E_BA133_81, ba133_result.reduced_chi2);
-
-  PrintCalibrationSummary(cal_data, "20260116");
-
-  TF1 *cal_func =
-      CreateAndSaveCalibration(cal_data.mu, cal_data.calibration_values_keV,
-                               cal_data.mu_errors, "20260116");
-  return cal_func;
+  return output;
 }
 
 void PulseHeightToDepositedEnergy(const std::vector<TString> &input_names,
@@ -407,103 +534,34 @@ void PulseHeightToDepositedEnergy(const std::vector<TString> &input_names,
     TString filepath = "root_files/" + input_name + ".root";
     TFile *file = new TFile(filepath, "UPDATE");
 
-    Float_t deposited_energy = 0;
-    TTree *cal_tree = new TTree("calibrated_tree", "Calibrated events");
-    cal_tree->SetDirectory(file);
-    cal_tree->Branch("depositedEnergykeV", &deposited_energy,
-                     "depositedEnergykeV/F");
+    // Load SNIP-subtracted gain-matched histograms
+    TH1F *snipHist = static_cast<TH1F *>(file->Get("snip_hist"));
+    TH1F *snipZoomed = static_cast<TH1F *>(file->Get("snip_zoomedHist"));
+    TH1F *snipPeak = static_cast<TH1F *>(file->Get("snip_peakHist"));
 
-    TH1F *hist = new TH1F(PlottingUtils::GetRandomName(),
-                          Form("; Deposited Energy [keV]; Counts / %d eV",
-                               Constants::BIN_WIDTH_EV),
-                          Constants::HIST_NBINS, Constants::HIST_XMIN,
-                          Constants::HIST_XMAX);
-    hist->SetDirectory(0);
-
-    TH1F *zoomedHist = new TH1F(PlottingUtils::GetRandomName(),
-                                Form("; Deposited Energy [keV]; Counts / %d eV",
-                                     Constants::BIN_WIDTH_EV),
-                                Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
-                                Constants::ZOOMED_XMAX);
-    zoomedHist->SetDirectory(0);
-
-    TH1F *peakHist = new TH1F(PlottingUtils::GetRandomName(),
-                              Form("; Deposited Energy [keV]; Counts / %d eV",
-                                   Constants::BIN_WIDTH_EV),
-                              Constants::PEAK_NBINS, Constants::PEAK_XMIN,
-                              Constants::PEAK_XMAX);
-    peakHist->SetDirectory(0);
-
-    TH1F *crystalHists[Constants::N_CRYSTALS];
-    TH1F *crystalZoomedHists[Constants::N_CRYSTALS];
-    TH1F *crystalPeakHists[Constants::N_CRYSTALS];
-    for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
-      crystalHists[c] = new TH1F(
-          PlottingUtils::GetRandomName(),
-          Form("; Deposited Energy [keV]; Counts / %d eV",
-               Constants::BIN_WIDTH_EV),
-          Constants::HIST_NBINS, Constants::HIST_XMIN, Constants::HIST_XMAX);
-      crystalHists[c]->SetDirectory(0);
-
-      crystalZoomedHists[c] =
-          new TH1F(PlottingUtils::GetRandomName(),
-                   Form("; Deposited Energy [keV]; Counts / %d eV",
-                        Constants::BIN_WIDTH_EV),
-                   Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
-                   Constants::ZOOMED_XMAX);
-      crystalZoomedHists[c]->SetDirectory(0);
-
-      crystalPeakHists[c] = new TH1F(
-          PlottingUtils::GetRandomName(),
-          Form("; Deposited Energy [keV]; Counts / %d eV",
-               Constants::BIN_WIDTH_EV),
-          Constants::PEAK_NBINS, Constants::PEAK_XMIN, Constants::PEAK_XMAX);
-      crystalPeakHists[c]->SetDirectory(0);
+    if (!snipHist || !snipZoomed || !snipPeak) {
+      std::cerr << "ERROR: Missing snip histograms in " << filepath
+                << std::endl;
+      file->Close();
+      delete file;
+      continue;
     }
 
-    for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
-      TString treeName = Form("crystal%d_filtered_tree", c);
-      TTree *tree = static_cast<TTree *>(file->Get(treeName));
-      if (!tree) {
-        std::cerr << "ERROR: Could not find " << treeName << " in " << filepath
-                  << std::endl;
-        continue;
-      }
-
-      Float_t energy = 0;
-      tree->SetBranchAddress("energykeV", &energy);
-
-      Int_t n_entries = tree->GetEntries();
-      for (Int_t j = 0; j < n_entries; j++) {
-        tree->GetEntry(j);
-        Float_t gain_matched = gain_functions[c]->Eval(energy);
-        deposited_energy = calibration_function->Eval(gain_matched);
-        cal_tree->Fill();
-        hist->Fill(deposited_energy);
-        zoomedHist->Fill(deposited_energy);
-        peakHist->Fill(deposited_energy);
-        crystalHists[c]->Fill(deposited_energy);
-        crystalZoomedHists[c]->Fill(deposited_energy);
-        crystalPeakHists[c]->Fill(deposited_energy);
-      }
-    }
+    // Remap through calibration function
+    TH1F *hist =
+        RemapHistogram(snipHist, calibration_function, Constants::HIST_NBINS,
+                       Constants::HIST_XMIN, Constants::HIST_XMAX);
+    TH1F *zoomedHist = RemapHistogram(
+        snipZoomed, calibration_function, Constants::ZOOMED_NBINS,
+        Constants::ZOOMED_XMIN, Constants::ZOOMED_XMAX);
+    TH1F *peakHist =
+        RemapHistogram(snipPeak, calibration_function, Constants::PEAK_NBINS,
+                       Constants::PEAK_XMIN, Constants::PEAK_XMAX);
 
     file->cd();
-    cal_tree->Write("calibrated_tree", TObject::kOverwrite);
     hist->Write("calibrated_hist", TObject::kOverwrite);
     zoomedHist->Write("calibrated_zoomedHist", TObject::kOverwrite);
     peakHist->Write("calibrated_peakHist", TObject::kOverwrite);
-    for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
-      crystalHists[c]->Write(Form("calibrated_hist_crystal%d", c),
-                             TObject::kOverwrite);
-      crystalZoomedHists[c]->Write(Form("calibrated_zoomedHist_crystal%d", c),
-                                   TObject::kOverwrite);
-      crystalPeakHists[c]->Write(Form("calibrated_peakHist_crystal%d", c),
-                                 TObject::kOverwrite);
-      delete crystalHists[c];
-      delete crystalZoomedHists[c];
-      delete crystalPeakHists[c];
-    }
 
     delete hist;
     delete zoomedHist;
@@ -517,34 +575,58 @@ void PulseHeightToDepositedEnergy(const std::vector<TString> &input_names,
 
 void Calibration() {
   InitUtils::SetROOTPreferences(PlotSaveFormat::kPNG);
-  LoadGainMatch();
 
   Bool_t interactive = kTRUE;
 
-  TF1 *cal_jan13 = BuildCalibration_20260113(interactive);
-  TF1 *cal_jan14 = BuildCalibration_20260114(cal_jan13, interactive);
-  TF1 *cal_jan15 = BuildCalibration_20260115(interactive);
-  TF1 *cal_jan16 = BuildCalibration_20260116(interactive);
+  // Build master calibration from Jan 15 (pol2, all Ba + Am + 511)
+  TF1 *master = BuildMasterCalibration(interactive);
 
   std::cout << std::endl;
-  std::cout << "Calibration Parameters (intercept, slope):" << std::endl;
-  std::cout << "  Jan 13: intercept = " << std::fixed << std::setprecision(6)
-            << cal_jan13->GetParameter(0) << " +/- "
-            << cal_jan13->GetParError(0)
-            << ", slope = " << cal_jan13->GetParameter(1) << " +/- "
-            << cal_jan13->GetParError(1) << std::endl;
-  std::cout << "  Jan 14 (drift-corrected): intercept = "
-            << cal_jan14->GetParameter(0)
-            << ", slope = " << cal_jan14->GetParameter(1) << " (from Jan 13)"
-            << std::endl;
-  std::cout << "  Jan 15: intercept = " << cal_jan15->GetParameter(0) << " +/- "
-            << cal_jan15->GetParError(0)
-            << ", slope = " << cal_jan15->GetParameter(1) << " +/- "
-            << cal_jan15->GetParError(1) << std::endl;
-  std::cout << "  Jan 16: intercept = " << cal_jan16->GetParameter(0) << " +/- "
-            << cal_jan16->GetParError(0)
-            << ", slope = " << cal_jan16->GetParameter(1) << " +/- "
-            << cal_jan16->GetParError(1) << std::endl;
+  std::cout << "Master Calibration (pol2): p0 = " << std::fixed
+            << std::setprecision(6) << master->GetParameter(0)
+            << ", p1 = " << master->GetParameter(1)
+            << ", p2 = " << std::scientific << std::setprecision(4)
+            << master->GetParameter(2) << std::endl;
+  std::cout << std::endl;
+
+  // Jan 13: drift from master using Am-241, Pb Ka, 511
+  std::vector<TString> ds13 = {Constants::POSTREACTOR_AM241_20260113,
+                               Constants::CUSHIELDBACKGROUND_10PERCENT_20260113,
+                               Constants::CUSHIELDBACKGROUND_10PERCENT_20260113,
+                               Constants::CUSHIELDSIGNAL_10PERCENT_20260113};
+  std::vector<TString> pn13 = {"Am_59.5keV", "Pb_KAlpha", "Pb_KAlpha_2",
+                               "Annihilation_511keV"};
+  std::vector<Float_t> te13 = {E_AM241, E_PB_KA1, E_PB_KA2, E_ANNIHILATION};
+  std::vector<Bool_t> uf13 = {kFALSE, kFALSE, kFALSE, kTRUE};
+  TF1 *cal_jan13 = BuildDriftCalibration(master, "20260113", ds13, pn13, te13,
+                                         uf13, interactive);
+
+  // Jan 14: drift from master using Pb Ka, 511
+  std::vector<TString> ds14 = {Constants::CUSHIELDBACKGROUND_10PERCENT_20260114,
+                               Constants::CUSHIELDBACKGROUND_10PERCENT_20260114,
+                               Constants::CUSHIELDSIGNAL_10PERCENT_20260114};
+  std::vector<TString> pn14 = {"Pb_KAlpha", "Pb_KAlpha_2",
+                               "Annihilation_511keV"};
+  std::vector<Float_t> te14 = {E_PB_KA1, E_PB_KA2, E_ANNIHILATION};
+  std::vector<Bool_t> uf14 = {kFALSE, kFALSE, kTRUE};
+  TF1 *cal_jan14 = BuildDriftCalibration(master, "20260114", ds14, pn14, te14,
+                                         uf14, interactive);
+
+  // Jan 15: master is already the calibration
+  TF1 *cal_jan15 = master;
+
+  // Jan 16: drift from master using Am-241, Ba-133 53/81, 511
+  std::vector<TString> ds16 = {
+      Constants::POSTREACTOR_AM241_BA133_20260116,
+      Constants::POSTREACTOR_AM241_BA133_20260116,
+      Constants::POSTREACTOR_AM241_BA133_20260116,
+      Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_20260116};
+  std::vector<TString> pn16 = {"Am_59.5keV", "Ba_53.16keV", "Ba_80.98keV",
+                               "Annihilation_511keV"};
+  std::vector<Float_t> te16 = {E_AM241, E_BA133_53, E_BA133_81, E_ANNIHILATION};
+  std::vector<Bool_t> uf16 = {kFALSE, kFALSE, kFALSE, kTRUE};
+  TF1 *cal_jan16 = BuildDriftCalibration(master, "20260116", ds16, pn16, te16,
+                                         uf16, interactive);
 
   std::cout << std::endl;
 
@@ -571,7 +653,7 @@ void Calibration() {
       Constants::NOSHIELDSIGNAL_5PERCENT_20260115,
       Constants::POSTREACTOR_AM241_20260115,
       Constants::POSTREACTOR_BA133_20260115, Constants::SHUTTERCLOSED_20260115};
-  PulseHeightToDepositedEnergy(datasets_jan15, cal_jan15, "20260115");
+  PulseHeightToDepositedEnergy(datasets_jan15, cal_jan15, "Master_20260115");
 
   std::vector<TString> datasets_jan16 = {
       Constants::NOSHIELD_GEONCZT_0_5PERCENT_20260116,

@@ -1,5 +1,6 @@
 #include "Constants.hpp"
 #include "FittingUtils.hpp"
+#include "HyperEMGFitHelpers.hpp"
 #include "InitUtils.hpp"
 #include "PlottingUtils.hpp"
 #include <TF1.h>
@@ -7,8 +8,22 @@
 #include <TGraph.h>
 #include <TGraphErrors.h>
 #include <TH1F.h>
+#include <TParameter.h>
 #include <TROOT.h>
+#include <TTree.h>
 #include <iomanip>
+
+Int_t GetCrystalIndex(Float_t x, Float_t y) {
+  if (x < 0 && y < 0)
+    return 0;
+  if (x > 0 && y < 0)
+    return 1;
+  if (x < 0 && y > 0)
+    return 2;
+  if (x > 0 && y > 0)
+    return 3;
+  return -1;
+}
 
 const Float_t E_AM241 = 59.5409;
 const Float_t E_BA133_81 = 80.9979;
@@ -24,7 +39,7 @@ TH1F *LoadFullHistogram(const TString input_name, Int_t crystal) {
     return nullptr;
   }
 
-  TString histName = Form("hist_crystal%d", crystal);
+  TString histName = Form("hist_crystal%d_smoothed", crystal);
   TH1F *hist = static_cast<TH1F *>(file->Get(histName));
   if (!hist) {
     std::cerr << "ERROR: Cannot find " << histName << " in " << input_name
@@ -46,7 +61,7 @@ TH1F *LoadZoomedHistogram(const TString input_name, Int_t crystal) {
     return nullptr;
   }
 
-  TString histName = Form("zoomedHist_crystal%d", crystal);
+  TString histName = Form("zoomedHist_crystal%d_smoothed", crystal);
   TH1F *hist = static_cast<TH1F *>(file->Get(histName));
   if (!hist) {
     std::cerr << "ERROR: Cannot find " << histName << " in " << input_name
@@ -66,8 +81,6 @@ struct GainMatchResult {
   Float_t centroid_error;
   Float_t sigma;
   Float_t sigma_error;
-  Float_t fwhm;
-  Float_t resolution_pct;
   Float_t reduced_chi2;
   Bool_t valid;
 };
@@ -80,23 +93,17 @@ GainMatchResult FitPeak(TH1F *hist, Float_t fit_low, Float_t fit_high,
   if (!hist)
     return result;
 
-  FittingUtils *fitter =
-      new FittingUtils(hist, fit_low, fit_high, use_flat_background, kFALSE,
-                       kTRUE, kTRUE, kTRUE);
-  if (interactive)
-    fitter->SetInteractive();
-  FitResult fit = fitter->FitSinglePeak(label, peak_name);
+  HyperEMGFitResult fit = FitSingleHyperEMG(hist, fit_low, fit_high,
+                                             use_flat_background, label,
+                                             peak_name, interactive);
   if (fit.valid) {
     result.valid = kTRUE;
     result.centroid = fit.peaks[0].mu;
     result.centroid_error = fit.peaks[0].mu_error;
     result.sigma = fit.peaks[0].sigma;
     result.sigma_error = fit.peaks[0].sigma_error;
-    result.fwhm = 2.3548 * fit.peaks[0].sigma;
-    result.resolution_pct = 100.0 * result.fwhm / fit.peaks[0].mu;
     result.reduced_chi2 = fit.reduced_chi2;
   }
-  delete fitter;
   return result;
 }
 
@@ -104,19 +111,14 @@ void PrintResults(const TString peak_name,
                   GainMatchResult results[Constants::N_CRYSTALS]) {
   std::cout << std::endl;
   std::cout << "  " << peak_name << std::endl;
-  std::cout
-      << "  Crystal | Centroid [keV]              | FWHM [keV] | Resolution "
-         "[%] | chi2/ndf"
-      << std::endl;
+  std::cout << "  Crystal | Centroid [keV]              | chi2/ndf"
+            << std::endl;
   for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
     if (results[c].valid) {
       std::cout << "        " << c << " | " << std::fixed
                 << std::setprecision(4) << results[c].centroid << " +/- "
                 << std::setw(8) << results[c].centroid_error << " | "
-                << std::setprecision(4) << std::setw(10) << results[c].fwhm
-                << " | " << std::setprecision(2) << std::setw(13)
-                << results[c].resolution_pct << "% | " << std::setprecision(3)
-                << results[c].reduced_chi2 << std::endl;
+                << std::setprecision(3) << results[c].reduced_chi2 << std::endl;
     } else {
       std::cout << "        " << c << " | FAILED" << std::endl;
     }
@@ -145,33 +147,35 @@ void GainMatch() {
     // Ba-133 81 keV
     TH1F *ba_hist = LoadZoomedHistogram(ba_dataset, c);
     ba81_results[c] =
-        FitPeak(ba_hist, 78, 84, kTRUE, ba_dataset + crystal_suffix,
+        FitPeak(ba_hist, 78, 84, kFALSE, ba_dataset + crystal_suffix,
                 "Ba133_81keV", interactive);
     delete ba_hist;
 
     // Am-241 59.5 keV
     TH1F *am_hist = LoadZoomedHistogram(am_dataset, c);
     am59_results[c] =
-        FitPeak(am_hist, 45, 65, kTRUE, am_dataset + crystal_suffix,
+        FitPeak(am_hist, 45, 65, kFALSE, am_dataset + crystal_suffix,
                 "Am241_59keV", interactive);
     delete am_hist;
 
-    // Ba-133 higher-energy lines (from full histogram)
-    TH1F *ba_full = LoadFullHistogram(ba_dataset, c);
-
+    // Ba-133 higher-energy lines (from full histogram, fresh copy each)
+    TH1F *ba_full_303 = LoadFullHistogram(ba_dataset, c);
     ba303_results[c] =
-        FitPeak(ba_full, 296, 310, kFALSE, ba_dataset + crystal_suffix,
+        FitPeak(ba_full_303, 296, 310, kFALSE, ba_dataset + crystal_suffix,
                 "Ba133_303keV", interactive);
+    delete ba_full_303;
 
+    TH1F *ba_full_356 = LoadFullHistogram(ba_dataset, c);
     ba356_results[c] =
-        FitPeak(ba_full, 349, 363, kFALSE, ba_dataset + crystal_suffix,
+        FitPeak(ba_full_356, 349, 363, kFALSE, ba_dataset + crystal_suffix,
                 "Ba133_356keV", interactive);
+    delete ba_full_356;
 
+    TH1F *ba_full_384 = LoadFullHistogram(ba_dataset, c);
     ba384_results[c] =
-        FitPeak(ba_full, 377, 391, kFALSE, ba_dataset + crystal_suffix,
+        FitPeak(ba_full_384, 377, 391, kFALSE, ba_dataset + crystal_suffix,
                 "Ba133_384keV", interactive);
-
-    delete ba_full;
+    delete ba_full_384;
 
     // 511 keV annihilation
     TH1F *bkg_full = LoadFullHistogram(anni_dataset, c);
@@ -262,81 +266,97 @@ void GainMatch() {
   std::cout << std::endl;
   std::cout << "  Gain match factors saved to " << output_path << std::endl;
 
-  // Per-crystal FWHM calibration: FWHM(E) = sqrt(c + b*E + a*E^2)
-  TString fwhm_output_path = "root_files/fwhm_calibration.root";
-  TFile *fwhmFile = new TFile(fwhm_output_path, "RECREATE");
-
+  // ---- Phase 2: Build gain-matched totalEnergy trees for all datasets ----
   std::cout << std::endl;
-  std::cout << "  Per-Crystal FWHM Calibration:" << std::endl;
+  std::cout << "  Building gain-matched totalEnergy trees..." << std::endl;
 
-  const Int_t N_FWHM_PEAKS = 6;
-  GainMatchResult *all_results[N_FWHM_PEAKS] = {
-      am59_results,  ba81_results,  ba303_results,
-      ba356_results, ba384_results, ann511_results};
-  Float_t all_energies[N_FWHM_PEAKS] = {E_AM241,     E_BA133_81,  E_BA133_303,
-                                         E_BA133_356, E_BA133_384, E_ANNIHILATION};
-
-  for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
-    std::vector<Double_t> energies;
-    std::vector<Double_t> fwhms;
-    std::vector<Double_t> energy_errors;
-    std::vector<Double_t> fwhm_errors;
-
-    for (Int_t p = 0; p < N_FWHM_PEAKS; p++) {
-      if (all_results[p][c].valid) {
-        energies.push_back(all_energies[p]);
-        fwhms.push_back(all_results[p][c].fwhm);
-        energy_errors.push_back(0.0);
-        fwhm_errors.push_back(2.3548 * all_results[p][c].sigma_error);
-      }
+  TF1 *gain_functions[Constants::N_CRYSTALS];
+  {
+    TFile *gf = new TFile(output_path, "READ");
+    for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
+      TString name = Form("gain_crystal%d", c);
+      TF1 *func = static_cast<TF1 *>(gf->Get(name));
+      gain_functions[c] = static_cast<TF1 *>(func->Clone());
     }
+    gf->Close();
+    delete gf;
+  }
 
-    Int_t n_fwhm = energies.size();
-    if (n_fwhm < 3) {
-      std::cerr << "WARNING: Crystal " << c << " has only " << n_fwhm
-                << " valid FWHM points, skipping" << std::endl;
+  for (Int_t d = 0; d < (Int_t)Constants::ALL_DATASETS.size(); d++) {
+    TString dataset = Constants::ALL_DATASETS[d];
+    TString filepath = "root_files/" + dataset + ".root";
+    TFile *file = new TFile(filepath, "UPDATE");
+    if (!file || file->IsZombie()) {
+      std::cerr << "ERROR: Cannot open " << filepath << std::endl;
       continue;
     }
 
-    TGraphErrors *fwhm_graph =
-        new TGraphErrors(n_fwhm, energies.data(), fwhms.data(),
-                         energy_errors.data(), fwhm_errors.data());
+    TTree *tree = static_cast<TTree *>(file->Get("bef_tree"));
+    if (!tree) {
+      std::cerr << "ERROR: No bef_tree in " << filepath << std::endl;
+      file->Close();
+      delete file;
+      continue;
+    }
 
-    TString fwhm_func_name = Form("fwhm_calibration_crystal%d", c);
-    TF1 *fwhm_fit =
-        new TF1(fwhm_func_name, "sqrt([0] + [1]*x + [2]*x*x)", 0, 600);
-    fwhm_fit->SetParNames("c", "b", "a");
-    fwhm_fit->SetParameter(0, 1.0);
-    fwhm_fit->SetParameter(1, 0.01);
-    fwhm_fit->SetParameter(2, 1e-6);
-    fwhm_fit->SetNpx(1000);
+    Float_t energy = 0, x = 0, y = 0;
+    Int_t nInteractions = 0, interaction = 0;
+    Int_t liveTime = 0;
+    UInt_t eventTime = 0;
 
-    fwhm_graph->Fit(fwhm_fit, "R");
+    tree->SetBranchAddress("energykeV", &energy);
+    tree->SetBranchAddress("xmm", &x);
+    tree->SetBranchAddress("ymm", &y);
+    tree->SetBranchAddress("nInteractions", &nInteractions);
+    tree->SetBranchAddress("interaction", &interaction);
+    tree->SetBranchAddress("liveTime", &liveTime);
+    tree->SetBranchAddress("eventTime", &eventTime);
 
-    std::cout << "    Crystal " << c << ": c = " << std::scientific
-              << std::setprecision(4) << fwhm_fit->GetParameter(0)
-              << ", b = " << fwhm_fit->GetParameter(1)
-              << ", a = " << fwhm_fit->GetParameter(2) << " (" << n_fwhm
-              << " points)" << std::endl;
+    Float_t totalEnergyGM = 0;
+    UInt_t outEventTime = 0;
+    Int_t outLiveTime = 0;
 
-    TCanvas *fwhm_canvas = PlottingUtils::GetConfiguredCanvas();
-    PlottingUtils::ConfigureGraph(fwhm_graph, kBlue,
-                                  "; Energy [keV]; FWHM [keV]");
-    fwhm_graph->SetMarkerStyle(5);
-    fwhm_graph->SetMarkerSize(2);
-    fwhm_graph->Draw("AP");
-    fwhm_fit->Draw("SAME");
-    PlottingUtils::SaveFigure(fwhm_canvas, "fwhm_" + fwhm_func_name, "",
-                              PlotSaveOptions::kLINEAR);
+    TTree *gmTree =
+        new TTree("gain_matched_tree", "Gain-matched total energy per event");
+    gmTree->Branch("totalEnergykeV", &totalEnergyGM, "totalEnergykeV/F");
+    gmTree->Branch("eventTime", &outEventTime, "eventTime/i");
+    gmTree->Branch("liveTime", &outLiveTime, "liveTime/I");
 
-    fwhm_fit->Write(fwhm_func_name);
-    fwhm_graph->Write(Form("fwhm_graph_crystal%d", c));
-    delete fwhm_graph;
+    Int_t n_entries = tree->GetEntries();
+    Float_t accumE = 0;
+
+    for (Int_t i = 0; i < n_entries; i++) {
+      tree->GetEntry(i);
+
+      Int_t crystal = GetCrystalIndex(x, y);
+      Float_t gainMatched =
+          (crystal >= 0) ? gain_functions[crystal]->Eval(energy) : energy;
+
+      if (interaction == 0) {
+        accumE = gainMatched;
+        outEventTime = eventTime;
+        outLiveTime = liveTime;
+      } else {
+        accumE += gainMatched;
+      }
+
+      if (interaction == nInteractions - 1) {
+        totalEnergyGM = accumE;
+        gmTree->Fill();
+      }
+    }
+
+    gmTree->Write("gain_matched_tree", TObject::kOverwrite);
+    std::cout << "    " << dataset << ": " << gmTree->GetEntries()
+              << " gain-matched events" << std::endl;
+
+    file->Close();
+    delete file;
   }
 
-  fwhmFile->Close();
-  delete fwhmFile;
+  for (Int_t c = 0; c < Constants::N_CRYSTALS; c++)
+    delete gain_functions[c];
 
   std::cout << std::endl;
-  std::cout << "  FWHM calibration saved to " << fwhm_output_path << std::endl;
+  std::cout << "  Gain matching complete." << std::endl;
 }

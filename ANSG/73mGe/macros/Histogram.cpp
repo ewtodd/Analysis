@@ -5,10 +5,13 @@
 #include <TH1F.h>
 #include <TMath.h>
 #include <TROOT.h>
+#include <TSpectrum.h>
 #include <TTree.h>
 #include <future>
 #include <mutex>
 #include <thread>
+
+const Int_t MARKOV_WINDOW = 3;
 
 static std::mutex print_mutex;
 
@@ -70,9 +73,41 @@ Bool_t AddHistogram(TString filename) {
         cPeak->Fill(energy);
     }
 
+    // Save unsmoothed per-crystal histograms
     cHist->Write(Form("hist_crystal%d", c), TObject::kOverwrite);
     cZoomed->Write(Form("zoomedHist_crystal%d", c), TObject::kOverwrite);
     cPeak->Write(Form("peakHist_crystal%d", c), TObject::kOverwrite);
+
+    // Markov-smoothed copies for gain matching
+    TSpectrum spec;
+
+    TH1F *cHistSmoothed =
+        static_cast<TH1F *>(cHist->Clone(PlottingUtils::GetRandomName()));
+    Int_t nBinsFull = cHistSmoothed->GetNbinsX();
+    Double_t *bufFull = new Double_t[nBinsFull];
+    for (Int_t b = 0; b < nBinsFull; b++)
+      bufFull[b] = cHistSmoothed->GetBinContent(b + 1);
+    spec.SmoothMarkov(bufFull, nBinsFull, MARKOV_WINDOW);
+    for (Int_t b = 0; b < nBinsFull; b++)
+      cHistSmoothed->SetBinContent(b + 1, bufFull[b]);
+    delete[] bufFull;
+    cHistSmoothed->Write(Form("hist_crystal%d_smoothed", c),
+                         TObject::kOverwrite);
+    delete cHistSmoothed;
+
+    TH1F *cZoomedSmoothed =
+        static_cast<TH1F *>(cZoomed->Clone(PlottingUtils::GetRandomName()));
+    Int_t nBinsZoomed = cZoomedSmoothed->GetNbinsX();
+    Double_t *bufZoomed = new Double_t[nBinsZoomed];
+    for (Int_t b = 0; b < nBinsZoomed; b++)
+      bufZoomed[b] = cZoomedSmoothed->GetBinContent(b + 1);
+    spec.SmoothMarkov(bufZoomed, nBinsZoomed, MARKOV_WINDOW);
+    for (Int_t b = 0; b < nBinsZoomed; b++)
+      cZoomedSmoothed->SetBinContent(b + 1, bufZoomed[b]);
+    delete[] bufZoomed;
+    cZoomedSmoothed->Write(Form("zoomedHist_crystal%d_smoothed", c),
+                           TObject::kOverwrite);
+    delete cZoomedSmoothed;
 
     hist->Add(cHist);
     zoomedHist->Add(cZoomed);

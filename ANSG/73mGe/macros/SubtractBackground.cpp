@@ -1,5 +1,6 @@
 #include "Constants.hpp"
 #include "FittingUtils.hpp"
+#include "HyperEMGFitHelpers.hpp"
 #include "InitUtils.hpp"
 #include "InteractiveSubtractionEditor.hpp"
 #include "PlottingUtils.hpp"
@@ -7,42 +8,10 @@
 #include <TH1F.h>
 #include <TParameter.h>
 #include <TROOT.h>
-#include <TSpectrum.h>
 #include <iomanip>
 
-const Int_t SNIP_MIN = 10;
-const Int_t SNIP_MAX = 60;
 const Float_t RESIDUAL_REGION_LOW = 72.0;
 const Float_t RESIDUAL_REGION_HIGH = 90.0;
-
-// Estimate baseline from full-range histogram, subtract matching region
-// from target. full_hist and target can be the same pointer.
-void SubtractBaseline(TH1F *full_hist, TH1F *target, Int_t snip_iterations) {
-  TSpectrum spec;
-  TH1 *baseline = spec.Background(full_hist, snip_iterations);
-  if (!baseline)
-    return;
-
-  for (Int_t bin = 1; bin <= target->GetNbinsX(); bin++) {
-    Double_t x = target->GetBinCenter(bin);
-    Int_t bl_bin = baseline->FindBin(x);
-    Double_t bl_val = baseline->GetBinContent(bl_bin);
-    target->SetBinContent(bin, target->GetBinContent(bin) - bl_val);
-  }
-}
-
-struct CrystalHistograms {
-  TH1F *hist;
-  TH1F *zoomedHist;
-  TH1F *peakHist;
-};
-
-struct Histograms {
-  TH1F *hist;
-  TH1F *zoomedHist;
-  TH1F *peakHist;
-  std::vector<CrystalHistograms> crystalHists;
-};
 
 struct DatasetPair {
   TString name;
@@ -50,16 +19,17 @@ struct DatasetPair {
   TString backgroundFile;
 };
 
-Float_t ComputeLiveTimePerCrystal(TFile *file, Int_t crystal) {
+Float_t ComputeTotalLiveTime(TFile *file) {
   TString prefix = Constants::USE_FILTERED ? "Filtered" : "Unfiltered";
-  TString paramName = Form("LiveTime_%s_Crystal%d_s", prefix.Data(), crystal);
-  TParameter<Float_t> *param =
-      static_cast<TParameter<Float_t> *>(file->Get(paramName));
-  if (!param) {
-    std::cerr << "WARNING: " << paramName << " not found" << std::endl;
-    return 0.0;
+  Float_t total = 0;
+  for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
+    TString paramName = Form("LiveTime_%s_Crystal%d_s", prefix.Data(), c);
+    TParameter<Float_t> *param =
+        static_cast<TParameter<Float_t> *>(file->Get(paramName));
+    if (param)
+      total += param->GetVal();
   }
-  return param->GetVal();
+  return total;
 }
 
 void SubtractBackground() {
@@ -94,7 +64,15 @@ void SubtractBackground() {
        Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_20260116,
        Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_20260116});
 
-  std::vector<Histograms> bkgSubtractedResults;
+  struct BkgSubResult {
+    TH1F *hist;
+    TH1F *zoomedHist;
+    TH1F *peakHist;
+    TString name;
+    HyperEMGFitResult fit;
+  };
+
+  std::vector<BkgSubResult> bkgSubtractedResults;
 
   for (Int_t i = 0; i < (Int_t)datasets.size(); i++) {
     std::cout << "Processing: " << datasets[i].name << std::endl;
@@ -114,163 +92,77 @@ void SubtractBackground() {
       continue;
     }
 
-    // Load per-crystal live times and compute LT ratios
-    Float_t sigLTs[Constants::N_CRYSTALS];
-    Float_t ltRatios[Constants::N_CRYSTALS];
+    // Total live times for normalization
+    Float_t sigLT = ComputeTotalLiveTime(sigFile);
+    Float_t bkgLT = ComputeTotalLiveTime(bkgFile);
+    Float_t ltRatio = (bkgLT > 0) ? sigLT / bkgLT : 1.0;
 
-    for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
-      sigLTs[c] = ComputeLiveTimePerCrystal(sigFile, c);
-      Float_t bkgLT = ComputeLiveTimePerCrystal(bkgFile, c);
-      ltRatios[c] = (bkgLT > 0) ? sigLTs[c] / bkgLT : 1.0;
+    std::cout << "  LT ratio = " << std::fixed << std::setprecision(4)
+              << ltRatio << " (sig = " << sigLT << " s, bkg = " << bkgLT
+              << " s)" << std::endl;
 
-      std::cout << "  Crystal " << c << ": LT ratio = " << std::fixed
-                << std::setprecision(4) << ltRatios[c]
-                << " (sig = " << sigLTs[c] << " s, bkg = " << bkgLT << " s)"
-                << std::endl;
+    // Load calibrated (SNIP-subtracted + calibrated) histograms
+    TH1F *sigHist =
+        static_cast<TH1F *>(sigFile->Get("calibrated_hist"));
+    TH1F *sigZoomed =
+        static_cast<TH1F *>(sigFile->Get("calibrated_zoomedHist"));
+    TH1F *sigPeak =
+        static_cast<TH1F *>(sigFile->Get("calibrated_peakHist"));
+    TH1F *bkgHist =
+        static_cast<TH1F *>(bkgFile->Get("calibrated_hist"));
+    TH1F *bkgZoomed =
+        static_cast<TH1F *>(bkgFile->Get("calibrated_zoomedHist"));
+    TH1F *bkgPeak =
+        static_cast<TH1F *>(bkgFile->Get("calibrated_peakHist"));
+
+    if (!sigHist || !sigZoomed || !sigPeak || !bkgHist || !bkgZoomed ||
+        !bkgPeak) {
+      std::cerr << "ERROR: Missing calibrated histograms for "
+                << datasets[i].name << std::endl;
+      sigFile->Close();
+      bkgFile->Close();
+      delete sigFile;
+      delete bkgFile;
+      continue;
     }
 
-    // Scan SNIP iterations: for each, find optimal correction factor in
-    // 72-90 keV via least-squares, then compare minimum achievable residuals
-    Int_t best_snip = (SNIP_MIN + SNIP_MAX) / 2;
-    Double_t best_residual = 1e30;
-    Double_t best_correction = 1.0;
+    sigHist->SetDirectory(0);
+    sigZoomed->SetDirectory(0);
+    sigPeak->SetDirectory(0);
+    bkgHist->SetDirectory(0);
+    bkgZoomed->SetDirectory(0);
+    bkgPeak->SetDirectory(0);
 
-    std::cout << "  Scanning SNIP iterations (" << SNIP_MIN << "-" << SNIP_MAX
-              << ")..." << std::endl;
-
-    for (Int_t snip = SNIP_MIN; snip <= SNIP_MAX; snip++) {
-      // Build combined baseline-subtracted signal and background zoomed hists
-      TH1F *sig_combined =
-          new TH1F(PlottingUtils::GetRandomName(), "", Constants::ZOOMED_NBINS,
-                   Constants::ZOOMED_XMIN, Constants::ZOOMED_XMAX);
-      sig_combined->SetDirectory(0);
-
-      TH1F *bkg_combined =
-          new TH1F(PlottingUtils::GetRandomName(), "", Constants::ZOOMED_NBINS,
-                   Constants::ZOOMED_XMIN, Constants::ZOOMED_XMAX);
-      bkg_combined->SetDirectory(0);
-
-      for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
-        TString histName = Form("calibrated_hist_crystal%d", c);
-        TString zoomedName = Form("calibrated_zoomedHist_crystal%d", c);
-        TH1F *sFull = static_cast<TH1F *>(sigFile->Get(histName));
-        TH1F *sZoomed = static_cast<TH1F *>(sigFile->Get(zoomedName));
-        TH1F *bFull = static_cast<TH1F *>(bkgFile->Get(histName));
-        TH1F *bZoomed = static_cast<TH1F *>(bkgFile->Get(zoomedName));
-
-        if (!sFull || !sZoomed || !bFull || !bZoomed)
-          continue;
-
-        TH1F *sbl =
-            static_cast<TH1F *>(sZoomed->Clone(PlottingUtils::GetRandomName()));
-        sbl->SetDirectory(0);
-        SubtractBaseline(sFull, sbl, snip);
-        sbl->Scale(1.0 / sigLTs[c]);
-        sig_combined->Add(sbl);
-        delete sbl;
-
-        TH1F *bbl =
-            static_cast<TH1F *>(bZoomed->Clone(PlottingUtils::GetRandomName()));
-        bbl->SetDirectory(0);
-        SubtractBaseline(bFull, bbl, snip);
-        bbl->Scale(ltRatios[c] / sigLTs[c]);
-        bkg_combined->Add(bbl);
-        delete bbl;
-      }
-
-      // Optimal correction: minimize sum((s_i - scale * b_i)^2) in 72-90
-      // => scale = sum(s_i * b_i) / sum(b_i^2)
-      Double_t sb = 0, bb = 0;
-      for (Int_t bin = 1; bin <= sig_combined->GetNbinsX(); bin++) {
-        Double_t x = sig_combined->GetBinCenter(bin);
-        if (x >= RESIDUAL_REGION_LOW && x <= RESIDUAL_REGION_HIGH) {
-          Double_t s = sig_combined->GetBinContent(bin);
-          Double_t b = bkg_combined->GetBinContent(bin);
-          sb += s * b;
-          bb += b * b;
-        }
-      }
-
-      Double_t opt_scale = (bb > 0) ? sb / bb : 1.0;
-
-      // Minimum residual with this optimal scale
-      Double_t residual = 0;
-      for (Int_t bin = 1; bin <= sig_combined->GetNbinsX(); bin++) {
-        Double_t x = sig_combined->GetBinCenter(bin);
-        if (x >= RESIDUAL_REGION_LOW && x <= RESIDUAL_REGION_HIGH) {
-          Double_t s = sig_combined->GetBinContent(bin);
-          Double_t b = bkg_combined->GetBinContent(bin);
-          Double_t r = s - opt_scale * b;
-          residual += r * r;
-        }
-      }
-
-      if (residual < best_residual) {
-        best_residual = residual;
-        best_snip = snip;
-        best_correction = opt_scale;
-      }
-
-      delete sig_combined;
-      delete bkg_combined;
-    }
-
-    std::cout << "  Best SNIP iterations: " << best_snip
-              << " (min residual^2 = " << std::scientific
-              << std::setprecision(3) << best_residual
-              << ", optimal scale = " << std::fixed << std::setprecision(4)
-              << best_correction << ")" << std::endl;
-
-    // Build combined histograms for interactive editor using best SNIP
-    TH1F *sigZoomedCombined = new TH1F(
-        PlottingUtils::GetRandomName(),
-        Form("; Energy [keV]; Counts / %d eV", Constants::BIN_WIDTH_EV),
-        Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
-        Constants::ZOOMED_XMAX);
-    sigZoomedCombined->SetDirectory(0);
-
-    TH1F *bkgZoomedNormed = new TH1F(
-        PlottingUtils::GetRandomName(),
-        Form("; Energy [keV]; Counts / %d eV", Constants::BIN_WIDTH_EV),
-        Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
-        Constants::ZOOMED_XMAX);
+    // Find optimal correction scale in residual region
+    // Normalize background by live time ratio first
+    TH1F *bkgZoomedNormed = static_cast<TH1F *>(
+        bkgZoomed->Clone(PlottingUtils::GetRandomName()));
     bkgZoomedNormed->SetDirectory(0);
+    bkgZoomedNormed->Scale(ltRatio);
 
-    for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
-      TString histName = Form("calibrated_hist_crystal%d", c);
-      TString zoomedName = Form("calibrated_zoomedHist_crystal%d", c);
-      TH1F *sigFull = static_cast<TH1F *>(sigFile->Get(histName));
-      TH1F *sigZoomed = static_cast<TH1F *>(sigFile->Get(zoomedName));
-      TH1F *bkgFull = static_cast<TH1F *>(bkgFile->Get(histName));
-      TH1F *bkgZoomed = static_cast<TH1F *>(bkgFile->Get(zoomedName));
-
-      if (sigFull && sigZoomed && bkgFull && bkgZoomed) {
-        TH1F *sigZoomedBL = static_cast<TH1F *>(
-            sigZoomed->Clone(PlottingUtils::GetRandomName()));
-        sigZoomedBL->SetDirectory(0);
-        SubtractBaseline(sigFull, sigZoomedBL, best_snip);
-
-        TH1F *bkgZoomedBL = static_cast<TH1F *>(
-            bkgZoomed->Clone(PlottingUtils::GetRandomName()));
-        bkgZoomedBL->SetDirectory(0);
-        SubtractBaseline(bkgFull, bkgZoomedBL, best_snip);
-
-        sigZoomedCombined->Add(sigZoomedBL);
-        bkgZoomedNormed->Add(bkgZoomedBL, ltRatios[c]);
-
-        delete sigZoomedBL;
-        delete bkgZoomedBL;
+    Double_t sb = 0, bb = 0;
+    for (Int_t bin = 1; bin <= sigZoomed->GetNbinsX(); bin++) {
+      Double_t x = sigZoomed->GetBinCenter(bin);
+      if (x >= RESIDUAL_REGION_LOW && x <= RESIDUAL_REGION_HIGH) {
+        Double_t s = sigZoomed->GetBinContent(bin);
+        Double_t b = bkgZoomedNormed->GetBinContent(bin);
+        sb += s * b;
+        bb += b * b;
       }
     }
+    Double_t best_correction = (bb > 0) ? sb / bb : 1.0;
 
-    // Interactive editor: signal vs correction * LT-normalized background
+    std::cout << "  Optimal correction = " << std::fixed << std::setprecision(4)
+              << best_correction << std::endl;
+
+    // Interactive editor
     Double_t correction = best_correction;
     if (interactive) {
       Bool_t was_batch = gROOT->IsBatch();
       gROOT->SetBatch(kFALSE);
       Double_t editor_result = LaunchSubtractionEditor(
-          sigZoomedCombined, bkgZoomedNormed, best_correction, 72.0, 90.0,
-          datasets[i].name);
+          sigZoomed, bkgZoomedNormed, best_correction,
+          RESIDUAL_REGION_LOW, RESIDUAL_REGION_HIGH, datasets[i].name);
       gROOT->SetBatch(was_batch);
       if (editor_result > 0)
         correction = editor_result;
@@ -278,105 +170,30 @@ void SubtractBackground() {
                 << correction << std::endl;
     }
 
-    delete sigZoomedCombined;
     delete bkgZoomedNormed;
 
-    // Final pass: apply subtraction per crystal using best SNIP
-    Histograms bkgSubtracted;
+    // Final subtraction: signal - correction * ltRatio * background
+    Float_t scale = correction * ltRatio;
 
-    bkgSubtracted.hist = new TH1F(
-        PlottingUtils::GetRandomName(),
-        Form("; Energy [keV]; Counts / %d eV", Constants::BIN_WIDTH_EV),
-        Constants::HIST_NBINS, Constants::HIST_XMIN, Constants::HIST_XMAX);
-    bkgSubtracted.zoomedHist = new TH1F(
-        PlottingUtils::GetRandomName(),
-        Form("; Energy [keV]; Counts / %d eV", Constants::BIN_WIDTH_EV),
-        Constants::ZOOMED_NBINS, Constants::ZOOMED_XMIN,
-        Constants::ZOOMED_XMAX);
-    bkgSubtracted.peakHist = new TH1F(
-        PlottingUtils::GetRandomName(),
-        Form("; Energy [keV]; Counts / %d eV", Constants::BIN_WIDTH_EV),
-        Constants::PEAK_NBINS, Constants::PEAK_XMIN, Constants::PEAK_XMAX);
-    bkgSubtracted.hist->SetDirectory(0);
-    bkgSubtracted.zoomedHist->SetDirectory(0);
-    bkgSubtracted.peakHist->SetDirectory(0);
+    BkgSubResult result;
 
-    for (Int_t c = 0; c < Constants::N_CRYSTALS; c++) {
-      TString histName = Form("calibrated_hist_crystal%d", c);
-      TString zoomedName = Form("calibrated_zoomedHist_crystal%d", c);
-      TString peakName = Form("calibrated_peakHist_crystal%d", c);
+    result.hist = static_cast<TH1F *>(sigHist->Clone(
+        Form("hist_%s_BkgSubtracted", datasets[i].name.Data())));
+    result.hist->SetDirectory(0);
+    result.hist->Add(bkgHist, -scale);
+    result.hist->Scale(1.0 / sigLT);
 
-      TH1F *sigHist = static_cast<TH1F *>(sigFile->Get(histName));
-      TH1F *sigZoomed = static_cast<TH1F *>(sigFile->Get(zoomedName));
-      TH1F *sigPeak = static_cast<TH1F *>(sigFile->Get(peakName));
-      TH1F *bkgHist = static_cast<TH1F *>(bkgFile->Get(histName));
-      TH1F *bkgZoomed = static_cast<TH1F *>(bkgFile->Get(zoomedName));
-      TH1F *bkgPeak = static_cast<TH1F *>(bkgFile->Get(peakName));
+    result.zoomedHist = static_cast<TH1F *>(sigZoomed->Clone(
+        Form("zoomedHist_%s_BkgSubtracted", datasets[i].name.Data())));
+    result.zoomedHist->SetDirectory(0);
+    result.zoomedHist->Add(bkgZoomed, -scale);
+    result.zoomedHist->Scale(1.0 / sigLT);
 
-      if (!sigHist || !sigZoomed || !sigPeak || !bkgHist || !bkgZoomed ||
-          !bkgPeak) {
-        std::cerr << "WARNING: missing crystal " << c << " histograms for "
-                  << datasets[i].name << std::endl;
-        continue;
-      }
-
-      Float_t scale = correction * ltRatios[c];
-
-      // Clone all signal histograms and subtract baseline estimated from full
-      TH1F *subHist = static_cast<TH1F *>(sigHist->Clone(
-          Form("hist_%s_crystal%d_BkgSubtracted", datasets[i].name.Data(), c)));
-      subHist->SetDirectory(0);
-      SubtractBaseline(sigHist, subHist, best_snip);
-
-      TH1F *subZoomed = static_cast<TH1F *>(
-          sigZoomed->Clone(Form("zoomedHist_%s_crystal%d_BkgSubtracted",
-                                datasets[i].name.Data(), c)));
-      subZoomed->SetDirectory(0);
-      SubtractBaseline(sigHist, subZoomed, best_snip);
-
-      TH1F *subPeak = static_cast<TH1F *>(sigPeak->Clone(Form(
-          "peakHist_%s_crystal%d_BkgSubtracted", datasets[i].name.Data(), c)));
-      subPeak->SetDirectory(0);
-      SubtractBaseline(sigHist, subPeak, best_snip);
-
-      // Clone all background histograms and subtract baseline estimated from
-      // full
-      TH1F *bkgHistBL =
-          static_cast<TH1F *>(bkgHist->Clone(PlottingUtils::GetRandomName()));
-      bkgHistBL->SetDirectory(0);
-      SubtractBaseline(bkgHist, bkgHistBL, best_snip);
-
-      TH1F *bkgZoomedBL =
-          static_cast<TH1F *>(bkgZoomed->Clone(PlottingUtils::GetRandomName()));
-      bkgZoomedBL->SetDirectory(0);
-      SubtractBaseline(bkgHist, bkgZoomedBL, best_snip);
-
-      TH1F *bkgPeakBL =
-          static_cast<TH1F *>(bkgPeak->Clone(PlottingUtils::GetRandomName()));
-      bkgPeakBL->SetDirectory(0);
-      SubtractBaseline(bkgHist, bkgPeakBL, best_snip);
-
-      // Subtract scaled background and normalize to rate
-      subHist->Add(bkgHistBL, -scale);
-      subHist->Scale(1.0 / sigLTs[c]);
-
-      subZoomed->Add(bkgZoomedBL, -scale);
-      subZoomed->Scale(1.0 / sigLTs[c]);
-
-      subPeak->Add(bkgPeakBL, -scale);
-      subPeak->Scale(1.0 / sigLTs[c]);
-
-      delete bkgHistBL;
-      delete bkgZoomedBL;
-      delete bkgPeakBL;
-
-      CrystalHistograms ch = {subHist, subZoomed, subPeak};
-      bkgSubtracted.crystalHists.push_back(ch);
-
-      bkgSubtracted.hist->Add(subHist);
-      bkgSubtracted.zoomedHist->Add(subZoomed);
-      bkgSubtracted.peakHist->Add(subPeak);
-    }
+    result.peakHist = static_cast<TH1F *>(sigPeak->Clone(
+        Form("peakHist_%s_BkgSubtracted", datasets[i].name.Data())));
+    result.peakHist->SetDirectory(0);
+    result.peakHist->Add(bkgPeak, -scale);
+    result.peakHist->Scale(1.0 / sigLT);
 
     sigFile->Close();
     bkgFile->Close();
@@ -384,20 +201,38 @@ void SubtractBackground() {
     delete bkgFile;
 
     TCanvas *canvasPair = PlottingUtils::GetConfiguredCanvas();
-    PlottingUtils::ConfigureHistogram(bkgSubtracted.peakHist, kP10Violet);
-    bkgSubtracted.peakHist->Sumw2(0);
-    bkgSubtracted.peakHist->SetMarkerStyle(20);
-    bkgSubtracted.peakHist->SetMarkerSize(0.65);
-    bkgSubtracted.peakHist->Draw("P");
+    PlottingUtils::ConfigureHistogram(result.peakHist, kP10Violet);
+    result.peakHist->Sumw2(0);
+    result.peakHist->SetMarkerStyle(20);
+    result.peakHist->SetMarkerSize(0.65);
+    result.peakHist->Draw("P");
     PlottingUtils::SaveFigure(canvasPair, "peak_" + datasets[i].name,
                               "backgroundSubtraction/pairs",
                               PlotSaveOptions::kLINEAR);
 
-    bkgSubtractedResults.push_back(bkgSubtracted);
+    // Fit Ge-73m peak in this dataset
+    result.name = datasets[i].name;
+    result.fit = FitSingleHyperEMG(result.zoomedHist, 64.0, 77.0, kTRUE,
+                                    datasets[i].name, "Ge73m_68keV",
+                                    interactive);
+    if (result.fit.valid) {
+      std::cout << "  " << datasets[i].name << ": mu = " << std::fixed
+                << std::setprecision(4) << result.fit.peaks[0].mu << " +/- "
+                << result.fit.peaks[0].mu_error
+                << " keV, sigma = " << result.fit.peaks[0].sigma << " +/- "
+                << result.fit.peaks[0].sigma_error
+                << " keV, chi2/ndf = " << std::setprecision(3)
+                << result.fit.reduced_chi2 << std::endl;
+    } else {
+      std::cout << "  " << datasets[i].name << ": FIT FAILED" << std::endl;
+    }
+
+    bkgSubtractedResults.push_back(result);
   }
 
-  TH1F *hist_Combined =
-      static_cast<TH1F *>(bkgSubtractedResults[0].hist->Clone("hist_Combined"));
+  // Combine all datasets
+  TH1F *hist_Combined = static_cast<TH1F *>(
+      bkgSubtractedResults[0].hist->Clone("hist_Combined"));
   hist_Combined->Reset();
 
   TH1F *zoomedHist_Combined = static_cast<TH1F *>(
@@ -417,11 +252,9 @@ void SubtractBackground() {
   hist_Combined->SetTitle(
       Form("Background Subtracted; Energy [keV]; Counts / %d eV",
            Constants::BIN_WIDTH_EV));
-
   zoomedHist_Combined->SetTitle(
       Form("Background Subtracted (Zoomed); Energy [keV]; Counts / %d eV",
            Constants::BIN_WIDTH_EV));
-
   peakHist_Combined->SetTitle(
       Form("Background Subtracted (Peak Region); Energy [keV]; Counts / %d eV",
            Constants::BIN_WIDTH_EV));
@@ -454,17 +287,15 @@ void SubtractBackground() {
   PlottingUtils::SaveFigure(canvasPeak, "background_subtracted_peak",
                             "backgroundSubtraction", PlotSaveOptions::kLINEAR);
 
-  // Fit Ge-73m 68.75 keV peak in the combined spectrum (rebinned to 300 eV)
+  // Fit Ge-73m 68.75 keV peak in the combined spectrum
   std::cout << std::endl;
   std::cout
       << "  Fitting Ge-73m peak in combined background-subtracted spectrum:"
       << std::endl;
 
-  FittingUtils *ge_fitter = new FittingUtils(
-      zoomedHist_Combined, 64.0, 77.0, kTRUE, kFALSE, kTRUE, kTRUE, kTRUE);
-  if (interactive)
-    ge_fitter->SetInteractive();
-  FitResult ge_fit = ge_fitter->FitSinglePeak("Combined", "Ge73m_68keV");
+  HyperEMGFitResult ge_fit =
+      FitSingleHyperEMG(zoomedHist_Combined, 64.0, 77.0, kTRUE, "Combined",
+                          "Ge73m_68keV", interactive);
   if (ge_fit.valid) {
     std::cout << "    mu = " << std::fixed << std::setprecision(4)
               << ge_fit.peaks[0].mu << " +/- " << ge_fit.peaks[0].mu_error
@@ -475,7 +306,69 @@ void SubtractBackground() {
   } else {
     std::cout << "    FIT FAILED" << std::endl;
   }
-  delete ge_fitter;
+
+  // Uncertainty-weighted average from per-dataset fits
+  Double_t sum_w = 0, sum_wmu = 0;
+  Double_t sum_wsigma = 0;
+  Int_t n_valid = 0;
+
+  std::cout << std::endl;
+  std::cout << "  Per-dataset Ge-73m fit summary:" << std::endl;
+  std::cout << "  " << std::left << std::setw(40) << "Dataset" << std::right
+            << std::setw(12) << "mu [keV]" << std::setw(12) << "error"
+            << std::setw(12) << "sigma" << std::setw(10) << "chi2/ndf"
+            << std::endl;
+
+  for (Int_t i = 0; i < (Int_t)bkgSubtractedResults.size(); i++) {
+    FitResult &fit = bkgSubtractedResults[i].fit;
+    if (fit.valid) {
+      Double_t mu = fit.peaks[0].mu;
+      Double_t mu_err = fit.peaks[0].mu_error;
+      Double_t sigma = fit.peaks[0].sigma;
+      Double_t w = 1.0 / (mu_err * mu_err);
+
+      sum_w += w;
+      sum_wmu += w * mu;
+      sum_wsigma += w * sigma;
+      n_valid++;
+
+      std::cout << "  " << std::left << std::setw(40)
+                << bkgSubtractedResults[i].name << std::right << std::fixed
+                << std::setprecision(4) << std::setw(12) << mu << std::setw(12)
+                << mu_err << std::setw(12) << sigma << std::setprecision(3)
+                << std::setw(10) << fit.reduced_chi2 << std::endl;
+    } else {
+      std::cout << "  " << std::left << std::setw(40)
+                << bkgSubtractedResults[i].name << "  FAILED" << std::endl;
+    }
+  }
+
+  if (n_valid > 0) {
+    Double_t weighted_mu = sum_wmu / sum_w;
+    Double_t weighted_mu_err = TMath::Sqrt(1.0 / sum_w);
+    Double_t weighted_sigma = sum_wsigma / sum_w;
+
+    std::cout << std::endl;
+    std::cout << "  Weighted average: mu = " << std::fixed
+              << std::setprecision(4) << weighted_mu << " +/- "
+              << weighted_mu_err << " keV, sigma = " << weighted_sigma
+              << " keV (" << n_valid << " datasets)" << std::endl;
+
+    if (ge_fit.valid) {
+      Double_t combined_mu = ge_fit.peaks[0].mu;
+      Double_t combined_err = ge_fit.peaks[0].mu_error;
+      Double_t diff = combined_mu - weighted_mu;
+      Double_t diff_sigma =
+          diff / TMath::Sqrt(combined_err * combined_err +
+                             weighted_mu_err * weighted_mu_err);
+
+      std::cout << "  Combined fit:     mu = " << combined_mu << " +/- "
+                << combined_err << " keV" << std::endl;
+      std::cout << "  Difference:       " << std::setprecision(4) << diff
+                << " keV (" << std::setprecision(2) << diff_sigma << " sigma)"
+                << std::endl;
+    }
+  }
   std::cout << std::endl;
 
   TString outputName = "Combined_BkgSubtracted";
@@ -490,13 +383,6 @@ void SubtractBackground() {
     bkgSubtractedResults[i].hist->Write();
     bkgSubtractedResults[i].zoomedHist->Write();
     bkgSubtractedResults[i].peakHist->Write();
-
-    for (Int_t c = 0; c < (Int_t)bkgSubtractedResults[i].crystalHists.size();
-         c++) {
-      bkgSubtractedResults[i].crystalHists[c].hist->Write();
-      bkgSubtractedResults[i].crystalHists[c].zoomedHist->Write();
-      bkgSubtractedResults[i].crystalHists[c].peakHist->Write();
-    }
   }
 
   outputFile->Close();

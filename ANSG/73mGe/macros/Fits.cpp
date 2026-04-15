@@ -1,5 +1,6 @@
 #include "Constants.hpp"
 #include "FittingUtils.hpp"
+#include "HyperEMGFitHelpers.hpp"
 #include "InitUtils.hpp"
 #include "PlottingUtils.hpp"
 #include <TF1.h>
@@ -33,213 +34,301 @@ TH1F *LoadHistogram(const TString input_name) {
     return nullptr;
   }
   hist->SetDirectory(0);
+  hist->Rebin(Constants::REBIN_FACTOR);
+  hist->SetTitle(Form("; Energy [keV]; Counts / %d eV",
+                      Constants::REBIN_FACTOR * Constants::BIN_WIDTH_EV));
   file->Close();
   delete file;
   return hist;
 }
 
-FitResult FitCalibrationPeak(const TString input_name, const TString peak_name,
-                             const Bool_t interactive) {
+HyperEMGFitResult FitBackgroundPeak(const TString input_name,
+                                    const Bool_t interactive) {
   TH1F *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 
-  Bool_t use_flat_background = kTRUE;
-  Bool_t use_step = kFALSE;
-  Bool_t use_low_exp_tail = kTRUE;
-  Bool_t use_low_lin_tail = kTRUE;
-  Bool_t use_high_exp_tail = kTRUE;
+  Double_t fit_low = 0, fit_high = 0;
 
-  FittingUtils *fitter = nullptr;
-
-  if (peak_name == "Am_59.5keV") {
-    if (input_name == Constants::POSTREACTOR_AM241_20260113)
-      fitter = new FittingUtils(hist, 50, 70, use_flat_background, use_step,
-                                use_low_exp_tail, use_low_lin_tail,
-                                use_high_exp_tail);
-    else if (input_name == Constants::POSTREACTOR_AM241_BA133_20260116)
-      fitter = new FittingUtils(hist, 55, 70, use_flat_background, use_step,
-                                use_low_exp_tail, use_low_lin_tail,
-                                use_high_exp_tail);
-    else
-      fitter = new FittingUtils(hist, 51, 71, use_flat_background, use_step,
-                                use_low_exp_tail, use_low_lin_tail,
-                                use_high_exp_tail);
-  }
-  if (peak_name == "Ba_80.98keV") {
-    fitter =
-        new FittingUtils(hist, 75, 90, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  }
-  if (peak_name == "Cd114m_95.9keV") {
-    if (input_name == Constants::NOSHIELDBACKGROUND_5PERCENT_20260115)
-      fitter = new FittingUtils(hist, 91, 100, use_flat_background, use_step,
-                                use_low_exp_tail, use_low_lin_tail,
-                                use_high_exp_tail);
-    else
-      fitter = new FittingUtils(hist, 91, 103, use_flat_background, use_step,
-                                use_low_exp_tail, use_low_lin_tail,
-                                use_high_exp_tail);
+  if (input_name == Constants::NOSHIELDBACKGROUND_5PERCENT_20260115) {
+    fit_low = 67;
+    fit_high = 77;
+  } else if (input_name ==
+             Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_20260116) {
+    fit_low = 67;
+    fit_high = 80;
   }
 
-  if (interactive)
-    fitter->SetInteractive();
-  FitResult result = fitter->FitSinglePeak(input_name, peak_name);
+  HyperEMGFitResult result = FitSingleHyperEMG(
+      hist, fit_low, fit_high, kTRUE, input_name, "Background", interactive);
   delete hist;
-  delete fitter;
   return result;
 }
 
-FitResult FitBackgroundPeak(const TString input_name,
-                            const Bool_t interactive) {
+HyperEMGFitResult FitPbKAlpha(const TString input_name,
+                              const Bool_t interactive) {
   TH1F *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 
-  Bool_t use_flat_background = kTRUE;
-  Bool_t use_step = kFALSE;
-  Bool_t use_low_exp_tail = kTRUE;
-  Bool_t use_low_lin_tail = kTRUE;
-  Bool_t use_high_exp_tail = kTRUE;
+  Double_t fit_low = 0, fit_high = 0;
 
-  FittingUtils *fitter = nullptr;
-
-  if (input_name == Constants::NOSHIELDBACKGROUND_5PERCENT_20260115)
-    fitter =
-        new FittingUtils(hist, 67, 77, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  else if (input_name ==
-           Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_20260116)
-    fitter =
-        new FittingUtils(hist, 67, 80, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-
-  if (interactive)
-    fitter->SetInteractive();
-  FitResult result = fitter->FitSinglePeak(input_name, "Background");
-  delete hist;
-  delete fitter;
-  return result;
-}
-
-FitResult FitPbKAlpha(const TString input_name, const Bool_t interactive) {
-  TH1F *hist = LoadHistogram(input_name);
-  if (!hist)
-    return {};
-
-  Bool_t use_flat_background = kTRUE;
-  Bool_t use_step = kFALSE;
-  Bool_t use_low_exp_tail = kTRUE;
-  Bool_t use_low_lin_tail = kTRUE;
-  Bool_t use_high_exp_tail = kTRUE;
-
-  FittingUtils *fitter = nullptr;
-
-  if (input_name == Constants::CDSHIELDBACKGROUND_25PERCENT_20260113)
-    fitter =
-        new FittingUtils(hist, 66, 81, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  else if (input_name == Constants::CUSHIELDBACKGROUND_10PERCENT_20260114)
-    fitter =
-        new FittingUtils(hist, 66, 82, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  else if (input_name == Constants::CUSHIELDBACKGROUND_10PERCENT_20260113) {
-    use_flat_background = kFALSE;
-    fitter =
-        new FittingUtils(hist, 65, 82, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
+  if (input_name == Constants::CDSHIELDBACKGROUND_25PERCENT_20260113) {
+    fit_low = 66;
+    fit_high = 81;
+  } else if (input_name == Constants::CUSHIELDBACKGROUND_10PERCENT_20260114) {
+    fit_low = 66;
+    fit_high = 82;
+  } else if (input_name == Constants::CUSHIELDBACKGROUND_10PERCENT_20260113) {
+    fit_low = 65;
+    fit_high = 82;
   } else {
-    use_flat_background = kFALSE;
-    fitter =
-        new FittingUtils(hist, 65, 81, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
+    fit_low = 65;
+    fit_high = 81;
   }
 
-  if (interactive)
-    fitter->SetInteractive();
-  FitResult result =
-      fitter->FitDoublePeak(input_name, "Pb_KAlpha", E_PB_KA1, E_PB_KA2);
+  HyperEMGFitResult result =
+      FitDoubleHyperEMG(hist, fit_low, fit_high, E_PB_KA1, E_PB_KA2, kTRUE,
+                        input_name, "Pb_KAlpha", interactive);
   delete hist;
-  delete fitter;
   return result;
 }
 
-FitResult FitSignalDoublePeak(const TString input_name,
-                              const PeakFitResult &constrained_peak,
-                              const Bool_t interactive) {
+HyperEMGFitResult FitSignalDoublePeak(const TString input_name,
+                                      const HyperEMGPeakFitResult &bkg_peak,
+                                      const Bool_t interactive) {
   TH1F *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 
-  Bool_t use_flat_background = kTRUE;
-  Bool_t use_step = kFALSE;
-  Bool_t use_low_exp_tail = kTRUE;
-  Bool_t use_low_lin_tail = kTRUE;
-  Bool_t use_high_exp_tail = kTRUE;
+  Double_t fit_low = 0, fit_high = 0;
 
-  FittingUtils *fitter = nullptr;
+  if (input_name == Constants::NOSHIELDSIGNAL_5PERCENT_20260115) {
+    fit_low = 64;
+    fit_high = 77;
+  } else if (input_name ==
+             Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_20260116) {
+    fit_low = 60;
+    fit_high = 77;
+  } else {
+    fit_low = 64;
+    fit_high = 77;
+  }
 
-  if (input_name == Constants::NOSHIELDSIGNAL_5PERCENT_20260115)
-    fitter =
-        new FittingUtils(hist, 64, 77, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  else if (input_name ==
-           Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_20260116)
-    fitter =
-        new FittingUtils(hist, 60, 77, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
+  // Double peak: Ge-73m (free) + constrained background peak
+  Int_t ppp = FittingFunctions::kHyperEMGParamsPerPeak;
+  Int_t npar = 2 * ppp + 2;
+  TF1 *func =
+      new TF1("hemg_Ge_" + input_name, &FittingFunctions::DoublePeakHyperEMG,
+              fit_low, fit_high, npar);
 
-  if (interactive)
-    fitter->SetInteractive();
-  FitResult result =
-      fitter->FitDoublePeak(input_name, "Ge", constrained_peak, 68.75);
+  Double_t peak_height = hist->GetBinContent(hist->GetMaximumBin());
+
+  // Peak 1: Ge-73m (free)
+  FittingFunctions::SetHyperEMGParNames(func, 0, "Ge_");
+  FittingFunctions::SetHyperEMGParLimits(func, 0);
+  func->SetParLimits(0, fit_low, fit_high);
+  FittingFunctions::SetHyperEMGInitialParams(func, 0, 68.75, 1.0,
+                                             peak_height * 0.5);
+
+  // Peak 2: constrained from background fit
+  FittingFunctions::SetHyperEMGParNames(func, ppp, "Bkg_");
+  func->FixParameter(ppp + 0, bkg_peak.mu);
+  func->FixParameter(ppp + 1, bkg_peak.sigma);
+  func->SetParameter(ppp + 2, bkg_peak.amplitude);
+  func->SetParLimits(ppp + 2, 0, peak_height * 5);
+  func->FixParameter(ppp + 3, bkg_peak.w_low1);
+  func->FixParameter(ppp + 4, bkg_peak.tau_low1);
+  func->FixParameter(ppp + 5, bkg_peak.w_low2);
+  func->FixParameter(ppp + 6, bkg_peak.tau_low2);
+  func->FixParameter(ppp + 7, bkg_peak.w_high1);
+  func->FixParameter(ppp + 8, bkg_peak.tau_high1);
+  func->FixParameter(ppp + 9, bkg_peak.w_high2);
+  func->FixParameter(ppp + 10, bkg_peak.tau_high2);
+
+  Int_t bkg_off = 2 * ppp;
+  SetupHyperEMGBackground(func, bkg_off, peak_height, kTRUE);
+
+  Double_t rlo = fit_low, rhi = fit_high;
+  Bool_t fit_valid = kFALSE;
+  Double_t chi2 = 0;
+
+  HyperEMGFitResult result;
+  result.peaks.emplace_back();
+  result.peaks.emplace_back();
+
+  if (interactive) {
+    if (LoadHyperEMGParams(func, rlo, rhi, input_name, "Ge_double")) {
+      TFitResultPtr refit = hist->Fit(func, "LSMRBENR+");
+      if (refit.Get() && refit->IsValid()) {
+        chi2 = refit->Chi2() / refit->Ndf();
+        fit_valid = kTRUE;
+      }
+      std::cout << "Refit from saved params chi2/ndf = " << chi2 << std::endl;
+    } else {
+      Bool_t was_batch = gROOT->IsBatch();
+      gROOT->SetBatch(kFALSE);
+      if (LaunchInteractiveFitEditor(hist, func, rlo, rhi, 2,
+                                     "Ge_double / " + input_name)) {
+        func->GetRange(rlo, rhi);
+        chi2 = func->GetChisquare() / func->GetNDF();
+        SaveHyperEMGParams(func, rlo, rhi, input_name, "Ge_double");
+        fit_valid = kTRUE;
+        std::cout << "Interactive chi2/ndf = " << chi2 << std::endl;
+      }
+      gROOT->SetBatch(was_batch);
+    }
+  } else {
+    TFitResultPtr fit = hist->Fit(func, "LSMBNR");
+    if (fit.Get() && fit->IsValid()) {
+      chi2 = fit->Chi2() / fit->Ndf();
+      fit_valid = kTRUE;
+    }
+  }
+
+  if (fit_valid) {
+    result.peaks[0] = ExtractHyperEMGPeak(func, 0);
+    result.peaks[1] = ExtractHyperEMGPeak(func, ppp);
+    result.bkg_constant = func->GetParameter(bkg_off);
+    result.bkg_constant_error = func->GetParError(bkg_off);
+    result.lin_bkg_slope = func->GetParameter(bkg_off + 1);
+    result.lin_bkg_slope_error = func->GetParError(bkg_off + 1);
+    result.reduced_chi2 = chi2;
+    result.valid = kTRUE;
+  }
+
+  delete func;
   delete hist;
-  delete fitter;
   return result;
 }
 
-FitResult FitSignalTriplePeak(const TString input_name,
-                              const FitResult &constrained_peaks,
-                              const Bool_t interactive) {
+HyperEMGFitResult FitSignalTriplePeak(const TString input_name,
+                                      const HyperEMGFitResult &pb_fit,
+                                      const Bool_t interactive) {
   TH1F *hist = LoadHistogram(input_name);
   if (!hist)
     return {};
 
-  Bool_t use_flat_background = kTRUE;
-  Bool_t use_step = kFALSE;
-  Bool_t use_low_exp_tail = kTRUE;
-  Bool_t use_low_lin_tail = kTRUE;
-  Bool_t use_high_exp_tail = kTRUE;
+  Double_t fit_low = 0, fit_high = 0;
 
-  FittingUtils *fitter = nullptr;
+  if (input_name == Constants::CDSHIELDSIGNAL_25PERCENT_20260113) {
+    fit_low = 65;
+    fit_high = 81;
+  } else if (input_name == Constants::CDSHIELDSIGNAL_10PERCENT_20260113) {
+    fit_low = 64;
+    fit_high = 80;
+  } else if (input_name == Constants::CUSHIELDSIGNAL_10PERCENT_20260114) {
+    fit_low = 62;
+    fit_high = 80;
+  } else if (input_name == Constants::CUSHIELDSIGNAL_90PERCENT_20260114) {
+    fit_low = 63;
+    fit_high = 80;
+  } else {
+    fit_low = 65;
+    fit_high = 81;
+  }
 
-  if (input_name == Constants::CDSHIELDSIGNAL_25PERCENT_20260113)
-    fitter =
-        new FittingUtils(hist, 65, 81, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  else if (input_name == Constants::CDSHIELDSIGNAL_10PERCENT_20260113)
-    fitter =
-        new FittingUtils(hist, 64, 80, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  else if (input_name == Constants::CUSHIELDSIGNAL_10PERCENT_20260114)
-    fitter =
-        new FittingUtils(hist, 62, 80, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  else if (input_name == Constants::CUSHIELDSIGNAL_90PERCENT_20260114)
-    fitter =
-        new FittingUtils(hist, 63, 80, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
-  else
-    fitter =
-        new FittingUtils(hist, 65, 81, use_flat_background, use_step,
-                         use_low_exp_tail, use_low_lin_tail, use_high_exp_tail);
+  // Triple peak: Ge-73m (free) + Pb-Ka1 + Pb-Ka2 (constrained from bkg fit)
+  Int_t ppp = FittingFunctions::kHyperEMGParamsPerPeak;
+  Int_t npar = 3 * ppp + 2;
+  TF1 *func =
+      new TF1("hemg_Ge_" + input_name, &FittingFunctions::TriplePeakHyperEMG,
+              fit_low, fit_high, npar);
 
-  if (interactive)
-    fitter->SetInteractive();
-  FitResult result =
-      fitter->FitTriplePeak(input_name, "Ge", constrained_peaks, 68.75);
+  Double_t peak_height = hist->GetBinContent(hist->GetMaximumBin());
+
+  // Peak 1: Ge-73m (free)
+  FittingFunctions::SetHyperEMGParNames(func, 0, "Ge_");
+  FittingFunctions::SetHyperEMGParLimits(func, 0);
+  func->SetParLimits(0, fit_low, fit_high);
+  FittingFunctions::SetHyperEMGInitialParams(func, 0, 68.75, 1.0,
+                                             peak_height * 0.3);
+
+  // Peak 2: Pb-Ka1 (constrained shape, free amplitude)
+  FittingFunctions::SetHyperEMGParNames(func, ppp, "PbKa1_");
+  func->FixParameter(ppp + 0, pb_fit.peaks[0].mu);
+  func->FixParameter(ppp + 1, pb_fit.peaks[0].sigma);
+  func->SetParameter(ppp + 2, pb_fit.peaks[0].amplitude);
+  func->SetParLimits(ppp + 2, 0, peak_height * 5);
+  func->FixParameter(ppp + 3, pb_fit.peaks[0].w_low1);
+  func->FixParameter(ppp + 4, pb_fit.peaks[0].tau_low1);
+  func->FixParameter(ppp + 5, pb_fit.peaks[0].w_low2);
+  func->FixParameter(ppp + 6, pb_fit.peaks[0].tau_low2);
+  func->FixParameter(ppp + 7, pb_fit.peaks[0].w_high1);
+  func->FixParameter(ppp + 8, pb_fit.peaks[0].tau_high1);
+  func->FixParameter(ppp + 9, pb_fit.peaks[0].w_high2);
+  func->FixParameter(ppp + 10, pb_fit.peaks[0].tau_high2);
+
+  // Peak 3: Pb-Ka2 (constrained shape, free amplitude)
+  FittingFunctions::SetHyperEMGParNames(func, 2 * ppp, "PbKa2_");
+  func->FixParameter(2 * ppp + 0, pb_fit.peaks[1].mu);
+  func->FixParameter(2 * ppp + 1, pb_fit.peaks[1].sigma);
+  func->SetParameter(2 * ppp + 2, pb_fit.peaks[1].amplitude);
+  func->SetParLimits(2 * ppp + 2, 0, peak_height * 5);
+  func->FixParameter(2 * ppp + 3, pb_fit.peaks[1].w_low1);
+  func->FixParameter(2 * ppp + 4, pb_fit.peaks[1].tau_low1);
+  func->FixParameter(2 * ppp + 5, pb_fit.peaks[1].w_low2);
+  func->FixParameter(2 * ppp + 6, pb_fit.peaks[1].tau_low2);
+  func->FixParameter(2 * ppp + 7, pb_fit.peaks[1].w_high1);
+  func->FixParameter(2 * ppp + 8, pb_fit.peaks[1].tau_high1);
+  func->FixParameter(2 * ppp + 9, pb_fit.peaks[1].w_high2);
+  func->FixParameter(2 * ppp + 10, pb_fit.peaks[1].tau_high2);
+
+  Int_t bkg_off = 3 * ppp;
+  SetupHyperEMGBackground(func, bkg_off, peak_height, kTRUE);
+
+  Double_t rlo = fit_low, rhi = fit_high;
+  Bool_t fit_valid = kFALSE;
+  Double_t chi2 = 0;
+
+  HyperEMGFitResult result;
+  result.peaks.emplace_back();
+  result.peaks.emplace_back();
+  result.peaks.emplace_back();
+
+  if (interactive) {
+    if (LoadHyperEMGParams(func, rlo, rhi, input_name, "Ge_triple")) {
+      TFitResultPtr refit = hist->Fit(func, "LSMRBENR+");
+      if (refit.Get() && refit->IsValid()) {
+        chi2 = refit->Chi2() / refit->Ndf();
+        fit_valid = kTRUE;
+      }
+      std::cout << "Refit from saved params chi2/ndf = " << chi2 << std::endl;
+    } else {
+      Bool_t was_batch = gROOT->IsBatch();
+      gROOT->SetBatch(kFALSE);
+      if (LaunchInteractiveFitEditor(hist, func, rlo, rhi, 3,
+                                     "Ge_triple / " + input_name)) {
+        func->GetRange(rlo, rhi);
+        chi2 = func->GetChisquare() / func->GetNDF();
+        SaveHyperEMGParams(func, rlo, rhi, input_name, "Ge_triple");
+        fit_valid = kTRUE;
+        std::cout << "Interactive chi2/ndf = " << chi2 << std::endl;
+      }
+      gROOT->SetBatch(was_batch);
+    }
+  } else {
+    TFitResultPtr fit = hist->Fit(func, "LSMBNR");
+    if (fit.Get() && fit->IsValid()) {
+      chi2 = fit->Chi2() / fit->Ndf();
+      fit_valid = kTRUE;
+    }
+  }
+
+  if (fit_valid) {
+    result.peaks[0] = ExtractHyperEMGPeak(func, 0);
+    result.peaks[1] = ExtractHyperEMGPeak(func, ppp);
+    result.peaks[2] = ExtractHyperEMGPeak(func, 2 * ppp);
+    result.bkg_constant = func->GetParameter(bkg_off);
+    result.bkg_constant_error = func->GetParError(bkg_off);
+    result.lin_bkg_slope = func->GetParameter(bkg_off + 1);
+    result.lin_bkg_slope_error = func->GetParError(bkg_off + 1);
+    result.reduced_chi2 = chi2;
+    result.valid = kTRUE;
+  }
+
+  delete func;
   delete hist;
-  delete fitter;
   return result;
 }
 
@@ -255,45 +344,86 @@ void Fits() {
 
   // Pb K-alpha backgrounds (used as constraints for signal fits)
 
-  FitResult cd_bkg_10 = FitPbKAlpha(
+  HyperEMGFitResult cd_bkg_10 = FitPbKAlpha(
       Constants::CDSHIELDBACKGROUND_10PERCENT_20260113, interactive);
-  FitResult cd_bkg_25 = FitPbKAlpha(
+  HyperEMGFitResult cd_bkg_25 = FitPbKAlpha(
       Constants::CDSHIELDBACKGROUND_25PERCENT_20260113, interactive);
-  FitResult cu_bkg_0113 = FitPbKAlpha(
+  HyperEMGFitResult cu_bkg_0113 = FitPbKAlpha(
       Constants::CUSHIELDBACKGROUND_10PERCENT_20260113, interactive);
-  FitResult cu_bkg_0114 = FitPbKAlpha(
+  HyperEMGFitResult cu_bkg_0114 = FitPbKAlpha(
       Constants::CUSHIELDBACKGROUND_10PERCENT_20260114, interactive);
 
   // Triple peak signal fits (Ge peak + constrained Pb K-alpha)
 
-  FitResult cd_sig_10 = FitSignalTriplePeak(
+  HyperEMGFitResult cd_sig_10 = FitSignalTriplePeak(
       Constants::CDSHIELDSIGNAL_10PERCENT_20260113, cd_bkg_10, interactive);
-  FitResult cd_sig_25 = FitSignalTriplePeak(
+  HyperEMGFitResult cd_sig_25 = FitSignalTriplePeak(
       Constants::CDSHIELDSIGNAL_25PERCENT_20260113, cd_bkg_25, interactive);
-  FitResult cu_sig_0113 = FitSignalTriplePeak(
+  HyperEMGFitResult cu_sig_0113 = FitSignalTriplePeak(
       Constants::CUSHIELDSIGNAL_10PERCENT_20260113, cu_bkg_0113, interactive);
-  FitResult cu_sig_0114 = FitSignalTriplePeak(
+  HyperEMGFitResult cu_sig_0114 = FitSignalTriplePeak(
       Constants::CUSHIELDSIGNAL_10PERCENT_20260114, cu_bkg_0114, interactive);
 
-  run_names.push_back("Cd Shield Signal 10% (01/13)");
-  mu.push_back(cd_sig_10.peaks.at(0).mu);
-  mu_errors.push_back(cd_sig_10.peaks.at(0).mu_error);
-  reduced_chi2.push_back(cd_sig_10.reduced_chi2);
+  if (cd_sig_10.valid) {
+    run_names.push_back("Cd Shield Signal 10% (01/13)");
+    mu.push_back(cd_sig_10.peaks.at(0).mu);
+    mu_errors.push_back(cd_sig_10.peaks.at(0).mu_error);
+    reduced_chi2.push_back(cd_sig_10.reduced_chi2);
+  }
 
-  run_names.push_back("Cd Shield Signal 25% (01/13)");
-  mu.push_back(cd_sig_25.peaks.at(0).mu);
-  mu_errors.push_back(cd_sig_25.peaks.at(0).mu_error);
-  reduced_chi2.push_back(cd_sig_25.reduced_chi2);
+  if (cd_sig_25.valid) {
+    run_names.push_back("Cd Shield Signal 25% (01/13)");
+    mu.push_back(cd_sig_25.peaks.at(0).mu);
+    mu_errors.push_back(cd_sig_25.peaks.at(0).mu_error);
+    reduced_chi2.push_back(cd_sig_25.reduced_chi2);
+  }
 
-  run_names.push_back("Cu Shield Signal 10% (01/13)");
-  mu.push_back(cu_sig_0113.peaks.at(0).mu);
-  mu_errors.push_back(cu_sig_0113.peaks.at(0).mu_error);
-  reduced_chi2.push_back(cu_sig_0113.reduced_chi2);
+  if (cu_sig_0113.valid) {
+    run_names.push_back("Cu Shield Signal 10% (01/13)");
+    mu.push_back(cu_sig_0113.peaks.at(0).mu);
+    mu_errors.push_back(cu_sig_0113.peaks.at(0).mu_error);
+    reduced_chi2.push_back(cu_sig_0113.reduced_chi2);
+  }
 
-  run_names.push_back("Cu Shield Signal 10% (01/14)");
-  mu.push_back(cu_sig_0114.peaks.at(0).mu);
-  mu_errors.push_back(cu_sig_0114.peaks.at(0).mu_error);
-  reduced_chi2.push_back(cu_sig_0114.reduced_chi2);
+  if (cu_sig_0114.valid) {
+    run_names.push_back("Cu Shield Signal 10% (01/14)");
+    mu.push_back(cu_sig_0114.peaks.at(0).mu);
+    mu_errors.push_back(cu_sig_0114.peaks.at(0).mu_error);
+    reduced_chi2.push_back(cu_sig_0114.reduced_chi2);
+  }
+
+  // Double peak signal fits (Ge + constrained bkg peak, no Pb overlap)
+
+  HyperEMGFitResult noshield_bkg = FitBackgroundPeak(
+      Constants::NOSHIELDBACKGROUND_5PERCENT_20260115, interactive);
+  if (noshield_bkg.valid) {
+    HyperEMGFitResult noshield_sig =
+        FitSignalDoublePeak(Constants::NOSHIELDSIGNAL_5PERCENT_20260115,
+                            noshield_bkg.peaks[0], interactive);
+    if (noshield_sig.valid) {
+      run_names.push_back("No Shield Signal 5% (01/15)");
+      mu.push_back(noshield_sig.peaks.at(0).mu);
+      mu_errors.push_back(noshield_sig.peaks.at(0).mu_error);
+      reduced_chi2.push_back(noshield_sig.reduced_chi2);
+    }
+  }
+
+  HyperEMGFitResult graphite_bkg = FitBackgroundPeak(
+      Constants::NOSHIELD_GRAPHITECASTLEBACKGROUND_10PERCENT_20260116,
+      interactive);
+  if (graphite_bkg.valid) {
+    HyperEMGFitResult graphite_sig = FitSignalDoublePeak(
+        Constants::NOSHIELD_GRAPHITECASTLESIGNAL_10PERCENT_20260116,
+        graphite_bkg.peaks[0], interactive);
+    if (graphite_sig.valid) {
+      run_names.push_back("No Shield Graphite Castle 10% (01/16)");
+      mu.push_back(graphite_sig.peaks.at(0).mu);
+      mu_errors.push_back(graphite_sig.peaks.at(0).mu_error);
+      reduced_chi2.push_back(graphite_sig.reduced_chi2);
+    }
+  }
+
+  // Summary
 
   std::cout << std::endl;
   std::cout << "Individual Run Results (Ge Peak mu):" << std::endl;
