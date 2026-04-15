@@ -64,6 +64,7 @@ void FilterDemo(std::vector<TString> filenames) {
 
     Float_t energy = 0;
     Float_t x = 0, y = 0, z = 0;
+    UInt_t eventTime = 0;
     Int_t liveTime = 0;
     Int_t nInteractions = 0;
     Int_t interaction = 0;
@@ -72,6 +73,7 @@ void FilterDemo(std::vector<TString> filenames) {
     tree->SetBranchAddress("xmm", &x);
     tree->SetBranchAddress("ymm", &y);
     tree->SetBranchAddress("zmm", &z);
+    tree->SetBranchAddress("eventTime", &eventTime);
     tree->SetBranchAddress("liveTime", &liveTime);
     tree->SetBranchAddress("nInteractions", &nInteractions);
     tree->SetBranchAddress("interaction", &interaction);
@@ -117,6 +119,9 @@ void FilterDemo(std::vector<TString> filenames) {
 
     Bool_t in_excluded_region;
 
+    Int_t event_time_prev = -1;
+    Int_t delta_event_time = 0;
+
     for (Int_t i = 0; i < n_entries; i++) {
       tree->GetEntry(i);
       in_excluded_region = kFALSE;
@@ -130,7 +135,10 @@ void FilterDemo(std::vector<TString> filenames) {
       X->Fill(x);
 
       Float_t liveTime_us = liveTime * Constants::TENS_OF_NS_TO_S * 1e6;
-      if (liveTime_us < Constants::PILEUP_LIVETIME_THRESHOLD_US)
+      if (event_time_prev != -1)
+        delta_event_time = eventTime - event_time_prev;
+      if (liveTime_us < Constants::PILEUP_LIVETIME_THRESHOLD_US &&
+          delta_event_time == 0)
         in_excluded_region = kTRUE;
 
       if (energy > Constants::ZOOMED_XMIN && energy < Constants::ZOOMED_XMAX) {
@@ -141,6 +149,11 @@ void FilterDemo(std::vector<TString> filenames) {
         } else
           includedSpectrum->Fill(energy);
       }
+      if (i != 0) {
+        event_time_prev = eventTime;
+      } else {
+        event_time_prev = -1;
+      };
     }
 
     std::cout << "Created histograms for " << filename << std::endl;
@@ -277,6 +290,9 @@ Bool_t FilterFile(TString filename) {
     filteredTrees[c]->Branch("liveTime", &outLiveTime, "liveTime/I");
   }
 
+  Int_t event_time_prev = -1;
+  Int_t delta_event_time = 0;
+
   for (Int_t i = 0; i < n_entries; i++) {
     tree->GetEntry(i);
 
@@ -296,7 +312,10 @@ Bool_t FilterFile(TString filename) {
       continue;
 
     Float_t liveTime_us = liveTime * Constants::TENS_OF_NS_TO_S * 1e6;
-    if (liveTime_us < Constants::PILEUP_LIVETIME_THRESHOLD_US)
+    if (event_time_prev != -1)
+      delta_event_time = eventTime - event_time_prev;
+    if (liveTime_us < Constants::PILEUP_LIVETIME_THRESHOLD_US &&
+        delta_event_time == 0)
       continue;
 
     outEnergy = energy;
@@ -308,6 +327,12 @@ Bool_t FilterFile(TString filename) {
 
     filteredTrees[crystal]->Fill();
     filteredLiveTime_s[crystal] += liveTime * Constants::TENS_OF_NS_TO_S;
+
+    if (i != 0) {
+      event_time_prev = eventTime;
+    } else {
+      event_time_prev = -1;
+    }
   }
 
   {

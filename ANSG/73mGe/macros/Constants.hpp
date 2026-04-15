@@ -4,7 +4,7 @@
 #include <vector>
 
 namespace Constants {
-const Int_t BIN_WIDTH_EV = 150;
+const Int_t BIN_WIDTH_EV = 25;
 const Float_t BIN_WIDTH_KEV = BIN_WIDTH_EV / 1000.0;
 const Int_t HIST_XMIN = 0, HIST_XMAX = 1500;
 const Int_t ZOOMED_XMIN = 40, ZOOMED_XMAX = 110;
@@ -19,7 +19,7 @@ const Float_t GE73M_ENERGY = 68.752;
 
 const Bool_t USE_FILTERED = kTRUE;
 
-const Int_t FILTER_DEPTH_MM = 8;
+const Float_t FILTER_DEPTH_MM = 8.5;
 const Float_t PILEUP_LIVETIME_THRESHOLD_US = 3.0;
 const Float_t PIXEL_ACCEPT_HALFWIDTH_MM = 0.02;
 const std::vector<Float_t> PIXEL_CENTERS_X_MM = {
